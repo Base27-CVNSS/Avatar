@@ -91,13 +91,13 @@
             </div>
 
             <label class="range-control" for="mouthSize">
-              <span>Độ mở khẩu hình <output id="mouthSizeValue">68%</output></span>
-              <input id="mouthSize" type="range" min="35" max="100" value="68">
+              <span>Độ mở khẩu hình <output id="mouthSizeValue">58%</output></span>
+              <input id="mouthSize" type="range" min="30" max="85" value="58">
             </label>
 
             <label class="range-control" for="faceMotion">
-              <span>Vi chuyển động gương mặt <output id="faceMotionValue">35%</output></span>
-              <input id="faceMotion" type="range" min="0" max="100" value="35">
+              <span>Vi chuyển động gương mặt <output id="faceMotionValue">28%</output></span>
+              <input id="faceMotion" type="range" min="0" max="100" value="28">
             </label>
           </section>
 
@@ -177,13 +177,14 @@
               <small id="stageDetail">Ảnh mẫu đã được nạp</small>
             </div>
             <div class="toolbar-actions">
+              <button id="masterImageButton" class="text-button" type="button">Ảnh 8K</button>
               <button id="resetButton" class="text-button" type="button">Đặt lại</button>
               <button id="snapshotButton" class="text-button accent" type="button">Chụp PNG</button>
             </div>
           </div>
 
           <div id="canvasShell" class="canvas-shell">
-            <canvas id="avatarCanvas" width="960" height="960" aria-label="Bản xem trước nhân vật ảo"></canvas>
+            <canvas id="avatarCanvas" width="1280" height="720" aria-label="Bản xem trước nhân vật ảo 16:9"></canvas>
             <div id="calibrationHint" class="calibration-hint" hidden>
               <span>＋</span>
               <strong id="calibrationText">Bấm tâm mắt trái</strong>
@@ -226,13 +227,13 @@
         </article>
         <article>
           <span>04</span>
-          <div><strong>Nhép môi realtime</strong><small>Biên độ + viseme tiếng Việt.</small></div>
+          <div><strong>Ảnh master 8K</strong><small>Tạo cục bộ · runtime WebP 4K.</small></div>
         </article>
       </section>
     </main>
 
     <footer>
-      <span>Avatar VN v1.2.1</span>
+      <span>Avatar VN v1.3.0</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 

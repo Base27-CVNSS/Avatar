@@ -9,23 +9,25 @@
 [![License](https://img.shields.io/badge/License-MIT-8468ff)](LICENSE)
 [![Privacy](https://img.shields.io/badge/Processing-Local%20only-102e49)](PRIVACY.md)
 
-Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát triển. Phiên bản 1.2.1 mở sẵn ảnh chân dung mặc định và tự chạy Face Mesh để nhận diện môi, hai mắt và khung mặt. Ảnh upload tiếp theo vẫn được xử lý độc lập bằng Web Speech API, Web Audio API và Canvas 2D. Phần ảnh, Face Mesh, Canvas và phân tích tệp audio chạy trên thiết bị; dịch vụ TTS/STT cụ thể do Edge/Windows cung cấp và có thể dùng xử lý trực tuyến tùy voice, phiên bản và cấu hình hệ thống.
+Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát triển. Phiên bản 1.3.0 dùng ảnh chân dung đã phục hồi khẩu hình làm mặc định, chạy từ WebP 4K nhẹ hơn và tạo bản 8K đúng 7680×4320 ngay trong Edge khi người dùng yêu cầu. Face Mesh tự nhận diện môi, hai mắt và khung mặt; ảnh upload tiếp theo vẫn được xử lý độc lập bằng Web Speech API, Web Audio API và Canvas 2D. Phần ảnh, Face Mesh, Canvas và phân tích tệp audio chạy trên thiết bị; dịch vụ TTS/STT cụ thể do Edge/Windows cung cấp và có thể dùng xử lý trực tuyến tùy voice, phiên bản và cấu hình hệ thống.
 
 > Bản này được tái cấu trúc từ ý tưởng của ứng dụng `lip-sync-ai-main`. Mã gốc tải ảnh/âm thanh lên fal.ai và gọi OmniHuman 1.5 ở backend. Avatar VN loại bỏ toàn bộ Next.js server, `FAL_KEY`, lưu trữ đám mây và API sinh video.
 
 ## Điểm nổi bật
 
 - Chọn hoặc kéo thả ảnh JPG, PNG, WebP và GIF.
-- Khởi động với ảnh chân dung mặc định trong `assets/default-avatar.png`; Face Mesh tự căn lại landmark ngay khi mở studio.
+- Khởi động với `assets/default-avatar.webp` 4K; Face Mesh tự căn landmark ngay khi mở studio.
+- Nút **Ảnh 8K** dựng và tải JPEG đúng 7680×4320 cục bộ, không làm gói extension nặng thêm.
+- Ảnh mặc định đã phục hồi vùng môi để loại đường đen dày, giữ răng, môi và bóng khoang miệng tự nhiên.
 - Tự nhận diện hàng trăm landmark để định vị môi, mắt và tỷ lệ mặt.
 - Không dùng lại tọa độ miệng của ảnh trước cho ảnh mới.
 - Mỗi lượt upload có mã phiên riêng; kết quả Face Mesh trễ của ảnh cũ bị loại bỏ.
 - Chấm điểm tỷ lệ landmark và từ chối vùng miệng bất thường trước khi dựng.
 - Chế độ hiệu chỉnh dự phòng 5 điểm: hai mắt, hai khóe miệng và tâm môi.
-- Biến dạng mềm giữ texture môi gốc; không vẽ oval đen hoặc răng giả đè lên ảnh.
-- Chớp mắt đơn/đôi ngẫu nhiên và vi chuyển động đầu dùng mục tiêu mềm.
+- Biến dạng mềm giữ texture môi gốc; khoang miệng lấy màu từ ảnh, không vẽ oval đen hoặc răng giả đè lên ảnh.
+- Chớp mắt đơn/đôi ngẫu nhiên, nét mí mảnh và vi chuyển động đầu dùng mục tiêu mềm.
 - Tự ưu tiên giọng `vi-VN` có sẵn trong Microsoft Edge/Windows.
-- Đọc văn bản tiếng Việt, nội suy coarticulation và tạo viseme gần đúng theo từng ký tự.
+- Đọc văn bản tiếng Việt, nội suy coarticulation và tạo lịch viseme biến thiên theo nguyên âm, phụ âm, khoảng trắng và dấu câu.
 - Chèn tệp MP3, WAV, M4A, OGG hoặc WebM; khẩu hình bám theo biên độ âm thanh thật.
 - Nhận giọng Việt qua `SpeechRecognition`, hiển thị cả kết quả tạm thời và chính thức.
 - Microphone điều khiển môi theo âm lượng thực, có khử vọng và giảm nhiễu của trình duyệt.
@@ -78,8 +80,8 @@ flowchart TD
    - **Văn bản:** chọn voice tiếng Việt, chỉnh tốc độ/cao độ, bấm **Phát và nhép môi**.
    - **Âm thanh:** chọn tệp và bấm Play trên trình phát.
    - **Microphone:** bấm **Bắt đầu nhận giọng Việt** rồi cho phép Edge dùng mic.
-4. Điều chỉnh **Độ mở khẩu hình** và **Vi chuyển động gương mặt** ở mức vừa phải; 55–75% thường tự nhiên nhất.
-5. Bấm **Chụp PNG** để lưu khung hình hiện tại.
+4. Điều chỉnh **Độ mở khẩu hình** và **Vi chuyển động gương mặt** ở mức vừa phải; khoảng 50–65% và 20–35% thường tự nhiên nhất.
+5. Bấm **Ảnh 8K** để Edge tạo cục bộ master 7680×4320 hoặc **Chụp PNG** để lưu khung hình hiện tại.
 
 Sau khi upload, trạng thái nhận diện hiển thị điểm chất lượng từ 45–100. Nếu điểm thấp, khuôn mặt nghiêng nhiều hoặc khung xanh lệch khỏi mắt/môi, hãy dùng **Chỉnh 5 điểm**.
 
@@ -134,7 +136,7 @@ Avatar/
 ├── tests/
 │   └── validate.mjs     # Kiểm tra manifest, asset, CSP và hai module WASM
 ├── assets/
-│   ├── default-avatar.png  # Ảnh chân dung mở sẵn
+│   ├── default-avatar.webp    # Ảnh runtime 4K, ưu tiên tốc độ Edge
 │   └── demo-avatar.svg     # Minh họa dự phòng của phiên bản đầu
 ├── vendor/
 │   └── face_mesh/       # MediaPipe JS, model data và WASM cục bộ
@@ -169,7 +171,7 @@ Hãy chạy bằng **Load unpacked** trong `edge://extensions`. Khi mở trực 
 npm test
 ```
 
-Bộ kiểm tra xác thực Manifest V3, quyền local-first, quan hệ selector HTML/JavaScript, sự hiện diện của model, khả năng biên dịch hai module WASM và wrapper tương thích CSP.
+Bộ kiểm tra xác thực Manifest V3, quyền local-first, WebP runtime đúng 3840×2160, bộ xuất master 7680×4320, quan hệ selector HTML/JavaScript, sự hiện diện của model, khả năng biên dịch hai module WASM và wrapper tương thích CSP.
 
 ## Lộ trình
 

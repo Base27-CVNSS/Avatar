@@ -45,13 +45,16 @@
     copyTranscript: $("#copyTranscript"),
     resetButton: $("#resetButton"),
     snapshotButton: $("#snapshotButton"),
+    masterImageButton: $("#masterImageButton"),
     toast: $("#toast")
   };
 
   const ctx = ui.canvas.getContext("2d", { alpha: false });
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  const DEFAULT_IMAGE = "assets/default-avatar.png";
+  const DEFAULT_IMAGE = "assets/default-avatar.webp";
+  const MASTER_WIDTH = 7680;
+  const MASTER_HEIGHT = 4320;
   const CALIBRATION_STEPS = [
     { key: "leftEye", label: "Bấm tâm mắt bên trái ảnh" },
     { key: "rightEye", label: "Bấm tâm mắt bên phải ảnh" },
@@ -84,6 +87,8 @@
       targetWidth: 1,
       targetOpen: 0
     },
+    liveViseme: "neutral",
+    liveVisemeUntil: 0,
     calibrating: false,
     calibrationIndex: 0,
     manualPoints: {},
@@ -174,7 +179,7 @@
 
   async function savePreferences() {
     try {
-      await storage.set("avatarVnPreferencesV2", {
+      await storage.set("avatarVnPreferencesV3", {
         mouthGain: Number(ui.mouthSize.value),
         faceMotion: Number(ui.faceMotion.value),
         rate: Number(ui.rate.value),
@@ -187,9 +192,9 @@
 
   async function restorePreferences() {
     try {
-      const saved = await storage.get("avatarVnPreferencesV2");
+      const saved = await storage.get("avatarVnPreferencesV3");
       if (!saved) return;
-      if (saved.mouthGain) ui.mouthSize.value = String(clamp(Number(saved.mouthGain), 35, 100));
+      if (saved.mouthGain) ui.mouthSize.value = String(clamp(Number(saved.mouthGain), 30, 85));
       if (saved.faceMotion !== undefined) ui.faceMotion.value = String(clamp(Number(saved.faceMotion), 0, 100));
       if (saved.rate) ui.rate.value = String(saved.rate);
       if (saved.pitch) ui.pitch.value = String(saved.pitch);
@@ -353,11 +358,11 @@
   function setDefaultFaceGeometry() {
     applyFaceGeometry({
       source: "default",
-      box: { x: 0.31, y: 0.12, width: 0.47, height: 0.55 },
-      mouth: { x: 0.572, y: 0.548, width: 0.14, height: 0.042, angle: -0.05 },
+      box: { x: 0.43, y: 0.12, width: 0.3, height: 0.63 },
+      mouth: { x: 0.576, y: 0.538, width: 0.1, height: 0.032, angle: -0.02 },
       eyes: [
-        { x: 0.459, y: 0.347, width: 0.09, height: 0.03, angle: -0.07 },
-        { x: 0.649, y: 0.334, width: 0.082, height: 0.028, angle: -0.07 }
+        { x: 0.515, y: 0.365, width: 0.055, height: 0.022, angle: -0.04 },
+        { x: 0.621, y: 0.346, width: 0.052, height: 0.021, angle: -0.04 }
       ],
       landmarks: []
     });
@@ -785,6 +790,40 @@
     return "neutral";
   }
 
+  function buildVietnameseVisemeTimeline(text) {
+    const normalized = text.toLocaleLowerCase("vi-VN");
+    const units = [];
+    for (let index = 0; index < normalized.length; index += 1) {
+      const current = normalized[index];
+      const pair = normalized.slice(index, index + 2);
+      if (pair === "ph") {
+        units.push({ viseme: "bite", target: 0.27, weight: 0.9 });
+        index += 1;
+        continue;
+      }
+      if (/[\p{L}\p{N}]/u.test(current)) {
+        const viseme = visemeFromText(current);
+        const target = {
+          closed: 0.055,
+          round: 0.46,
+          wide: 0.52,
+          narrow: 0.3,
+          bite: 0.25,
+          tongue: 0.35,
+          neutral: 0.31
+        }[viseme];
+        units.push({ viseme, target, weight: /[aăâeêiioôơuưy]/u.test(current) ? 1.12 : 0.82 });
+        continue;
+      }
+      if (/[.,!?;:]/u.test(current)) {
+        units.push({ viseme: "closed", target: 0.008, weight: /[.!?]/u.test(current) ? 2.4 : 1.55 });
+      } else if (/\s/u.test(current)) {
+        units.push({ viseme: "closed", target: 0.014, weight: 0.55 });
+      }
+    }
+    return units.length ? units : [{ viseme: "closed", target: 0.008, weight: 1 }];
+  }
+
   function getVisemeShape(viseme = state.viseme) {
     switch (viseme) {
       case "closed": return { width: 1, open: 0.02 };
@@ -855,7 +894,7 @@
     const sourceMouthWidth = feature.width * imageWidth * (patch.sourceScale || 1);
     const regionWidth = sourceMouthWidth * 1.08;
     const regionHeight = sourceMouthWidth * 0.48;
-    const gap = sourceMouthWidth * (0.012 + effectiveOpen * 0.095);
+    const gap = sourceMouthWidth * (0.01 + effectiveOpen * 0.078);
     const centerX = patch.width / 2;
     const centerY = patch.height / 2;
     const work = state.featureWork.mouth;
@@ -880,20 +919,21 @@
           1,
           1
         ).data;
-        patch.cavityColor = `rgb(${Math.round(pixel[0] * 0.25 + 14)}, ${Math.round(pixel[1] * 0.12 + 5)}, ${Math.round(pixel[2] * 0.18 + 9)})`;
+        patch.cavityColor = `rgb(${Math.round(clamp(pixel[0] * 0.38 + 30, 38, 102))}, ${Math.round(clamp(pixel[1] * 0.24 + 12, 14, 48))}, ${Math.round(clamp(pixel[2] * 0.3 + 18, 24, 64))})`;
       } catch {
-        patch.cavityColor = "rgb(42, 8, 17)";
+        patch.cavityColor = "rgb(64, 20, 34)";
       }
     }
 
     const cavityWidth = regionWidth * (shape.width < 0.91 ? 0.29 : 0.44);
+    workContext.globalAlpha = clamp(0.56 + effectiveOpen * 0.28, 0.58, 0.84);
     workContext.fillStyle = patch.cavityColor;
     workContext.beginPath();
     workContext.ellipse(
       centerX,
       centerY + gap * 0.08,
       cavityWidth,
-      Math.max(regionHeight * 0.055, gap * 0.7),
+      Math.max(regionHeight * 0.045, gap * 0.58),
       0,
       0,
       Math.PI * 2
@@ -913,7 +953,7 @@
       regionWidth,
       halfHeight,
       destinationX,
-      topY - gap * 0.44,
+      topY - gap * 0.38,
       destinationWidth,
       halfHeight
     );
@@ -924,7 +964,7 @@
       regionWidth,
       halfHeight,
       destinationX,
-      centerY + gap * 0.44,
+      centerY + gap * 0.38,
       destinationWidth,
       halfHeight
     );
@@ -1026,9 +1066,9 @@
       regionWidth,
       regionHeight / 2
     );
-    workContext.globalAlpha = amount * 0.42;
-    workContext.strokeStyle = "#241715";
-    workContext.lineWidth = Math.max(1, eyeWidth * 0.022);
+    workContext.globalAlpha = amount * 0.24;
+    workContext.strokeStyle = "#4a2a32";
+    workContext.lineWidth = Math.max(0.8, eyeWidth * 0.015);
     workContext.lineCap = "round";
     workContext.beginPath();
     workContext.moveTo(centerX - regionWidth * 0.35, centerY);
@@ -1136,7 +1176,12 @@
     if (state.activeSignal === "audio" || state.activeSignal === "mic") {
       state.mouthTarget = audioLevel;
       if (audioLevel > 0.08) {
-        setViseme(audioLevel > 0.62 ? "wide" : audioLevel > 0.32 ? "neutral" : "narrow");
+        const envelopeViseme = audioLevel > 0.62 ? "wide" : audioLevel > 0.32 ? "neutral" : "narrow";
+        setViseme(
+          state.activeSignal === "mic" && timestamp < state.liveVisemeUntil
+            ? state.liveViseme
+            : envelopeViseme
+        );
         state.lastActivityAt = timestamp;
       } else if (timestamp - state.lastActivityAt > 130) {
         setViseme("closed");
@@ -1200,20 +1245,21 @@
   }
 
   function scheduleVietnameseVisemes(text, rate) {
-    const units = [...text].filter((unit) => /[\p{L}\p{N}.,!?;:]/u.test(unit));
-    if (!units.length) units.push(" ");
+    const units = buildVietnameseVisemeTimeline(text);
     let index = 0;
-    window.clearInterval(state.ttsTimer);
-    const interval = clamp(102 / rate, 68, 180);
-    state.ttsTimer = window.setInterval(() => {
+    window.clearTimeout(state.ttsTimer);
+    const baseInterval = clamp(92 / rate, 64, 152);
+    const advance = () => {
       if (!state.speechActive) return;
       const unit = units[index % units.length];
-      const punctuation = /^[.,!?;:]$/u.test(unit);
-      setViseme(punctuation ? "closed" : visemeFromText(unit));
-      state.mouthTarget = punctuation ? 0.01 : 0.3 + Math.random() * 0.3;
+      setViseme(unit.viseme);
+      const organicVariation = unit.viseme === "closed" ? 0 : (Math.random() - 0.5) * 0.045;
+      state.mouthTarget = clamp(unit.target + organicVariation, 0.008, 0.58);
       state.lastActivityAt = performance.now();
       index += 1;
-    }, interval);
+      state.ttsTimer = window.setTimeout(advance, baseInterval * unit.weight);
+    };
+    advance();
   }
 
   function speakText() {
@@ -1407,7 +1453,11 @@
         }
         const visibleText = `${state.finalTranscript}${interim}`.trim();
         ui.transcriptText.textContent = visibleText || "Đang nghe…";
-        if (visibleText) setViseme(visemeFromText(visibleText.slice(-2)));
+        if (visibleText) {
+          state.liveViseme = visemeFromText(visibleText.slice(-2));
+          state.liveVisemeUntil = performance.now() + 190;
+          setViseme(state.liveViseme);
+        }
       };
       recognition.onerror = (event) => {
         if (event.error === "no-speech" || event.error === "aborted") return;
@@ -1520,6 +1570,35 @@
     }, "image/png");
   }
 
+  function downloadMasterImage() {
+    showToast("Đang dựng ảnh master 8K trên thiết bị…");
+    const source = new Image();
+    source.onload = () => {
+      const masterCanvas = document.createElement("canvas");
+      masterCanvas.width = MASTER_WIDTH;
+      masterCanvas.height = MASTER_HEIGHT;
+      const masterContext = masterCanvas.getContext("2d", { alpha: false });
+      masterContext.imageSmoothingEnabled = true;
+      masterContext.imageSmoothingQuality = "high";
+      masterContext.drawImage(source, 0, 0, MASTER_WIDTH, MASTER_HEIGHT);
+      masterCanvas.toBlob((blob) => {
+        if (!blob) {
+          showToast("Không thể tạo ảnh master 8K.", true);
+          return;
+        }
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = "avatar-vn-default-7680x4320.jpg";
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast("Đã tạo ảnh master 7680×4320 hoàn toàn cục bộ.");
+      }, "image/jpeg", 0.94);
+    };
+    source.onerror = () => showToast("Không thể nạp ảnh mặc định để tạo bản 8K.", true);
+    source.src = DEFAULT_IMAGE;
+  }
+
   async function copyTranscript() {
     const text = ui.transcriptText.textContent.trim();
     if (!text || text.startsWith("Bản chép lời")) {
@@ -1547,12 +1626,13 @@
       else startMic();
     });
     ui.snapshotButton.addEventListener("click", downloadSnapshot);
+    ui.masterImageButton.addEventListener("click", downloadMasterImage);
     ui.copyTranscript.addEventListener("click", copyTranscript);
     ui.resetButton.addEventListener("click", () => {
       stopAll();
       state.mouth = { x: 0.5, y: 0.665, width: 0.16 };
-      ui.mouthSize.value = "68";
-      ui.faceMotion.value = "35";
+      ui.mouthSize.value = "58";
+      ui.faceMotion.value = "28";
       ui.rate.value = "1";
       ui.pitch.value = "1";
       ui.transcriptText.textContent = "Bản chép lời sẽ xuất hiện ở đây khi bật microphone.";

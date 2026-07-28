@@ -1,20 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
   <title id="title">Avatar VN</title>
-  <desc id="desc">Biểu tượng khuôn mặt và sóng âm màu xanh ngọc</desc>
+  <desc id="desc">Biểu tượng khuôn mặt và sóng âm màu hồng</desc>
   <defs>
     <linearGradient id="bg" x1="15" y1="12" x2="116" y2="119" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#18E0BE"/>
-      <stop offset=".5" stop-color="#38A7FF"/>
-      <stop offset="1" stop-color="#7957FF"/>
+      <stop stop-color="#FF4FA3"/>
+      <stop offset=".52" stop-color="#FF82C4"/>
+      <stop offset="1" stop-color="#C73DFF"/>
     </linearGradient>
     <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
       <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#020713" flood-opacity=".35"/>
     </filter>
   </defs>
-  <rect x="7" y="7" width="114" height="114" rx="31" fill="#07111F"/>
+  <rect x="7" y="7" width="114" height="114" rx="31" fill="#180A16"/>
   <path d="M92 38c-6-12-17-19-31-19-21 0-37 17-37 39v15c0 21 16 37 37 37 16 0 29-9 34-23" fill="none" stroke="url(#bg)" stroke-width="10" stroke-linecap="round" filter="url(#shadow)"/>
-  <circle cx="49" cy="56" r="4.5" fill="#EAFBFF"/>
-  <circle cx="74" cy="56" r="4.5" fill="#EAFBFF"/>
-  <path d="M46 78c9 8 20 8 29 0" fill="none" stroke="#EAFBFF" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="49" cy="56" r="4.5" fill="#FFF1F8"/>
+  <circle cx="74" cy="56" r="4.5" fill="#FFF1F8"/>
+  <path d="M46 78c9 8 20 8 29 0" fill="none" stroke="#FFF1F8" stroke-width="6" stroke-linecap="round"/>
   <path d="M97 48v31M108 55v17M86 58v11" fill="none" stroke="url(#bg)" stroke-width="6" stroke-linecap="round"/>
 </svg>

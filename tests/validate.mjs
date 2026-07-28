@@ -34,8 +34,10 @@ for (const script of scripts) {
   assert.ok((await stat(path.join(root, script))).size > 0, `Thiếu script ${script}`);
 }
 
-const localAssets = [
-  "assets/default-avatar.png",
+const imageAssets = [
+  "assets/default-avatar.webp"
+];
+const faceMeshAssets = [
   "vendor/face_mesh/face_mesh.binarypb",
   "vendor/face_mesh/face_mesh_solution_packed_assets.data",
   "vendor/face_mesh/face_mesh_solution_packed_assets_loader.js",
@@ -44,18 +46,32 @@ const localAssets = [
   "vendor/face_mesh/face_mesh_solution_wasm_bin.js",
   "vendor/face_mesh/face_mesh_solution_wasm_bin.wasm"
 ];
+const localAssets = [...imageAssets, ...faceMeshAssets];
 for (const asset of localAssets) {
-  assert.ok((await stat(path.join(root, asset))).size > 0, `Thiếu asset Face Mesh ${asset}`);
+  assert.ok((await stat(path.join(root, asset))).size > 0, `Thiếu asset cục bộ ${asset}`);
 }
 
-const wasmFiles = localAssets.filter((asset) => asset.endsWith(".wasm"));
+const runtimeImage = await readFile(path.join(root, "assets/default-avatar.webp"));
+assert.equal(runtimeImage.subarray(0, 4).toString("ascii"), "RIFF", "Ảnh runtime phải là WebP");
+assert.equal(runtimeImage.subarray(8, 12).toString("ascii"), "WEBP", "Ảnh runtime phải là WebP");
+assert.equal(runtimeImage.subarray(12, 16).toString("ascii"), "VP8 ", "Ảnh runtime phải dùng WebP VP8");
+assert.deepEqual(
+  {
+    width: runtimeImage.readUInt16LE(26) & 0x3fff,
+    height: runtimeImage.readUInt16LE(28) & 0x3fff
+  },
+  { width: 3840, height: 2160 },
+  "Ảnh runtime phải đúng 3840x2160"
+);
+
+const wasmFiles = faceMeshAssets.filter((asset) => asset.endsWith(".wasm"));
 await Promise.all(wasmFiles.map(async (asset) => {
   const binary = await readFile(path.join(root, asset));
   assert.ok(await WebAssembly.compile(binary), `WASM không hợp lệ: ${asset}`);
 }));
 
 const wasmLoaders = await Promise.all(
-  localAssets.filter((asset) => asset.endsWith("_bin.js")).map(readText)
+  faceMeshAssets.filter((asset) => asset.endsWith("_bin.js")).map(readText)
 );
 assert.ok(wasmLoaders.every((source) => !source.includes("new Function")), "CSP MV3 chặn new Function");
 
@@ -66,10 +82,15 @@ for (const forbidden of ["fal.ai", "FAL_KEY", "/api/generate", "analytics"]) {
 assert.match(app, /imageRevision/, "Phải chống landmark cũ áp vào ảnh mới");
 assert.match(app, /assessFaceGeometry/, "Phải kiểm tra tỷ lệ landmark trước khi vẽ");
 assert.match(app, /1000 \/ 30/, "Phải giới hạn render để giảm tải CPU");
-assert.match(app, /assets\/default-avatar\.png/, "Phải dùng ảnh chân dung mặc định");
+assert.match(app, /assets\/default-avatar\.webp/, "Phải dùng WebP chân dung mặc định");
+assert.match(app, /MASTER_WIDTH = 7680/, "Phải xuất ảnh master rộng 7680 px");
+assert.match(app, /MASTER_HEIGHT = 4320/, "Phải xuất ảnh master cao 4320 px");
+assert.match(app, /buildVietnameseVisemeTimeline/, "Phải có lịch viseme tiếng Việt");
+assert.match(html, /id="masterImageButton"/, "Phải có nút tải ảnh master 8K");
 assert.match(html, /id="runtimeWarning"/, "Phải cảnh báo khi người dùng mở file://");
 
 console.log(`Avatar VN ${manifest.version}: PASS`);
 console.log(`- ${ids.length} HTML ids; ${selectors.length} JS selectors`);
-console.log(`- ${localAssets.length} Face Mesh assets; ${wasmFiles.length} WASM modules hợp lệ`);
+console.log(`- Runtime WebP 3840x2160; xuất master 7680x4320 cục bộ`);
+console.log(`- ${faceMeshAssets.length} Face Mesh assets; ${wasmFiles.length} WASM modules hợp lệ`);
 console.log("- Manifest V3 local-first; không host permission");

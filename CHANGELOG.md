@@ -2,6 +2,16 @@
 
 Các thay đổi đáng chú ý của Avatar VN được ghi tại đây.
 
+## 1.3.0 — 28/07/2026
+
+- Phục hồi vùng môi của ảnh mặc định, loại đường đen dày và giữ bóng môi/răng tự nhiên.
+- Dùng WebP 3840×2160 cho runtime Edge và tạo ảnh master 7680×4320 cục bộ theo yêu cầu.
+- Chuyển dashboard sang khung hình 16:9 và thêm nút tải ảnh master 8K.
+- Giảm độ mở môi, độ tối khoang miệng và nét mí để chuyển động không tạo vệt đen.
+- Lập lịch viseme tiếng Việt theo nguyên âm, phụ âm, khoảng trắng và dấu câu.
+- Giữ kết quả nhận dạng giọng nói làm viseme ưu tiên ngắn hạn khi dùng microphone.
+- Đổi toàn bộ icon extension sang nhận diện màu hồng.
+
 ## 1.2.1 — 28/07/2026
 
 - Đặt ảnh chân dung do người dùng cung cấp làm avatar mặc định.

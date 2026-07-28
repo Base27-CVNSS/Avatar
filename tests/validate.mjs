@@ -86,6 +86,12 @@ assert.match(app, /assets\/default-avatar\.webp/, "Phải dùng WebP chân dung 
 assert.match(app, /MASTER_WIDTH = 7680/, "Phải xuất ảnh master rộng 7680 px");
 assert.match(app, /MASTER_HEIGHT = 4320/, "Phải xuất ảnh master cao 4320 px");
 assert.match(app, /buildVietnameseVisemeTimeline/, "Phải có lịch viseme tiếng Việt");
+assert.match(app, /compoundVisemes/, "Phải xử lý cụm âm tiếng Việt");
+assert.match(app, /mouthAperture/, "Phải có khẩu độ miệng mềm");
+assert.match(app, /mouthLayer/, "Phải tách lớp biến dạng môi");
+assert.match(app, /mouthMask/, "Phải có mặt nạ feathered cho vùng môi");
+assert.match(app, /createRadialGradient/, "Phải làm mềm biên vùng biến dạng");
+assert.ok(!app.includes("cavityColor"), "Không được tô dải màu khoang miệng cố định");
 assert.match(html, /id="masterImageButton"/, "Phải có nút tải ảnh master 8K");
 assert.match(html, /id="runtimeWarning"/, "Phải cảnh báo khi người dùng mở file://");
 

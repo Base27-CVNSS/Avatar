@@ -73,7 +73,12 @@
     face: null,
     faceQuality: 100,
     patches: { mouth: null, eyes: [] },
-    featureWork: { mouth: document.createElement("canvas"), eyes: [document.createElement("canvas"), document.createElement("canvas")] },
+    featureWork: {
+      mouth: document.createElement("canvas"),
+      mouthLayer: document.createElement("canvas"),
+      mouthMask: document.createElement("canvas"),
+      eyes: [document.createElement("canvas"), document.createElement("canvas")]
+    },
     faceMesh: null,
     faceMeshResolver: null,
     faceMeshRejecter: null,
@@ -179,7 +184,7 @@
 
   async function savePreferences() {
     try {
-      await storage.set("avatarVnPreferencesV3", {
+      await storage.set("avatarVnPreferencesV4", {
         mouthGain: Number(ui.mouthSize.value),
         faceMotion: Number(ui.faceMotion.value),
         rate: Number(ui.rate.value),
@@ -192,9 +197,9 @@
 
   async function restorePreferences() {
     try {
-      const saved = await storage.get("avatarVnPreferencesV3");
+      const saved = await storage.get("avatarVnPreferencesV4");
       if (!saved) return;
-      if (saved.mouthGain) ui.mouthSize.value = String(clamp(Number(saved.mouthGain), 30, 85));
+      if (saved.mouthGain) ui.mouthSize.value = String(clamp(Number(saved.mouthGain), 25, 75));
       if (saved.faceMotion !== undefined) ui.faceMotion.value = String(clamp(Number(saved.faceMotion), 0, 100));
       if (saved.rate) ui.rate.value = String(saved.rate);
       if (saved.pitch) ui.pitch.value = String(saved.pitch);
@@ -793,26 +798,38 @@
   function buildVietnameseVisemeTimeline(text) {
     const normalized = text.toLocaleLowerCase("vi-VN");
     const units = [];
+    const compoundVisemes = {
+      ph: { viseme: "bite", target: 0.23, weight: 0.9 },
+      th: { viseme: "tongue", target: 0.29, weight: 0.86 },
+      tr: { viseme: "neutral", target: 0.27, weight: 0.88 },
+      ch: { viseme: "narrow", target: 0.25, weight: 0.86 },
+      nh: { viseme: "narrow", target: 0.24, weight: 0.84 },
+      ng: { viseme: "neutral", target: 0.22, weight: 0.88 },
+      kh: { viseme: "neutral", target: 0.26, weight: 0.9 },
+      gh: { viseme: "neutral", target: 0.24, weight: 0.86 },
+      qu: { viseme: "round", target: 0.35, weight: 1.02 },
+      gi: { viseme: "narrow", target: 0.27, weight: 0.9 }
+    };
     for (let index = 0; index < normalized.length; index += 1) {
       const current = normalized[index];
       const pair = normalized.slice(index, index + 2);
-      if (pair === "ph") {
-        units.push({ viseme: "bite", target: 0.27, weight: 0.9 });
+      if (compoundVisemes[pair]) {
+        units.push(compoundVisemes[pair]);
         index += 1;
         continue;
       }
       if (/[\p{L}\p{N}]/u.test(current)) {
         const viseme = visemeFromText(current);
         const target = {
-          closed: 0.055,
-          round: 0.46,
-          wide: 0.52,
-          narrow: 0.3,
-          bite: 0.25,
-          tongue: 0.35,
-          neutral: 0.31
+          closed: 0.035,
+          round: 0.41,
+          wide: 0.46,
+          narrow: 0.27,
+          bite: 0.21,
+          tongue: 0.3,
+          neutral: 0.28
         }[viseme];
-        units.push({ viseme, target, weight: /[aăâeêiioôơuưy]/u.test(current) ? 1.12 : 0.82 });
+        units.push({ viseme, target, weight: /[aăâeêioôơuưy]/u.test(current) ? 1.12 : 0.82 });
         continue;
       }
       if (/[.,!?;:]/u.test(current)) {
@@ -887,31 +904,35 @@
       open: state.mouthShape.open
     };
     const mouthGain = Number(ui.mouthSize.value) / 100;
-    const effectiveOpen = clamp(openAmount * (0.62 + shape.open * 0.45) * mouthGain, 0, 0.88);
-    if (effectiveOpen < 0.018) return;
+    const effectiveOpen = clamp(openAmount * (0.6 + shape.open * 0.4) * mouthGain, 0, 0.72);
+    const mouthAperture = clamp((effectiveOpen - 0.035) / 0.62, 0, 1);
+    if (mouthAperture < 0.012) return;
 
     const imageWidth = state.image.naturalWidth || state.image.width;
     const sourceMouthWidth = feature.width * imageWidth * (patch.sourceScale || 1);
     const regionWidth = sourceMouthWidth * 1.08;
     const regionHeight = sourceMouthWidth * 0.48;
-    const gap = sourceMouthWidth * (0.01 + effectiveOpen * 0.078);
+    const gap = sourceMouthWidth * mouthAperture * 0.095;
     const centerX = patch.width / 2;
     const centerY = patch.height / 2;
     const work = state.featureWork.mouth;
-    if (work.width !== patch.width || work.height !== patch.height) {
-      work.width = patch.width;
-      work.height = patch.height;
+    const layer = state.featureWork.mouthLayer;
+    const mask = state.featureWork.mouthMask;
+    for (const canvas of [work, layer, mask]) {
+      if (canvas.width !== patch.width || canvas.height !== patch.height) {
+        canvas.width = patch.width;
+        canvas.height = patch.height;
+      }
     }
     const workContext = work.getContext("2d");
+    const layerContext = layer.getContext("2d");
+    const maskContext = mask.getContext("2d");
     workContext.clearRect(0, 0, work.width, work.height);
     workContext.drawImage(patch, 0, 0);
+    layerContext.clearRect(0, 0, layer.width, layer.height);
+    maskContext.clearRect(0, 0, mask.width, mask.height);
 
-    workContext.save();
-    workContext.beginPath();
-    workContext.ellipse(centerX, centerY, regionWidth * 0.56, regionHeight * 0.58, 0, 0, Math.PI * 2);
-    workContext.clip();
-
-    if (!patch.cavityColor) {
+    if (!patch.mouthPalette) {
       try {
         const pixel = patch.getContext("2d").getImageData(
           Math.round(centerX),
@@ -919,56 +940,129 @@
           1,
           1
         ).data;
-        patch.cavityColor = `rgb(${Math.round(clamp(pixel[0] * 0.38 + 30, 38, 102))}, ${Math.round(clamp(pixel[1] * 0.24 + 12, 14, 48))}, ${Math.round(clamp(pixel[2] * 0.3 + 18, 24, 64))})`;
+        const luminance = pixel[0] * 0.2126 + pixel[1] * 0.7152 + pixel[2] * 0.0722;
+        const core = Math.round(clamp(luminance * 0.16, 16, 30));
+        const edge = Math.round(clamp(luminance * 0.3, 28, 52));
+        patch.mouthPalette = {
+          core: [core + 5, core + 2, core],
+          edge: [edge + 6, edge + 3, edge]
+        };
       } catch {
-        patch.cavityColor = "rgb(64, 20, 34)";
+        patch.mouthPalette = {
+          core: [23, 19, 17],
+          edge: [42, 36, 33]
+        };
       }
     }
 
-    const cavityWidth = regionWidth * (shape.width < 0.91 ? 0.29 : 0.44);
-    workContext.globalAlpha = clamp(0.56 + effectiveOpen * 0.28, 0.58, 0.84);
-    workContext.fillStyle = patch.cavityColor;
-    workContext.beginPath();
-    workContext.ellipse(
+    const apertureHalfWidth = regionWidth * (shape.width < 0.91 ? 0.24 : 0.31);
+    const apertureHalfHeight = Math.max(regionHeight * 0.012, gap * 0.52);
+    const apertureVisibility = clamp((mouthAperture - 0.14) / 0.86, 0, 1);
+    const [coreR, coreG, coreB] = patch.mouthPalette.core;
+    const [edgeR, edgeG, edgeB] = patch.mouthPalette.edge;
+    const apertureGradient = layerContext.createLinearGradient(
       centerX,
-      centerY + gap * 0.08,
-      cavityWidth,
-      Math.max(regionHeight * 0.045, gap * 0.58),
-      0,
-      0,
-      Math.PI * 2
+      centerY - apertureHalfHeight,
+      centerX,
+      centerY + apertureHalfHeight
     );
-    workContext.fill();
+    apertureGradient.addColorStop(0, `rgba(${edgeR}, ${edgeG}, ${edgeB}, 0.72)`);
+    apertureGradient.addColorStop(0.45, `rgba(${coreR}, ${coreG}, ${coreB}, 0.98)`);
+    apertureGradient.addColorStop(1, `rgba(${coreR}, ${coreG}, ${coreB}, 0.9)`);
+    layerContext.globalAlpha = Math.min(0.92, apertureVisibility * 1.35);
+    layerContext.fillStyle = apertureGradient;
+    layerContext.beginPath();
+    layerContext.moveTo(centerX - apertureHalfWidth, centerY);
+    layerContext.bezierCurveTo(
+      centerX - apertureHalfWidth * 0.52,
+      centerY - apertureHalfHeight * 0.92,
+      centerX + apertureHalfWidth * 0.52,
+      centerY - apertureHalfHeight * 0.92,
+      centerX + apertureHalfWidth,
+      centerY
+    );
+    layerContext.bezierCurveTo(
+      centerX + apertureHalfWidth * 0.5,
+      centerY + apertureHalfHeight,
+      centerX - apertureHalfWidth * 0.5,
+      centerY + apertureHalfHeight,
+      centerX - apertureHalfWidth,
+      centerY
+    );
+    layerContext.closePath();
+    layerContext.fill();
 
-    const sourceX = centerX - regionWidth / 2;
-    const topY = centerY - regionHeight / 2;
-    const halfHeight = regionHeight / 2;
-    const destinationWidth = regionWidth * shape.width;
-    const destinationX = centerX - destinationWidth / 2;
-    workContext.globalAlpha = 0.985;
-    workContext.drawImage(
-      patch,
-      sourceX,
-      topY,
-      regionWidth,
-      halfHeight,
-      destinationX,
-      topY - gap * 0.38,
-      destinationWidth,
-      halfHeight
+    const lipHalfWidth = regionWidth * 0.42;
+    const lipOuterHeight = regionHeight * 0.46;
+    const lipInnerCurve = Math.max(regionHeight * 0.014, gap * 0.12);
+    const upperCornerY = centerY - gap * 0.12;
+    const upperCenterY = centerY - gap * 0.3;
+    const lowerCornerY = centerY + gap * 0.12;
+    const lowerCenterY = centerY + gap * 0.3;
+
+    layerContext.save();
+    layerContext.beginPath();
+    layerContext.moveTo(centerX - lipHalfWidth, upperCornerY);
+    layerContext.bezierCurveTo(
+      centerX - lipHalfWidth * 0.48,
+      upperCenterY - lipInnerCurve,
+      centerX + lipHalfWidth * 0.48,
+      upperCenterY - lipInnerCurve,
+      centerX + lipHalfWidth,
+      upperCornerY
     );
-    workContext.drawImage(
-      patch,
-      sourceX,
-      centerY,
-      regionWidth,
-      halfHeight,
-      destinationX,
-      centerY + gap * 0.38,
-      destinationWidth,
-      halfHeight
+    layerContext.lineTo(centerX + lipHalfWidth, centerY - lipOuterHeight);
+    layerContext.lineTo(centerX - lipHalfWidth, centerY - lipOuterHeight);
+    layerContext.closePath();
+    layerContext.clip();
+    layerContext.translate(centerX, -gap * 0.32);
+    layerContext.scale(shape.width, 1);
+    layerContext.translate(-centerX, 0);
+    layerContext.globalAlpha = 0.995;
+    layerContext.drawImage(patch, 0, 0);
+    layerContext.restore();
+
+    layerContext.save();
+    layerContext.beginPath();
+    layerContext.moveTo(centerX - lipHalfWidth, lowerCornerY);
+    layerContext.bezierCurveTo(
+      centerX - lipHalfWidth * 0.48,
+      lowerCenterY + lipInnerCurve,
+      centerX + lipHalfWidth * 0.48,
+      lowerCenterY + lipInnerCurve,
+      centerX + lipHalfWidth,
+      lowerCornerY
     );
-    workContext.restore();
+    layerContext.lineTo(centerX + lipHalfWidth, centerY + lipOuterHeight);
+    layerContext.lineTo(centerX - lipHalfWidth, centerY + lipOuterHeight);
+    layerContext.closePath();
+    layerContext.clip();
+    layerContext.translate(centerX, gap * 0.32);
+    layerContext.scale(shape.width, 1);
+    layerContext.translate(-centerX, 0);
+    layerContext.globalAlpha = 0.995;
+    layerContext.drawImage(patch, 0, 0);
+    layerContext.restore();
+
+    const maskRadiusX = regionWidth * 0.46;
+    const maskRadiusY = regionHeight * 0.52;
+    maskContext.save();
+    maskContext.translate(centerX, centerY);
+    maskContext.scale(1, maskRadiusY / maskRadiusX);
+    const feather = maskContext.createRadialGradient(0, 0, 0, 0, 0, maskRadiusX);
+    feather.addColorStop(0, "rgba(255, 255, 255, 1)");
+    feather.addColorStop(0.72, "rgba(255, 255, 255, 1)");
+    feather.addColorStop(0.9, "rgba(255, 255, 255, 0.72)");
+    feather.addColorStop(1, "rgba(255, 255, 255, 0)");
+    maskContext.fillStyle = feather;
+    maskContext.fillRect(-maskRadiusX, -maskRadiusX, maskRadiusX * 2, maskRadiusX * 2);
+    maskContext.restore();
+
+    layerContext.save();
+    layerContext.globalCompositeOperation = "destination-in";
+    layerContext.drawImage(mask, 0, 0);
+    layerContext.restore();
+    workContext.drawImage(layer, 0, 0);
 
     const mouthX = fit.x + feature.x * fit.width * fit.scale;
     const mouthY = fit.y + feature.y * fit.height * fit.scale;
@@ -1174,7 +1268,10 @@
 
     const audioLevel = calculateAudioLevel();
     if (state.activeSignal === "audio" || state.activeSignal === "mic") {
-      state.mouthTarget = audioLevel;
+      const controlledMouthLevel = audioLevel < 0.045
+        ? 0
+        : clamp((audioLevel - 0.045) * 0.72, 0, 0.62);
+      state.mouthTarget = controlledMouthLevel;
       if (audioLevel > 0.08) {
         const envelopeViseme = audioLevel > 0.62 ? "wide" : audioLevel > 0.32 ? "neutral" : "narrow";
         setViseme(
@@ -1295,8 +1392,9 @@
     };
     utterance.onboundary = (event) => {
       const sample = text.slice(event.charIndex, event.charIndex + Math.max(event.charLength || 1, 2));
-      setViseme(visemeFromText(sample));
-      state.mouthTarget = state.viseme === "closed" ? 0.04 : 0.54;
+      const boundaryUnit = buildVietnameseVisemeTimeline(sample)[0];
+      setViseme(boundaryUnit.viseme);
+      state.mouthTarget = boundaryUnit.target;
       state.lastActivityAt = performance.now();
     };
     utterance.onend = () => {
@@ -1631,8 +1729,8 @@
     ui.resetButton.addEventListener("click", () => {
       stopAll();
       state.mouth = { x: 0.5, y: 0.665, width: 0.16 };
-      ui.mouthSize.value = "58";
-      ui.faceMotion.value = "28";
+      ui.mouthSize.value = "52";
+      ui.faceMotion.value = "24";
       ui.rate.value = "1";
       ui.pitch.value = "1";
       ui.transcriptText.textContent = "Bản chép lời sẽ xuất hiện ở đây khi bật microphone.";

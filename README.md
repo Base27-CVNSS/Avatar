@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/License-MIT-8468ff)](LICENSE)
 [![Privacy](https://img.shields.io/badge/Processing-Local%20only-102e49)](PRIVACY.md)
 
-Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát triển. Phiên bản 1.3.0 dùng ảnh chân dung đã phục hồi khẩu hình làm mặc định, chạy từ WebP 4K nhẹ hơn và tạo bản 8K đúng 7680×4320 ngay trong Edge khi người dùng yêu cầu. Face Mesh tự nhận diện môi, hai mắt và khung mặt; ảnh upload tiếp theo vẫn được xử lý độc lập bằng Web Speech API, Web Audio API và Canvas 2D. Phần ảnh, Face Mesh, Canvas và phân tích tệp audio chạy trên thiết bị; dịch vụ TTS/STT cụ thể do Edge/Windows cung cấp và có thể dùng xử lý trực tuyến tùy voice, phiên bản và cấu hình hệ thống.
+Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát triển. Phiên bản 1.4.0 dùng ảnh chân dung đã phục hồi lại môi hé, răng và bóng khoang miệng làm mặc định, chạy từ WebP 4K nhẹ hơn và tạo bản 8K đúng 7680×4320 ngay trong Edge khi người dùng yêu cầu. Face Mesh tự nhận diện môi, hai mắt và khung mặt; ảnh upload tiếp theo vẫn được xử lý độc lập bằng Web Speech API, Web Audio API và Canvas 2D. Phần ảnh, Face Mesh, Canvas và phân tích tệp audio chạy trên thiết bị; dịch vụ TTS/STT cụ thể do Edge/Windows cung cấp và có thể dùng xử lý trực tuyến tùy voice, phiên bản và cấu hình hệ thống.
 
 > Bản này được tái cấu trúc từ ý tưởng của ứng dụng `lip-sync-ai-main`. Mã gốc tải ảnh/âm thanh lên fal.ai và gọi OmniHuman 1.5 ở backend. Avatar VN loại bỏ toàn bộ Next.js server, `FAL_KEY`, lưu trữ đám mây và API sinh video.
 
@@ -18,16 +18,17 @@ Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát tr
 - Chọn hoặc kéo thả ảnh JPG, PNG, WebP và GIF.
 - Khởi động với `assets/default-avatar.webp` 4K; Face Mesh tự căn landmark ngay khi mở studio.
 - Nút **Ảnh 8K** dựng và tải JPEG đúng 7680×4320 cục bộ, không làm gói extension nặng thêm.
-- Ảnh mặc định đã phục hồi vùng môi để loại đường đen dày, giữ răng, môi và bóng khoang miệng tự nhiên.
+- Ảnh mặc định đã phục hồi lại môi hé, răng màu ngà và bóng khoang miệng trung tính; không còn đường hồng được vẽ đè.
 - Tự nhận diện hàng trăm landmark để định vị môi, mắt và tỷ lệ mặt.
 - Không dùng lại tọa độ miệng của ảnh trước cho ảnh mới.
 - Mỗi lượt upload có mã phiên riêng; kết quả Face Mesh trễ của ảnh cũ bị loại bỏ.
 - Chấm điểm tỷ lệ landmark và từ chối vùng miệng bất thường trước khi dựng.
 - Chế độ hiệu chỉnh dự phòng 5 điểm: hai mắt, hai khóe miệng và tâm môi.
-- Biến dạng mềm giữ texture môi gốc; khoang miệng lấy màu từ ảnh, không vẽ oval đen hoặc răng giả đè lên ảnh.
+- Mouth Engine tách lớp môi trên, môi dưới và khẩu độ; mặt nạ feathered loại bỏ biên ngang cứng.
+- Khoang miệng dùng gradient nâu trung tính theo độ sáng ảnh, không tô dải hồng, oval đen hoặc răng giả.
 - Chớp mắt đơn/đôi ngẫu nhiên, nét mí mảnh và vi chuyển động đầu dùng mục tiêu mềm.
 - Tự ưu tiên giọng `vi-VN` có sẵn trong Microsoft Edge/Windows.
-- Đọc văn bản tiếng Việt, nội suy coarticulation và tạo lịch viseme biến thiên theo nguyên âm, phụ âm, khoảng trắng và dấu câu.
+- Đọc văn bản tiếng Việt, nội suy coarticulation và tạo lịch viseme cho cả nguyên âm, phụ âm ghép, khoảng trắng và dấu câu.
 - Chèn tệp MP3, WAV, M4A, OGG hoặc WebM; khẩu hình bám theo biên độ âm thanh thật.
 - Nhận giọng Việt qua `SpeechRecognition`, hiển thị cả kết quả tạm thời và chính thức.
 - Microphone điều khiển môi theo âm lượng thực, có khử vọng và giảm nhiễu của trình duyệt.
@@ -63,6 +64,26 @@ flowchart TD
 | Lip-sync audio | `AudioContext`, `AnalyserNode` | Đo RMS âm thanh theo từng khung hình |
 | Giao diện | HTML, CSS, JavaScript thuần | Không bundler, không framework, không phụ thuộc npm |
 
+## Mouth Engine 1.4
+
+```text
+Face Mesh
+   ↓
+Vùng môi đã kiểm tra tỷ lệ
+   ↓
+Texture môi trên + texture môi dưới
+   ↓
+Khẩu độ cong màu nâu trung tính
+   ↓
+Mặt nạ feathered
+   ↓
+Coarticulation + noise gate
+   ↓
+Canvas 30 FPS
+```
+
+Ở trạng thái nghỉ hoặc âm lượng rất nhỏ, engine giữ nguyên môi hé từ ảnh nguồn. Khi bắt đầu nói, hai lớp môi được dịch chuyển theo đường cong riêng; vùng răng vẫn lấy từ texture ảnh thật. Khẩu độ chỉ xuất hiện sau ngưỡng mở tối thiểu, vì vậy không còn dải hồng hoặc đường thẳng chạy ngang qua miệng.
+
 ## Cài trên Microsoft Edge
 
 1. Tải repository bằng **Code → Download ZIP** và giải nén.
@@ -80,7 +101,7 @@ flowchart TD
    - **Văn bản:** chọn voice tiếng Việt, chỉnh tốc độ/cao độ, bấm **Phát và nhép môi**.
    - **Âm thanh:** chọn tệp và bấm Play trên trình phát.
    - **Microphone:** bấm **Bắt đầu nhận giọng Việt** rồi cho phép Edge dùng mic.
-4. Điều chỉnh **Độ mở khẩu hình** và **Vi chuyển động gương mặt** ở mức vừa phải; khoảng 50–65% và 20–35% thường tự nhiên nhất.
+4. Điều chỉnh **Độ mở khẩu hình** và **Vi chuyển động gương mặt** ở mức vừa phải; mặc định 52% và 24% đã được cân chỉnh cho ảnh đi kèm.
 5. Bấm **Ảnh 8K** để Edge tạo cục bộ master 7680×4320 hoặc **Chụp PNG** để lưu khung hình hiện tại.
 
 Sau khi upload, trạng thái nhận diện hiển thị điểm chất lượng từ 45–100. Nếu điểm thấp, khuôn mặt nghiêng nhiều hoặc khung xanh lệch khỏi mắt/môi, hãy dùng **Chỉnh 5 điểm**.

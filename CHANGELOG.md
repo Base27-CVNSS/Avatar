@@ -2,6 +2,18 @@
 
 Các thay đổi đáng chú ý của Avatar VN được ghi tại đây.
 
+## 1.4.0 — 28/07/2026
+
+- Thay ảnh mặc định bằng bản phục hồi mới: môi hé nhẹ, răng màu ngà và bóng khoang miệng tự nhiên hơn.
+- Xóa hoàn toàn cơ chế `cavityColor` từng tạo dải hồng/đỏ cố định.
+- Tách vùng dựng thành lớp môi trên, môi dưới, khẩu độ cong và mặt nạ feathered.
+- Thu vùng biến dạng sát môi để không kéo đường ngang sang má, cằm hoặc bàn tay.
+- Giữ texture răng từ ảnh nguồn; không vẽ răng trắng hoặc oval miệng nhân tạo.
+- Thêm noise gate và nén biên độ cho audio/microphone để miệng không bật mở quá mức.
+- Bổ sung viseme cho `ph`, `th`, `tr`, `ch`, `nh`, `ng`, `kh`, `gh`, `qu`, `gi`.
+- Dùng target viseme thực tại sự kiện ranh giới TTS thay cho xung mở cố định.
+- Hạ mặc định khẩu hình xuống 52% và vi chuyển động xuống 24%.
+
 ## 1.3.0 — 28/07/2026
 
 - Phục hồi vùng môi của ảnh mặc định, loại đường đen dày và giữ bóng môi/răng tự nhiên.

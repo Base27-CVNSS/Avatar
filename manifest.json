@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Avatar VN — Edge Talking Photo",
   "short_name": "Avatar VN",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Nhận diện môi, mắt và gương mặt để tạo ảnh biết nói tự nhiên bằng giọng Việt ngay trong Microsoft Edge.",
   "author": "Long Ngo",
   "minimum_chrome_version": "110",

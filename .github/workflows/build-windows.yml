@@ -14,18 +14,20 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Lấy mã nguồn
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Cài Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
+          cache-dependency-path: requirements-build.txt
 
       - name: Cài Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
+          package-manager-cache: false
 
       - name: Kiểm thử
         shell: pwsh
@@ -49,7 +51,7 @@ jobs:
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\Cybergirl.iss
 
       - name: Tải artifact EXE
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Cybergirl-Windows-x64
           path: |

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#07111f">
+    <meta name="description" content="Avatar VN tạo ảnh biết nói bằng Web Speech API và Canvas ngay trong Microsoft Edge.">
+    <title>Avatar VN — Edge Talking Photo</title>
+    <link rel="icon" href="icons/logo.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+
+    <header class="app-header">
+      <a class="brand" href="#studio" aria-label="Avatar VN">
+        <img src="icons/logo.svg" alt="" width="46" height="46">
+        <span>
+          <strong>Avatar VN</strong>
+          <small>Edge Talking Photo</small>
+        </span>
+      </a>
+
+      <div class="status-row" aria-label="Trạng thái công nghệ">
+        <span class="status-pill"><i class="status-dot"></i> No backend</span>
+        <span class="status-pill">Edge native</span>
+        <span class="status-pill status-private">Không server riêng</span>
+      </div>
+    </header>
+
+    <main id="studio" class="studio">
+      <section class="intro">
+        <div>
+          <p class="eyebrow">Ảnh biết nói · Tiếng Việt · Riêng tư</p>
+          <h1>Biến một bức ảnh thành<br><span>nhân vật ảo có giọng nói.</span></h1>
+          <p class="lede">
+            Chọn ảnh, đánh dấu miệng, rồi dùng giọng Việt của Microsoft Edge,
+            tệp âm thanh hoặc microphone. Phần dựng ảnh và lip-sync chạy ngay trên máy.
+          </p>
+        </div>
+        <div class="engine-card">
+          <span class="engine-icon" aria-hidden="true">⌁</span>
+          <div>
+            <small>Realtime engine</small>
+            <strong>Web Speech + Canvas 2D</strong>
+            <span id="capabilityText">Đang kiểm tra trình duyệt…</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="workspace">
+        <aside class="control-panel" aria-label="Bảng điều khiển">
+          <section class="control-section">
+            <div class="section-heading">
+              <span class="step-number">01</span>
+              <div>
+                <h2>Chọn khuôn mặt</h2>
+                <p>Ảnh chính diện, ánh sáng đều cho kết quả tốt nhất.</p>
+              </div>
+            </div>
+
+            <label id="dropZone" class="drop-zone" for="imageInput" tabindex="0">
+              <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+              <span class="upload-icon" aria-hidden="true">↥</span>
+              <span>
+                <strong>Thả ảnh hoặc bấm để chọn</strong>
+                <small>JPG, PNG, WebP · xử lý cục bộ</small>
+              </span>
+            </label>
+
+            <div class="button-row">
+              <button id="sampleButton" class="button secondary" type="button">Dùng ảnh mẫu</button>
+              <button id="calibrateButton" class="button secondary" type="button">Đánh dấu miệng</button>
+            </div>
+
+            <label class="range-control" for="mouthSize">
+              <span>Độ rộng vùng miệng <output id="mouthSizeValue">20%</output></span>
+              <input id="mouthSize" type="range" min="10" max="32" value="20">
+            </label>
+          </section>
+
+          <section class="control-section voice-section">
+            <div class="section-heading">
+              <span class="step-number">02</span>
+              <div>
+                <h2>Chọn nguồn giọng</h2>
+                <p>Phát tiếng Việt, chèn audio hoặc nói trực tiếp.</p>
+              </div>
+            </div>
+
+            <div class="tabs" role="tablist" aria-label="Nguồn giọng">
+              <button class="tab active" type="button" role="tab" aria-selected="true" data-tab="tts">Văn bản</button>
+              <button class="tab" type="button" role="tab" aria-selected="false" data-tab="audio">Âm thanh</button>
+              <button class="tab" type="button" role="tab" aria-selected="false" data-tab="mic">Microphone</button>
+            </div>
+
+            <div id="ttsPanel" class="tab-panel active" role="tabpanel">
+              <label class="field-label" for="speechText">Nội dung tiếng Việt</label>
+              <textarea id="speechText" rows="5">Xin chào! Tôi là nhân vật ảo được tạo trực tiếp trong Microsoft Edge. Ảnh và tệp âm thanh do bạn chọn được xử lý cục bộ, không cần máy chủ riêng.</textarea>
+
+              <label class="field-label" for="voiceSelect">Giọng đọc có trên thiết bị</label>
+              <select id="voiceSelect">
+                <option value="">Đang tải danh sách giọng…</option>
+              </select>
+
+              <div class="dual-range">
+                <label class="range-control" for="rate">
+                  <span>Tốc độ <output id="rateValue">1.0×</output></span>
+                  <input id="rate" type="range" min="0.6" max="1.5" step="0.1" value="1">
+                </label>
+                <label class="range-control" for="pitch">
+                  <span>Cao độ <output id="pitchValue">1.0</output></span>
+                  <input id="pitch" type="range" min="0.6" max="1.4" step="0.1" value="1">
+                </label>
+              </div>
+
+              <div class="button-row">
+                <button id="speakButton" class="button primary" type="button">
+                  <span aria-hidden="true">▶</span> Phát và nhép môi
+                </button>
+                <button id="stopButton" class="button icon-button" type="button" title="Dừng phát" aria-label="Dừng phát">■</button>
+              </div>
+            </div>
+
+            <div id="audioPanel" class="tab-panel" role="tabpanel" hidden>
+              <label class="audio-picker" for="audioInput">
+                <input id="audioInput" type="file" accept="audio/*" hidden>
+                <span aria-hidden="true">♫</span>
+                <strong>Chọn tệp âm thanh</strong>
+                <small>MP3, WAV, M4A, OGG hoặc WebM</small>
+              </label>
+              <audio id="audioPlayer" controls preload="metadata"></audio>
+              <p class="micro-copy">Biên độ âm thanh được phân tích theo thời gian thực để điều khiển khẩu hình.</p>
+            </div>
+
+            <div id="micPanel" class="tab-panel" role="tabpanel" hidden>
+              <div class="mic-card">
+                <span id="micOrb" class="mic-orb" aria-hidden="true">●</span>
+                <div>
+                  <strong id="micTitle">Microphone đang tắt</strong>
+                  <small id="micHint">Edge sẽ hỏi quyền truy cập khi bạn bắt đầu.</small>
+                </div>
+              </div>
+              <button id="micButton" class="button primary full-width" type="button">Bắt đầu nhận giọng Việt</button>
+              <p class="micro-copy">Lời nói tạm thời được hiển thị ngay và chuyển động môi bám theo âm lượng thật.</p>
+            </div>
+          </section>
+        </aside>
+
+        <section class="stage-panel" aria-label="Sân khấu nhân vật ảo">
+          <div class="stage-toolbar">
+            <div>
+              <span id="liveDot" class="live-dot"></span>
+              <strong id="stageStatus">Sẵn sàng</strong>
+              <small id="stageDetail">Ảnh mẫu đã được nạp</small>
+            </div>
+            <div class="toolbar-actions">
+              <button id="resetButton" class="text-button" type="button">Đặt lại</button>
+              <button id="snapshotButton" class="text-button accent" type="button">Chụp PNG</button>
+            </div>
+          </div>
+
+          <div id="canvasShell" class="canvas-shell">
+            <canvas id="avatarCanvas" width="960" height="960" aria-label="Bản xem trước nhân vật ảo"></canvas>
+            <div id="calibrationHint" class="calibration-hint" hidden>
+              <span>＋</span>
+              Bấm chính giữa môi trên ảnh
+            </div>
+            <div class="privacy-badge"><span aria-hidden="true">⌾</span> Ảnh và tệp được xử lý cục bộ</div>
+          </div>
+
+          <div class="meter-card">
+            <div>
+              <small>Tín hiệu miệng</small>
+              <strong id="signalLabel">IDLE</strong>
+            </div>
+            <div id="levelMeter" class="level-meter" aria-label="Mức âm thanh">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+
+          <div class="transcript-card">
+            <div class="transcript-heading">
+              <span>Nhận dạng giọng Việt</span>
+              <button id="copyTranscript" class="text-button" type="button">Sao chép</button>
+            </div>
+            <p id="transcriptText">Bản chép lời sẽ xuất hiện ở đây khi bật microphone.</p>
+          </div>
+        </section>
+      </div>
+
+      <section class="feature-strip" aria-label="Đặc điểm">
+        <article>
+          <span>01</span>
+          <div><strong>Không API key</strong><small>Không tài khoản, không quota.</small></div>
+        </article>
+        <article>
+          <span>02</span>
+          <div><strong>Giọng Việt Edge</strong><small>Tự chọn voice vi-VN có sẵn.</small></div>
+        </article>
+        <article>
+          <span>03</span>
+          <div><strong>Ảnh riêng tư</strong><small>Object URL chỉ tồn tại trên máy.</small></div>
+        </article>
+        <article>
+          <span>04</span>
+          <div><strong>Nhép môi realtime</strong><small>Biên độ + viseme tiếng Việt.</small></div>
+        </article>
+      </section>
+    </main>
+
+    <footer>
+      <span>Avatar VN v1.0.0</span>
+      <span>MIT License · Phát triển bởi Long Ngo</span>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

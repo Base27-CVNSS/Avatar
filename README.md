@@ -9,14 +9,18 @@
 [![License](https://img.shields.io/badge/License-MIT-8468ff)](LICENSE)
 [![Privacy](https://img.shields.io/badge/Processing-Local%20only-102e49)](PRIVACY.md)
 
-Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát triển. Ứng dụng nhận một ảnh chân dung, giọng nói hoặc tệp âm thanh, sau đó dựng chuyển động môi theo thời gian thực bằng Web Speech API, Web Audio API và Canvas 2D. Phần ảnh, Canvas và phân tích tệp audio chạy cục bộ; dịch vụ TTS/STT cụ thể do Edge/Windows cung cấp và có thể dùng xử lý trực tuyến tùy voice, phiên bản và cấu hình hệ thống.
+Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát triển. Phiên bản 1.1 nhận diện landmark của môi, hai mắt và khung mặt trên ảnh upload bằng MediaPipe Face Mesh chạy cục bộ, sau đó dựng chuyển động mềm bằng Web Speech API, Web Audio API và Canvas 2D. Phần ảnh, Face Mesh, Canvas và phân tích tệp audio chạy trên thiết bị; dịch vụ TTS/STT cụ thể do Edge/Windows cung cấp và có thể dùng xử lý trực tuyến tùy voice, phiên bản và cấu hình hệ thống.
 
 > Bản này được tái cấu trúc từ ý tưởng của ứng dụng `lip-sync-ai-main`. Mã gốc tải ảnh/âm thanh lên fal.ai và gọi OmniHuman 1.5 ở backend. Avatar VN loại bỏ toàn bộ Next.js server, `FAL_KEY`, lưu trữ đám mây và API sinh video.
 
 ## Điểm nổi bật
 
 - Chọn hoặc kéo thả ảnh JPG, PNG, WebP và GIF.
-- Hiệu chỉnh chính xác tâm miệng bằng một cú bấm.
+- Tự nhận diện hàng trăm landmark để định vị môi, mắt và tỷ lệ mặt.
+- Không dùng lại tọa độ miệng của ảnh trước cho ảnh mới.
+- Chế độ hiệu chỉnh dự phòng 5 điểm: hai mắt, hai khóe miệng và tâm môi.
+- Biến dạng mềm giữ texture môi gốc; không vẽ oval đen hoặc răng giả đè lên ảnh.
+- Chớp mắt ngẫu nhiên và vi chuyển động đầu ở biên độ thấp.
 - Tự ưu tiên giọng `vi-VN` có sẵn trong Microsoft Edge/Windows.
 - Đọc văn bản tiếng Việt và tạo viseme gần đúng theo nguyên âm/phụ âm.
 - Chèn tệp MP3, WAV, M4A, OGG hoặc WebM; khẩu hình bám theo biên độ âm thanh thật.
@@ -30,7 +34,9 @@ Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát tr
 
 ```mermaid
 flowchart TD
-    A["Ảnh cục bộ"] --> D["Canvas avatar"]
+    A["Ảnh cục bộ"] --> L["MediaPipe Face Mesh"]
+    L --> M["Môi + mắt + khung mặt"]
+    M --> D["Canvas texture warp"]
     B["Văn bản tiếng Việt"] --> E["Edge speechSynthesis"]
     B --> F["Bộ ánh xạ viseme Việt"]
     C["Audio / Microphone"] --> G["Web Audio Analyser"]
@@ -44,6 +50,7 @@ flowchart TD
 | Thành phần | API trình duyệt | Vai trò |
 |---|---|---|
 | Ảnh | `File`, `ObjectURL`, Canvas 2D | Đọc ảnh và dựng nhân vật cục bộ |
+| Landmark | MediaPipe Face Mesh + WASM | Định vị môi, mắt và tỷ lệ khuôn mặt |
 | Phát giọng | `speechSynthesis` | Dùng voice tiếng Việt có sẵn trong Edge/Windows |
 | Nhận giọng | `SpeechRecognition` / `webkitSpeechRecognition` | Chuyển lời nói thành văn bản `vi-VN` |
 | Lip-sync TTS | Bộ viseme JavaScript | Ước lượng khẩu hình từ ký tự/âm tiết tiếng Việt |
@@ -61,13 +68,13 @@ flowchart TD
 
 ## Sử dụng
 
-1. Chọn ảnh chân dung chính diện.
-2. Bấm **Đánh dấu miệng**, rồi bấm vào chính giữa môi trong ảnh.
+1. Chọn ảnh chân dung chính diện; Face Mesh sẽ tự động chạy.
+2. Kiểm tra khung hướng dẫn màu xanh trên mắt và miệng. Nếu nhận diện chưa đúng, bấm **Chỉnh 5 điểm** và lần lượt đặt hai mắt, hai khóe miệng, tâm môi.
 3. Chọn một trong ba nguồn:
    - **Văn bản:** chọn voice tiếng Việt, chỉnh tốc độ/cao độ, bấm **Phát và nhép môi**.
    - **Âm thanh:** chọn tệp và bấm Play trên trình phát.
    - **Microphone:** bấm **Bắt đầu nhận giọng Việt** rồi cho phép Edge dùng mic.
-4. Điều chỉnh độ rộng vùng miệng nếu cần.
+4. Điều chỉnh **Độ mở khẩu hình** và **Vi chuyển động gương mặt** ở mức vừa phải; 55–75% thường tự nhiên nhất.
 5. Bấm **Chụp PNG** để lưu khung hình hiện tại.
 
 ## Cài giọng Việt cho Edge/Windows
@@ -106,7 +113,7 @@ Manifest chỉ yêu cầu:
 }
 ```
 
-`storage` chỉ lưu vị trí/độ rộng miệng, tốc độ và cao độ. Ảnh và audio được mở qua Object URL trong phiên hiện tại. Quyền microphone chỉ xuất hiện khi người dùng chủ động bấm bắt đầu. `SpeechRecognition` có thể dùng dịch vụ giọng nói của Microsoft, tùy cấu hình Edge/Windows; mã extension không tự gửi dữ liệu tới endpoint nào. Xem [PRIVACY.md](PRIVACY.md).
+`storage` chỉ lưu cường độ khẩu hình, vi chuyển động, tốc độ và cao độ. Landmark không được tái sử dụng giữa các ảnh. Ảnh và audio được mở qua Object URL trong phiên hiện tại. Quyền microphone chỉ xuất hiện khi người dùng chủ động bấm bắt đầu. `SpeechRecognition` có thể dùng dịch vụ giọng nói của Microsoft, tùy cấu hình Edge/Windows; mã extension không tự gửi dữ liệu tới endpoint nào. Xem [PRIVACY.md](PRIVACY.md).
 
 ## Cấu trúc mã nguồn
 
@@ -119,6 +126,8 @@ Avatar/
 ├── app.js
 ├── assets/
 │   └── demo-avatar.svg
+├── vendor/
+│   └── face_mesh/       # MediaPipe JS, model data và WASM cục bộ
 ├── icons/
 │   ├── logo.svg
 │   ├── icon16.png
@@ -126,6 +135,7 @@ Avatar/
 │   ├── icon48.png
 │   └── icon128.png
 ├── PRIVACY.md
+├── THIRD_PARTY_NOTICES.md
 ├── LICENSE
 └── README.md
 ```
@@ -139,7 +149,7 @@ Không cần `npm install`.
 - Bấm **Reload** trên thẻ Avatar VN.
 - Bấm icon extension để mở phiên bản mới.
 
-Để xem dashboard như website, có thể phục vụ thư mục bằng một static server bất kỳ. TTS và audio hoạt động trực tiếp; microphone/STT cần secure context (`https://`, `localhost` hoặc trang extension).
+Hãy chạy bằng **Load unpacked** trong `edge://extensions`. Khi mở trực tiếp qua `file://`, Edge có thể chặn việc nạp WASM/model; lúc đó dashboard vẫn hoạt động nhưng nhận diện tự động sẽ chuyển sang hiệu chỉnh 5 điểm. Microphone/STT cũng cần secure context (`https://`, `localhost` hoặc trang extension).
 
 ## Kiểm tra nhanh
 
@@ -151,7 +161,6 @@ python -m json.tool manifest.json
 
 ## Lộ trình
 
-- Face landmark chạy cục bộ bằng MediaPipe Tasks.
 - Bộ viseme tiếng Việt theo âm vị chính xác hơn.
 - Ghi WebM cục bộ từ Canvas + audio do người dùng tải lên.
 - Nhiều preset biểu cảm và cử động đầu.
@@ -161,4 +170,4 @@ python -m json.tool manifest.json
 
 Phát triển bởi **Long Ngo**.
 
-Phát hành theo [MIT License](LICENSE). Bạn có thể sử dụng, sửa đổi và phân phối, miễn giữ lại thông báo bản quyền và giấy phép.
+Phần mã Avatar VN phát hành theo [MIT License](LICENSE). MediaPipe Face Mesh được phân phối theo Apache License 2.0; xem [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

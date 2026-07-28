@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Avatar VN — Edge Talking Photo",
   "short_name": "Avatar VN",
-  "version": "1.0.0",
-  "description": "Tạo ảnh biết nói bằng giọng Việt, nhận giọng nói và nhép môi ngay trong Microsoft Edge, không cần máy chủ.",
+  "version": "1.1.0",
+  "description": "Nhận diện môi, mắt và gương mặt để tạo ảnh biết nói tự nhiên bằng giọng Việt ngay trong Microsoft Edge.",
   "author": "Long Ngo",
   "minimum_chrome_version": "110",
   "permissions": [
@@ -22,6 +22,6 @@
     "128": "icons/icon128.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   }
 }

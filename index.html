@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#07111f">
-    <meta name="description" content="Avatar VN tạo ảnh biết nói bằng Web Speech API và Canvas ngay trong Microsoft Edge.">
+    <meta name="description" content="Avatar VN nhận diện landmark khuôn mặt và tạo ảnh biết nói bằng MediaPipe, Web Speech API và Canvas ngay trong Microsoft Edge.">
     <title>Avatar VN — Edge Talking Photo</title>
     <link rel="icon" href="icons/logo.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css">
@@ -24,7 +24,7 @@
 
       <div class="status-row" aria-label="Trạng thái công nghệ">
         <span class="status-pill"><i class="status-dot"></i> No backend</span>
-        <span class="status-pill">Edge native</span>
+        <span class="status-pill">Face mesh local</span>
         <span class="status-pill status-private">Không server riêng</span>
       </div>
     </header>
@@ -35,15 +35,15 @@
           <p class="eyebrow">Ảnh biết nói · Tiếng Việt · Riêng tư</p>
           <h1>Biến một bức ảnh thành<br><span>nhân vật ảo có giọng nói.</span></h1>
           <p class="lede">
-            Chọn ảnh, đánh dấu miệng, rồi dùng giọng Việt của Microsoft Edge,
-            tệp âm thanh hoặc microphone. Phần dựng ảnh và lip-sync chạy ngay trên máy.
+            Chọn ảnh để nhận diện tự động môi, mắt và tỷ lệ gương mặt, rồi dùng giọng Việt
+            của Microsoft Edge, tệp âm thanh hoặc microphone. Toàn bộ phần dựng hình chạy trên máy.
           </p>
         </div>
         <div class="engine-card">
           <span class="engine-icon" aria-hidden="true">⌁</span>
           <div>
             <small>Realtime engine</small>
-            <strong>Web Speech + Canvas 2D</strong>
+            <strong>MediaPipe Face Mesh + Web Speech</strong>
             <span id="capabilityText">Đang kiểm tra trình duyệt…</span>
           </div>
         </div>
@@ -70,13 +70,26 @@
             </label>
 
             <div class="button-row">
-              <button id="sampleButton" class="button secondary" type="button">Dùng ảnh mẫu</button>
-              <button id="calibrateButton" class="button secondary" type="button">Đánh dấu miệng</button>
+              <button id="detectFaceButton" class="button primary" type="button">Nhận diện tự động</button>
+              <button id="calibrateButton" class="button secondary" type="button">Chỉnh 5 điểm</button>
+            </div>
+
+            <div id="faceDetectionStatus" class="detection-status" aria-live="polite">
+              <span class="detection-dot"></span>
+              <div>
+                <strong>Đang chuẩn bị Face Mesh</strong>
+                <small>Ảnh mẫu dùng mốc khuôn mặt cài sẵn.</small>
+              </div>
             </div>
 
             <label class="range-control" for="mouthSize">
-              <span>Độ rộng vùng miệng <output id="mouthSizeValue">20%</output></span>
-              <input id="mouthSize" type="range" min="10" max="32" value="20">
+              <span>Độ mở khẩu hình <output id="mouthSizeValue">68%</output></span>
+              <input id="mouthSize" type="range" min="35" max="100" value="68">
+            </label>
+
+            <label class="range-control" for="faceMotion">
+              <span>Vi chuyển động gương mặt <output id="faceMotionValue">35%</output></span>
+              <input id="faceMotion" type="range" min="0" max="100" value="35">
             </label>
           </section>
 
@@ -165,7 +178,7 @@
             <canvas id="avatarCanvas" width="960" height="960" aria-label="Bản xem trước nhân vật ảo"></canvas>
             <div id="calibrationHint" class="calibration-hint" hidden>
               <span>＋</span>
-              Bấm chính giữa môi trên ảnh
+              <strong id="calibrationText">Bấm tâm mắt trái</strong>
             </div>
             <div class="privacy-badge"><span aria-hidden="true">⌾</span> Ảnh và tệp được xử lý cục bộ</div>
           </div>
@@ -211,11 +224,12 @@
     </main>
 
     <footer>
-      <span>Avatar VN v1.0.0</span>
+      <span>Avatar VN v1.1.0</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="vendor/face_mesh/face_mesh.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

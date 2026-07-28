@@ -11,19 +11,21 @@ Avatar VN được thiết kế theo nguyên tắc xử lý cục bộ.
 - Luồng microphone khi người dùng chủ động bật.
 - Văn bản nhập để phát giọng.
 - Bản chép lời do Speech Recognition trả về.
-- Tùy chọn vị trí miệng, độ rộng miệng, tốc độ và cao độ.
+- Landmark khuôn mặt được MediaPipe Face Mesh tính trong bộ nhớ.
+- Tùy chọn độ mở miệng, vi chuyển động, tốc độ và cao độ.
 
 ## Dữ liệu được lưu
 
 Extension chỉ dùng `chrome.storage.local` để lưu:
 
-- Tọa độ vùng miệng.
-- Độ rộng vùng miệng.
+- Độ mở khẩu hình.
+- Mức vi chuyển động gương mặt.
 - Tốc độ phát giọng.
 - Cao độ phát giọng.
 - Phiên bản và thời điểm cài đặt extension.
 
 Ảnh, audio, văn bản và bản chép lời không được extension tải lên máy chủ hoặc lưu vào cơ sở dữ liệu bên ngoài.
+Landmark môi, mắt và gương mặt chỉ tồn tại trong phiên hiện tại và không được dùng lại cho ảnh khác.
 
 ## Truyền dữ liệu
 

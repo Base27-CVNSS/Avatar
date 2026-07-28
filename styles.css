@@ -419,6 +419,66 @@ input:focus-visible {
   margin-top: 13px;
 }
 
+.button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+  transform: none;
+}
+
+.detection-status {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  min-height: 58px;
+  margin-top: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(5, 12, 21, 0.55);
+}
+
+.detection-status > div {
+  display: grid;
+  gap: 3px;
+}
+
+.detection-status strong {
+  font-size: 0.72rem;
+}
+
+.detection-status small {
+  color: var(--muted);
+  font-size: 0.65rem;
+  line-height: 1.35;
+}
+
+.detection-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #7890a2;
+  box-shadow: 0 0 0 5px rgba(120, 144, 162, 0.09);
+}
+
+.detection-status.success {
+  border-color: rgba(52, 226, 189, 0.24);
+}
+
+.detection-status.success .detection-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 5px rgba(52, 226, 189, 0.09), 0 0 16px rgba(52, 226, 189, 0.34);
+}
+
+.detection-status.error {
+  border-color: rgba(255, 105, 141, 0.25);
+}
+
+.detection-status.error .detection-dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 5px rgba(255, 105, 141, 0.08);
+}
+
 .range-control {
   display: grid;
   gap: 8px;
@@ -700,6 +760,10 @@ audio:not([src]) {
   font-size: 0.72rem;
   transform: translateX(-50%);
   backdrop-filter: blur(12px);
+}
+
+.calibration-hint strong {
+  font-size: 0.72rem;
 }
 
 .privacy-badge {

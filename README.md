@@ -2,7 +2,7 @@
 
 ![Cybergirl](icons/logo.svg)
 
-[![Phiên bản](https://img.shields.io/badge/Phiên_bản-3.2.0-ff4f9a)](CHANGELOG.md)
+[![Phiên bản](https://img.shields.io/badge/Phiên_bản-3.3.0-ff4f9a)](CHANGELOG.md)
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows)](.github/workflows/build-windows.yml)
 [![Microsoft Edge](https://img.shields.io/badge/Microsoft_Edge-110%2B-0aa7f5?logo=microsoftedge)](https://www.microsoft.com/edge)
 [![Giấy phép](https://img.shields.io/badge/Giấy_phép-MIT-a970ff)](LICENSE)
@@ -12,13 +12,16 @@
 và nhép môi bằng tiếng Việt. Người dùng Windows chỉ cài GUI; không phải cài
 Python, Node.js hoặc CUDA.**
 
-Cybergirl 3.2 do **Long Ngo** phát triển. Mouth Engine, Face Mesh, ảnh 4K/8K,
+Cybergirl 3.3 do **Long Ngo** phát triển. Mouth Engine, Face Mesh, ảnh 4K/8K,
 mắt và vi chuyển động được giữ lại; Edge Extension nay kết nối companion cục bộ
 qua Native Messaging để chạy Silero VAD, Whisper, LLM GGUF và TTS tiếng Việt.
 
 ## Điểm nổi bật
 
 - Một bộ cài GUI cho Windows 10/11.
+- Bố cục tập trung: Avatar ở trên, chat và microphone ngay bên dưới.
+- Chat live tiếng Việt: nghe liên tục, tự gửi câu hoàn chỉnh và cho phép ngắt lời.
+- Ghi âm trực tiếp tối đa 5 phút, nghe lại và xóa ngay trong bộ nhớ cục bộ.
 - Tự mở Microsoft Edge ở chế độ cửa sổ ứng dụng, không hiện cửa sổ lệnh.
 - Toàn bộ giao diện, thông báo lỗi và hướng dẫn bằng tiếng Việt.
 - Hai đường giọng: Web Speech của Edge hoặc Silero VAD + Whisper cục bộ.
@@ -34,7 +37,8 @@ qua Native Messaging để chạy Silero VAD, Whisper, LLM GGUF và TTS tiếng 
 - Full-duplex có echo-guard và barge-in; microphone không còn phải đóng khi AI nói.
 - Bộ nhớ dài hạn SQLite cục bộ, chỉ hoạt động khi người dùng chủ động bật.
 - Emotion Engine tiếng Việt điều khiển gaze, chớp mắt và chuyển động đầu.
-- TTS cục bộ trả lịch viseme có timing; audio dùng phổ tần thay vì chỉ RMS.
+- TTS cục bộ trả lịch viseme có timing; text dùng lịch căn chỉnh hữu hạn, audio
+  dùng phổ tần thay vì chỉ RMS.
 - Registry hồ sơ model/voice và health từng module ngay trên dashboard.
 - Quay và xuất WebM trực tiếp từ Canvas; audio Web Audio được ghép khi khả dụng.
 - Ảnh, landmark và dữ liệu Face Mesh không được gửi tới API.
@@ -77,9 +81,9 @@ flowchart LR
 | Khóa API | RAM của companion | Chỉ gửi tới nhà cung cấp đã chọn |
 | Bộ nhớ dài hạn | SQLite cục bộ, mặc định tắt | Không |
 
-## Đối chiếu 30 khối sau bản 3.2
+## Đối chiếu 30 khối sau bản 3.3
 
-| # | Khối | Cybergirl 3.2 | Trạng thái |
+| # | Khối | Cybergirl 3.3 | Trạng thái |
 |---:|---|---|---|
 | 1 | Ảnh/Avatar | Face Mesh + Canvas + ảnh 4K/8K | ✅ |
 | 2 | Mắt/miệng | Face Mesh + hiệu chỉnh 5 điểm | ✅ |
@@ -120,7 +124,7 @@ có thể dùng dịch vụ của Microsoft. Xem [chính sách riêng tư](PRIVA
 ### Cách một — Bộ cài GUI
 
 1. Mở mục **Actions** hoặc **Releases** của repository.
-2. Tải `Cybergirl-Setup-v3.2.0-Windows-x64.exe`.
+2. Tải `Cybergirl-Setup-v3.3.0-Windows-x64.exe`.
 3. Chạy bộ cài và chọn tạo biểu tượng ngoài màn hình.
 4. Bộ cài tự đăng ký `vn.base27.cybergirl` trong Native Messaging của Edge.
 5. Mở `edge://extensions`, bật chế độ nhà phát triển và tải thư mục
@@ -226,13 +230,15 @@ Cybergirl không khóa cứng tên mô hình. Hãy nhập tên mà endpoint củ
 
 ## Hội thoại giọng nói
 
-1. Chọn ảnh và chờ Face Mesh nhận diện.
-2. Chọn nhân vật và cấu hình API.
+1. Chọn ảnh và chờ Face Mesh nhận diện; Avatar luôn nằm ở sân khấu phía trên.
+2. Chọn nhân vật và cấu hình API trong bảng thiết lập phía dưới.
 3. Bấm **Kiểm tra API**.
-4. Bật **Hội thoại giọng nói liên tục**.
-5. Trong **Thiết lập companion cục bộ**, chọn Silero ONNX,
+4. Trong dock dưới Avatar, bấm **Bắt đầu Chat live**. Cybergirl tự bật chế độ
+   hội thoại liên tục, nhận câu tiếng Việt hoàn chỉnh và gửi tới bộ não AI.
+5. Có thể bấm **Ghi âm** để lưu một bản ghi cục bộ tối đa 5 phút. Bản ghi không
+   được upload; khi nghe lại, phổ âm thanh thật điều khiển khẩu hình.
+6. Trong **Thiết lập companion cục bộ**, chọn Silero ONNX,
    `whisper-cli.exe` và model Whisper đa ngôn ngữ.
-6. Mở thẻ **Microphone** và bấm **Bắt đầu nhận giọng Việt**.
 7. Silero cắt câu, Whisper phiên âm cục bộ, bộ não trả lời và TTS phát giọng;
    Mouth Engine nhận sự kiện để đồng bộ môi, mắt và gương mặt.
 8. Có thể bật **Bộ nhớ dài hạn cục bộ**; dữ liệu chỉ nằm trong SQLite trên PC
@@ -302,8 +308,8 @@ GitHub Actions tự tạo:
 
 - `Cybergirl-Windows-x64.exe` — GUI một tệp.
 - `Cybergirl-Companion.exe` — Native Messaging host.
-- `Cybergirl-Edge-v3.2.0.zip` — extension có ID ổn định.
-- `Cybergirl-Setup-v3.2.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
+- `Cybergirl-Edge-v3.3.0.zip` — extension có ID ổn định.
+- `Cybergirl-Setup-v3.3.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
 
 Tự build trên Windows:
 
@@ -333,6 +339,8 @@ Bộ kiểm thử xác thực:
 - Native protocol, Silero/Whisper/GGUF/TTS component matrix.
 - Memory SQLite opt-in, Emotion Engine và phoneme timing.
 - Full-duplex echo-guard, model registry và xuất WebM.
+- GUI Avatar-trên/chat-dưới, Chat live và ghi âm MediaRecorder cục bộ.
+- Text-aligned viseme, trạng thái hội thoại và motion theo ngữ cảnh.
 - Adapter GGUF, Ollama, OpenAI Responses, Gemini Interactions, OpenRouter và compatible.
 - OpenRouter attribution, ZDR routing và kiểm tra chống rò rỉ khóa.
 - Token bảo vệ cổng vòng lặp.

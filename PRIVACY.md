@@ -13,6 +13,7 @@ thiểu.
 - Tùy chọn khẩu hình, chuyển động, tốc độ và cao độ.
 - Lịch sử hội thoại của phiên đang mở.
 - Bộ nhớ dài hạn SQLite nếu người dùng chủ động bật.
+- Bản ghi microphone tạm trong bộ nhớ trình duyệt nếu người dùng bấm **Ghi âm**.
 
 Ảnh, landmark và texture khuôn mặt không được gửi tới lõi Python hoặc API AI.
 
@@ -27,6 +28,10 @@ Khi người dùng chọn companion cục bộ, microphone được companion th
 Silero VAD, tệp WAV tạm và Whisper chạy trên máy. WAV của câu nói bị xóa sau
 khi phiên âm. Âm thanh không được gửi tới OpenAI, Gemini, OpenRouter hoặc LLM
 GGUF.
+
+Nút **Ghi âm** của dashboard dùng `MediaRecorder` trong Edge. Bản ghi chỉ tồn
+tại dưới dạng Blob cục bộ để nghe lại, tối đa 5 phút, không tự tải lên API và
+được giải phóng khi người dùng xóa hoặc đóng ứng dụng.
 
 ## API hội thoại
 

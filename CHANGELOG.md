@@ -2,6 +2,20 @@
 
 Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
 
+## 3.3.0 — 28/07/2026
+
+- Thiết kế lại GUI theo luồng Avatar ở trên, dock hội thoại trực tiếp ngay bên dưới.
+- Chuyển lịch sử chat, bản chép lời và ô nhập khỏi cột cấu hình sang sân khấu chính.
+- Thêm nút **Chat live** để bật microphone, nhận dạng vi-VN và tự gửi câu hoàn chỉnh.
+- Thêm ghi âm cục bộ tối đa 5 phút, bộ đếm thời gian, nghe lại và xóa khỏi RAM.
+- Bản ghi phát lại điều khiển khẩu hình bằng biên độ và ba dải phổ âm thanh thật.
+- Thêm `scheduleTextAlignedVisemes` để căn viseme tiếng Việt hữu hạn theo text,
+  dấu câu, tốc độ TTS và đồng cấu âm.
+- Thêm trạng thái hội thoại `listening/transcribing/thinking/speaking/interrupted`.
+- Gaze ưu tiên nhìn người dùng khi nghe; head micro-motion và nod thay đổi theo
+  trạng thái hội thoại, cảm xúc và mức âm thanh.
+- Bổ sung kiểm thử thứ tự bố cục, điều khiển live, MediaRecorder và text-viseme.
+
 ## 3.2.0 — 28/07/2026
 
 - Thêm OpenRouter Chat Completions vào GUI Windows và Native Companion.

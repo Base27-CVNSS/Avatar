@@ -36,7 +36,7 @@ def _yeu_cau_json(
         headers={
             "Content-Type": "application/json; charset=utf-8",
             "Accept": "application/json",
-            "User-Agent": "Cybergirl-Companion/3.2",
+            "User-Agent": "Cybergirl-Companion/3.3",
             **(headers or {}),
         },
     )

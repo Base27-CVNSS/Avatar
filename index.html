@@ -59,6 +59,106 @@
       </aside>
 
       <div class="workspace">
+        <section class="stage-panel" aria-label="Avatar và hội thoại thời gian thực">
+          <div class="stage-toolbar">
+            <div>
+              <span id="liveDot" class="live-dot"></span>
+              <strong id="stageStatus">Sẵn sàng</strong>
+              <small id="stageDetail">Ảnh mẫu đã được nạp</small>
+            </div>
+            <div class="toolbar-actions">
+              <span id="emotionChip" class="emotion-chip">Trung tính</span>
+              <button id="masterImageButton" class="text-button" type="button">Ảnh 8K</button>
+              <button id="recordWebmButton" class="text-button" type="button">Quay WebM</button>
+              <button id="resetButton" class="text-button" type="button">Đặt lại</button>
+              <button id="snapshotButton" class="text-button accent" type="button">Chụp PNG</button>
+            </div>
+          </div>
+
+          <div id="canvasShell" class="canvas-shell">
+            <canvas id="avatarCanvas" width="1280" height="720" aria-label="Avatar Cybergirl thời gian thực 16:9"></canvas>
+            <div id="calibrationHint" class="calibration-hint" hidden>
+              <span>＋</span>
+              <strong id="calibrationText">Bấm tâm mắt trái</strong>
+            </div>
+            <div class="realtime-badge"><span aria-hidden="true">●</span> Face Mesh · 30 FPS</div>
+            <div class="privacy-badge"><span aria-hidden="true">⌾</span> Ảnh được xử lý cục bộ</div>
+          </div>
+
+          <div class="meter-card">
+            <div>
+              <small>Tín hiệu khẩu hình</small>
+              <strong id="signalLabel">IDLE</strong>
+            </div>
+            <div id="levelMeter" class="level-meter" aria-label="Mức âm thanh">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+
+          <section id="conversationDock" class="conversation-dock" aria-labelledby="conversationTitle">
+            <div class="conversation-heading">
+              <div>
+                <p class="eyebrow">Live Conversation</p>
+                <h2 id="conversationTitle">Trò chuyện trực tiếp với Cybergirl</h2>
+              </div>
+              <output id="liveModeStatus" class="live-mode-status">Đang chờ người dùng</output>
+            </div>
+
+            <div class="conversation-grid">
+              <div class="conversation-history">
+                <div id="chatMessages" class="chat-messages" aria-live="polite" aria-label="Lịch sử hội thoại">
+                  <article class="chat-message assistant">
+                    <span>Cybergirl</span>
+                    <p>Xin chào! Hãy bấm Chat live để nói hoặc nhập câu hỏi tiếng Việt ở bên cạnh.</p>
+                  </article>
+                </div>
+
+                <div class="transcript-card">
+                  <div class="transcript-heading">
+                    <span>Nhận dạng giọng Việt theo thời gian thực</span>
+                    <button id="copyTranscript" class="text-button" type="button">Sao chép</button>
+                  </div>
+                  <p id="transcriptText">Bản chép lời sẽ xuất hiện ở đây khi bật microphone.</p>
+                </div>
+              </div>
+
+              <div class="conversation-composer">
+                <div class="live-control-row">
+                  <button id="liveTalkButton" class="button live-button" type="button" aria-pressed="false">
+                    <span class="button-dot" aria-hidden="true"></span>
+                    Bắt đầu Chat live
+                  </button>
+                  <button id="recordVoiceButton" class="button secondary" type="button" aria-pressed="false">
+                    <span aria-hidden="true">●</span>
+                    Ghi âm
+                  </button>
+                  <output id="recordingTimer" class="recording-timer" aria-live="polite">00:00</output>
+                </div>
+
+                <div id="recordingPreview" class="recording-preview" hidden>
+                  <div>
+                    <strong>Bản ghi gần nhất</strong>
+                    <small>Chỉ nằm trong bộ nhớ trình duyệt cho đến khi xóa hoặc đóng ứng dụng.</small>
+                  </div>
+                  <audio id="recordedVoicePlayer" controls preload="metadata"></audio>
+                  <button id="deleteVoiceButton" class="text-button" type="button">Xóa bản ghi</button>
+                </div>
+
+                <label class="field-label" for="chatInput">Tin nhắn tiếng Việt</label>
+                <textarea id="chatInput" rows="4" placeholder="Nhập câu hỏi hoặc bấm Chat live để nói…"></textarea>
+                <div class="composer-actions">
+                  <small>Enter để gửi · Shift+Enter để xuống dòng</small>
+                  <div class="button-row">
+                    <button id="sendChatButton" class="button primary" type="button">Gửi và trả lời</button>
+                    <button id="clearChatButton" class="button icon-button" type="button" title="Xóa hội thoại" aria-label="Xóa hội thoại">⌫</button>
+                    <button id="clearMemoryButton" class="button secondary" type="button">Xóa bộ nhớ</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </section>
+
         <aside class="control-panel" aria-label="Bảng điều khiển">
           <section class="control-section">
             <div class="section-heading">
@@ -338,66 +438,8 @@
               <button id="testApiButton" class="button secondary" type="button">Kiểm tra API</button>
             </div>
 
-            <div id="chatMessages" class="chat-messages" aria-live="polite">
-              <article class="chat-message assistant">
-                <span>Cybergirl</span>
-                <p>Xin chào! Bạn có thể nói bằng microphone hoặc nhập câu hỏi tiếng Việt tại đây.</p>
-              </article>
-            </div>
-
-            <label class="field-label" for="chatInput">Tin nhắn tiếng Việt</label>
-            <textarea id="chatInput" rows="3" placeholder="Nhập câu hỏi…"></textarea>
-            <div class="button-row">
-              <button id="sendChatButton" class="button primary" type="button">Gửi và trả lời</button>
-              <button id="clearChatButton" class="button icon-button" type="button" title="Xóa hội thoại" aria-label="Xóa hội thoại">⌫</button>
-              <button id="clearMemoryButton" class="button secondary" type="button">Xóa bộ nhớ dài hạn</button>
-            </div>
           </section>
         </aside>
-
-        <section class="stage-panel" aria-label="Sân khấu nhân vật ảo">
-          <div class="stage-toolbar">
-            <div>
-              <span id="liveDot" class="live-dot"></span>
-              <strong id="stageStatus">Sẵn sàng</strong>
-              <small id="stageDetail">Ảnh mẫu đã được nạp</small>
-            </div>
-            <div class="toolbar-actions">
-              <span id="emotionChip" class="emotion-chip">Trung tính</span>
-              <button id="masterImageButton" class="text-button" type="button">Ảnh 8K</button>
-              <button id="recordWebmButton" class="text-button" type="button">Quay WebM</button>
-              <button id="resetButton" class="text-button" type="button">Đặt lại</button>
-              <button id="snapshotButton" class="text-button accent" type="button">Chụp PNG</button>
-            </div>
-          </div>
-
-          <div id="canvasShell" class="canvas-shell">
-            <canvas id="avatarCanvas" width="1280" height="720" aria-label="Bản xem trước nhân vật ảo 16:9"></canvas>
-            <div id="calibrationHint" class="calibration-hint" hidden>
-              <span>＋</span>
-              <strong id="calibrationText">Bấm tâm mắt trái</strong>
-            </div>
-            <div class="privacy-badge"><span aria-hidden="true">⌾</span> Ảnh và tệp được xử lý cục bộ</div>
-          </div>
-
-          <div class="meter-card">
-            <div>
-              <small>Tín hiệu miệng</small>
-              <strong id="signalLabel">IDLE</strong>
-            </div>
-            <div id="levelMeter" class="level-meter" aria-label="Mức âm thanh">
-              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-            </div>
-          </div>
-
-          <div class="transcript-card">
-            <div class="transcript-heading">
-              <span>Nhận dạng giọng Việt</span>
-              <button id="copyTranscript" class="text-button" type="button">Sao chép</button>
-            </div>
-            <p id="transcriptText">Bản chép lời sẽ xuất hiện ở đây khi bật microphone.</p>
-          </div>
-        </section>
       </div>
 
       <section class="feature-strip" aria-label="Đặc điểm">
@@ -421,7 +463,7 @@
     </main>
 
     <footer>
-      <span>Cybergirl v3.2.0</span>
+      <span>Cybergirl v3.3.0</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 

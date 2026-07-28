@@ -89,6 +89,13 @@
     sendChatButton: $("#sendChatButton"),
     clearChatButton: $("#clearChatButton"),
     clearMemoryButton: $("#clearMemoryButton"),
+    liveTalkButton: $("#liveTalkButton"),
+    recordVoiceButton: $("#recordVoiceButton"),
+    recordingTimer: $("#recordingTimer"),
+    liveModeStatus: $("#liveModeStatus"),
+    recordingPreview: $("#recordingPreview"),
+    recordedVoicePlayer: $("#recordedVoicePlayer"),
+    deleteVoiceButton: $("#deleteVoiceButton"),
     toast: $("#toast")
   };
 
@@ -184,6 +191,7 @@
     captureDestination: null,
     activeSource: null,
     mediaElementSource: null,
+    recordedMediaSource: null,
     micStream: null,
     recognition: null,
     recognitionShouldRun: false,
@@ -207,7 +215,15 @@
     voiceSendTimer: null,
     resumeMicAfterTts: false,
     mediaRecorder: null,
-    recordedChunks: []
+    recordedChunks: [],
+    voiceRecorder: null,
+    voiceRecordingStream: null,
+    voiceRecordingOwnsStream: false,
+    voiceRecordingChunks: [],
+    voiceRecordingStartedAt: 0,
+    voiceRecordingTimer: null,
+    voiceRecordingUrl: null,
+    conversationPhase: "idle"
   };
 
   function showToast(message, isError = false) {
@@ -225,6 +241,32 @@
     ui.liveDot.style.boxShadow = isLive
       ? "0 0 12px rgba(255,128,183,.85)"
       : "0 0 12px rgba(255,79,154,.75)";
+  }
+
+  function setConversationPhase(phase, detail = "") {
+    const labels = {
+      idle: "Đang chờ người dùng",
+      listening: "Đang nghe bạn nói",
+      recording: "Đang ghi âm cục bộ",
+      transcribing: "Đang nhận dạng tiếng Việt",
+      thinking: "Cybergirl đang suy nghĩ",
+      speaking: "Cybergirl đang trả lời",
+      interrupted: "Đã ngắt lời · tiếp tục nghe"
+    };
+    state.conversationPhase = phase;
+    ui.liveModeStatus.textContent = detail || labels[phase] || labels.idle;
+    ui.liveModeStatus.classList.toggle("active", phase !== "idle");
+  }
+
+  function syncMicrophoneControls(active) {
+    ui.liveTalkButton.classList.toggle("active", active);
+    ui.liveTalkButton.setAttribute("aria-pressed", String(active));
+    ui.liveTalkButton.lastChild.textContent = active
+      ? " Dừng Chat live"
+      : " Bắt đầu Chat live";
+    ui.micButton.textContent = active
+      ? "Dừng microphone"
+      : "Bắt đầu nhận giọng Việt";
   }
 
   function safeFileName(name) {
@@ -488,6 +530,8 @@
     if (name === "native.disconnected") {
       state.nativeReady = false;
       state.nativeListening = false;
+      syncMicrophoneControls(false);
+      setConversationPhase("idle", "Companion đã ngắt kết nối");
       setCompanionStatus("Companion đã ngắt kết nối", data.error || "Hãy cài hoặc đăng ký lại Native Host.", "error");
       return;
     }
@@ -502,11 +546,13 @@
     }
     if (name === "vad.speech_start") {
       stopTts(false);
+      setConversationPhase("listening");
       setStage("Đang nghe câu nói", "Silero VAD phát hiện tiếng Việt", true);
       return;
     }
     if (name === "stt.started") {
       ui.transcriptText.textContent = "Whisper đang phiên âm cục bộ…";
+      setConversationPhase("transcribing");
       setStage("Đang phiên âm", "Whisper CPU · dữ liệu ở trên máy", true);
       return;
     }
@@ -520,6 +566,7 @@
       return;
     }
     if (name === "llm.thinking") {
+      setConversationPhase("thinking");
       setStage("Đang suy nghĩ", `${data.provider || "AI"} đang tạo câu trả lời`, true);
       return;
     }
@@ -530,6 +577,7 @@
         state.chatHistory.push({ role: "assistant", content: text });
         ui.speechText.value = text;
       }
+      setConversationPhase("speaking");
       setStage("Đã trả lời", "Companion cục bộ");
       return;
     }
@@ -541,16 +589,20 @@
       state.speechActive = true;
       state.activeSignal = "tts";
       state.lastTtsText = String(data.text || "");
+      setConversationPhase("speaking");
       if (Array.isArray(data.visemes) && data.visemes.length) {
         scheduleTimedVisemes(data.visemes);
       } else {
-        scheduleVietnameseVisemes(state.lastTtsText, Number(ui.rate.value));
+        scheduleTextAlignedVisemes(state.lastTtsText, Number(ui.rate.value));
       }
       setStage("Đang phát TTS cục bộ", `${data.engine || "TTS"} · RTF ${data.rtf ?? "—"}`, true);
       return;
     }
     if (name === "tts.ended" || name === "conversation.interrupted") {
       stopTts(false);
+      setConversationPhase(
+        name === "tts.ended" ? (state.nativeListening ? "listening" : "idle") : "interrupted"
+      );
       setStage(name === "tts.ended" ? "Hoàn tất" : "Đã ngắt lời", "Companion tiếp tục lắng nghe");
       return;
     }
@@ -831,6 +883,7 @@
     appendChatMessage("user", message);
     state.chatHistory.push({ role: "user", content: message });
     ui.chatInput.value = "";
+    setConversationPhase("thinking");
     setStage("Đang suy nghĩ", `${ui.characterSelect.selectedOptions[0]?.textContent || "Cybergirl"} đang trả lời`, true);
     const pending = appendChatMessage("assistant pending", "Đang tạo câu trả lời tiếng Việt…");
 
@@ -856,6 +909,7 @@
         state.chatHistory.push({ role: "assistant", content: answer });
       }
       ui.speechText.value = answer;
+      setConversationPhase(ui.autoSpeak.checked ? "speaking" : "idle");
       setStage("Đã trả lời", result.nhan_vat || "Cybergirl");
       if (ui.autoSpeak.checked && (!nativeMessagingAvailable() || ui.ttsEngineSelect.value === "edge")) {
         speakText();
@@ -863,6 +917,7 @@
     } catch (error) {
       pending.classList.remove("pending");
       pending.querySelector("p").textContent = error.message;
+      setConversationPhase("idle", "Hội thoại bị gián đoạn");
       setCompanionStatus("Hội thoại bị gián đoạn", error.message, "error");
       setStage("Lỗi hội thoại", "Kiểm tra cấu hình API");
       showToast(error.message, true);
@@ -870,6 +925,7 @@
       state.sendingChat = false;
       ui.sendChatButton.disabled = false;
       ui.sendChatButton.textContent = "Gửi và trả lời";
+      ui.chatInput.focus();
     }
   }
 
@@ -1905,8 +1961,20 @@
   function updateHeadMotion(timestamp, motion, active) {
     const head = state.headMotion;
     if (timestamp >= head.nextTargetAt) {
-      const activityScale = active ? 1 : 0.48;
+      const phaseScale = {
+        idle: 0.46,
+        listening: 0.58,
+        recording: 0.64,
+        transcribing: 0.54,
+        thinking: 0.72,
+        speaking: 1,
+        interrupted: 0.68
+      }[state.conversationPhase] || (active ? 1 : 0.48);
+      const activityScale = active ? phaseScale : Math.min(phaseScale, 0.5);
       const emotionEnergy = clamp(Number(state.emotion.head_energy || 1), 0.45, 1.7);
+      const listeningBias = ["listening", "recording", "transcribing"].includes(
+        state.conversationPhase
+      ) ? 0.18 : 0;
       head.targetX = (
         (Math.random() - 0.5) * 1.8 * activityScale
         + Number(state.emotion.gaze_x || 0) * 0.62
@@ -1914,6 +1982,7 @@
       head.targetY = (
         (Math.random() - 0.5) * 2.2 * activityScale
         + Number(state.emotion.gaze_y || 0) * 0.5
+        + listeningBias
       ) * motion * emotionEnergy;
       head.targetRotation = (Math.random() - 0.5) * 0.0048 * activityScale * motion * emotionEnergy;
       head.nextTargetAt = timestamp + 1250 + Math.random() * 2100;
@@ -1922,9 +1991,15 @@
     head.x += (head.targetX - head.x) * easing;
     head.y += (head.targetY - head.y) * easing;
     head.rotation += (head.targetRotation - head.rotation) * easing;
+    const speakingNod = state.conversationPhase === "speaking"
+      ? Math.sin(timestamp / 310) * state.level * 0.26 * motion
+      : 0;
+    const listeningResponse = ["listening", "recording"].includes(state.conversationPhase)
+      ? Math.sin(timestamp / 760) * Math.min(state.level, 0.5) * 0.18 * motion
+      : 0;
     return {
       x: head.x,
-      y: head.y + state.level * 0.32 * motion,
+      y: head.y + state.level * 0.22 * motion + speakingNod + listeningResponse,
       rotation: head.rotation
     };
   }
@@ -1933,17 +2008,28 @@
     const gaze = state.gaze;
     if (timestamp >= gaze.nextTargetAt) {
       const arousal = clamp(Number(state.emotion.arousal || 0.22), 0, 1);
+      const listening = ["listening", "recording", "transcribing"].includes(
+        state.conversationPhase
+      );
+      const phaseBiasX = state.conversationPhase === "thinking" ? 0.14 : 0;
+      const phaseBiasY = state.conversationPhase === "thinking" ? -0.08 : 0;
       gaze.targetX = clamp(
-        Number(state.emotion.gaze_x || 0) + (Math.random() - 0.5) * (0.22 + arousal * 0.2),
+        (listening ? 0 : Number(state.emotion.gaze_x || 0))
+        + phaseBiasX
+        + (Math.random() - 0.5) * (listening ? 0.1 : 0.22 + arousal * 0.2),
         -1,
         1
       );
       gaze.targetY = clamp(
-        Number(state.emotion.gaze_y || 0) + (Math.random() - 0.5) * 0.16,
+        (listening ? 0 : Number(state.emotion.gaze_y || 0))
+        + phaseBiasY
+        + (Math.random() - 0.5) * (listening ? 0.075 : 0.16),
         -0.7,
         0.7
       );
-      gaze.nextTargetAt = timestamp + 650 + Math.random() * (1800 - arousal * 700);
+      gaze.nextTargetAt = timestamp
+        + (listening ? 1050 : 650)
+        + Math.random() * (1800 - arousal * 700);
     }
     const easing = 0.055;
     gaze.x += (gaze.targetX - gaze.x) * easing;
@@ -2108,22 +2194,33 @@
     }, Math.max(0, Number(item.at_ms || 0))));
   }
 
-  function scheduleVietnameseVisemes(text, rate) {
+  function scheduleTextAlignedVisemes(text, rate = 1) {
     const units = buildVietnameseVisemeTimeline(text);
-    let index = 0;
     window.clearTimeout(state.ttsTimer);
-    const baseInterval = clamp(92 / rate, 64, 152);
-    const advance = () => {
-      if (!state.speechActive) return;
-      const unit = units[index % units.length];
-      setViseme(unit.viseme);
-      const organicVariation = unit.viseme === "closed" ? 0 : (Math.random() - 0.5) * 0.045;
-      state.mouthTarget = clamp(unit.target + organicVariation, 0.008, 0.58);
-      state.lastActivityAt = performance.now();
-      index += 1;
-      state.ttsTimer = window.setTimeout(advance, baseInterval * unit.weight);
-    };
-    advance();
+    const millisecondsPerWeight = clamp(90 / Math.max(0.55, Number(rate) || 1), 58, 150);
+    let cursor = 0;
+    const timeline = units.map((unit, index) => {
+      const duration = millisecondsPerWeight * unit.weight;
+      const next = units[index + 1] || { target: 0.008 };
+      const shape = getVisemeShape(unit.viseme);
+      const item = {
+        at_ms: cursor,
+        duration_ms: duration,
+        viseme: unit.viseme,
+        open: unit.target,
+        width: shape.width,
+        release_open: unit.target * 0.62 + next.target * 0.38
+      };
+      cursor += duration;
+      return item;
+    });
+    scheduleTimedVisemes(timeline);
+    state.ttsTimer = window.setTimeout(() => {
+      if (state.speechActive) {
+        state.mouthTarget = 0.012;
+        setViseme("closed");
+      }
+    }, cursor + 60);
   }
 
   function speakText() {
@@ -2154,7 +2251,8 @@
     utterance.onstart = () => {
       state.speechActive = true;
       state.activeSignal = "tts";
-      scheduleVietnameseVisemes(text, utterance.rate);
+      setConversationPhase("speaking");
+      scheduleTextAlignedVisemes(text, utterance.rate);
       setStage("Đang phát giọng", `${selected?.name || "Giọng mặc định"} · ${utterance.lang}`, true);
     };
     utterance.onboundary = (event) => {
@@ -2166,11 +2264,15 @@
     };
     utterance.onend = () => {
       stopTts(false);
+      setConversationPhase(
+        state.nativeListening || state.recognitionShouldRun ? "listening" : "idle"
+      );
       setStage("Hoàn tất", "Đã phát xong nội dung tiếng Việt");
     };
     utterance.onerror = (event) => {
       state.resumeMicAfterTts = false;
       stopTts(false);
+      setConversationPhase("idle");
       if (event.error !== "canceled" && event.error !== "interrupted") {
         showToast(`Không thể phát giọng: ${event.error || "lỗi không xác định"}.`, true);
         setStage("Lỗi phát giọng", "Hãy thử một voice khác");
@@ -2290,23 +2392,25 @@
         ui.micOrb.classList.add("active");
         ui.micTitle.textContent = "Companion đang nghe";
         ui.micHint.textContent = "Silero VAD 16 kHz → Whisper tiếng Việt cục bộ.";
-        ui.micButton.textContent = "Dừng microphone";
+        syncMicrophoneControls(true);
+        setConversationPhase("listening");
         setStage("Đang nghe", "Silero VAD + Whisper CPU", true);
-        return;
+        return true;
       } catch (error) {
         showToast(error.message, true);
+        setConversationPhase("idle", "Không mở được microphone");
         setStage("Không mở được companion", "Kiểm tra model VAD, Whisper và microphone");
-        return;
+        return false;
       }
     }
 
     if (!SpeechRecognition) {
       showToast("Microsoft Edge trên thiết bị này không cung cấp Speech Recognition.", true);
-      return;
+      return false;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
       showToast("Không thể mở microphone. Hãy chạy dưới dạng Edge Extension hoặc HTTPS.", true);
-      return;
+      return false;
     }
 
     stopTts(false);
@@ -2351,6 +2455,7 @@
             if (state.speechActive && ui.fullDuplex.checked) {
               stopTts(false);
               if (state.nativeReady) nativeRequest("interrupt").catch(() => {});
+              setConversationPhase("interrupted");
               setStage("Bạn đã ngắt lời", "Cybergirl dừng nói và tiếp tục lắng nghe", true);
             }
             state.finalTranscript += `${cleaned} `;
@@ -2360,6 +2465,7 @@
         }
         const visibleText = `${state.finalTranscript}${interim}`.trim();
         ui.transcriptText.textContent = visibleText || "Đang nghe…";
+        setConversationPhase(interim ? "transcribing" : "listening");
         if (visibleText) {
           state.liveViseme = visemeFromText(visibleText.slice(-2));
           state.liveVisemeUntil = performance.now() + 190;
@@ -2397,16 +2503,24 @@
       ui.micOrb.classList.add("active");
       ui.micTitle.textContent = "Đang nghe tiếng Việt";
       ui.micHint.textContent = "Nói tự nhiên; lời tạm thời xuất hiện ngay.";
-      ui.micButton.textContent = "Dừng microphone";
+      syncMicrophoneControls(true);
+      setConversationPhase("listening");
       setStage("Đang nghe", "Microphone + nhận dạng vi-VN", true);
+      return true;
     } catch (error) {
       console.error(error);
       showToast("Edge chưa được cấp quyền microphone. Kiểm tra biểu tượng ổ khóa/quyền của extension.", true);
+      syncMicrophoneControls(false);
+      setConversationPhase("idle", "Chưa được cấp quyền microphone");
       setStage("Thiếu quyền microphone", "Cấp quyền rồi thử lại");
+      return false;
     }
   }
 
   async function stopMic(updateStatus = true) {
+    if (state.voiceRecorder?.state === "recording" && !state.voiceRecordingOwnsStream) {
+      stopVoiceRecording();
+    }
     if (state.nativeListening) {
       try {
         await nativeRequest("stop_listening");
@@ -2436,8 +2550,173 @@
     ui.micOrb.classList.remove("active");
     ui.micTitle.textContent = "Microphone đang tắt";
     ui.micHint.textContent = "Edge sẽ hỏi quyền truy cập khi bạn bắt đầu.";
-    ui.micButton.textContent = "Bắt đầu nhận giọng Việt";
+    syncMicrophoneControls(false);
+    setConversationPhase("idle");
     if (updateStatus) setStage("Đã dừng", "Microphone đã được đóng");
+  }
+
+  async function toggleLiveTalk() {
+    const active = state.nativeListening || state.recognitionShouldRun || Boolean(state.micStream);
+    if (active) {
+      await stopMic();
+      return;
+    }
+    if (!state.companionReady && !(await saveCompanionConfig(false))) {
+      setConversationPhase("idle", "Cần cấu hình bộ não AI");
+      return;
+    }
+    ui.voiceAutoSend.checked = true;
+    await savePreferences();
+    const started = await startMic();
+    if (started) {
+      showToast("Chat live đã bật · nói tự nhiên bằng tiếng Việt.");
+      ui.chatInput.blur();
+    }
+  }
+
+  function supportedAudioRecordingType() {
+    if (!globalThis.MediaRecorder?.isTypeSupported) return "";
+    return [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/ogg;codecs=opus"
+    ].find((type) => MediaRecorder.isTypeSupported(type)) || "";
+  }
+
+  function updateVoiceRecordingTimer() {
+    if (!state.voiceRecordingStartedAt) {
+      ui.recordingTimer.textContent = "00:00";
+      return;
+    }
+    const seconds = Math.floor((performance.now() - state.voiceRecordingStartedAt) / 1000);
+    const minutes = Math.floor(seconds / 60);
+    ui.recordingTimer.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+    if (seconds >= 300 && state.voiceRecorder?.state === "recording") {
+      stopVoiceRecording();
+      showToast("Bản ghi đã dừng ở giới hạn 5 phút.");
+    }
+  }
+
+  async function startVoiceRecording() {
+    if (!globalThis.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+      showToast("Microsoft Edge trên thiết bị này chưa hỗ trợ ghi âm trực tiếp.", true);
+      return;
+    }
+    stopTts(false);
+    ui.audioPlayer.pause();
+    ui.recordedVoicePlayer.pause();
+
+    try {
+      let stream = state.micStream;
+      state.voiceRecordingOwnsStream = !stream;
+      if (!stream) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1
+          }
+        });
+        const audioContext = await ensureAudioContext();
+        state.voiceRecordingSource = audioContext.createMediaStreamSource(stream);
+        state.voiceRecordingSource.connect(state.analyser);
+        state.activeSignal = "mic";
+      }
+      state.voiceRecordingStream = stream;
+      state.voiceRecordingChunks = [];
+      const mimeType = supportedAudioRecordingType();
+      state.voiceRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      state.voiceRecorder.ondataavailable = (event) => {
+        if (event.data?.size) state.voiceRecordingChunks.push(event.data);
+      };
+      state.voiceRecorder.onstop = () => {
+        window.clearInterval(state.voiceRecordingTimer);
+        state.voiceRecordingTimer = null;
+        state.voiceRecordingSource?.disconnect();
+        state.voiceRecordingSource = null;
+        if (state.voiceRecordingOwnsStream) {
+          state.voiceRecordingStream?.getTracks().forEach((track) => track.stop());
+          if (!state.nativeListening && !state.recognitionShouldRun) {
+            state.activeSignal = "idle";
+          }
+        }
+        const duration = performance.now() - state.voiceRecordingStartedAt;
+        const blob = new Blob(state.voiceRecordingChunks, {
+          type: state.voiceRecorder?.mimeType || mimeType || "audio/webm"
+        });
+        if (blob.size) {
+          if (state.voiceRecordingUrl) URL.revokeObjectURL(state.voiceRecordingUrl);
+          state.voiceRecordingUrl = URL.createObjectURL(blob);
+          ui.recordedVoicePlayer.src = state.voiceRecordingUrl;
+          ui.recordingPreview.hidden = false;
+          ui.recordingTimer.textContent = `${(duration / 1000).toFixed(1)} giây`;
+          showToast("Đã ghi âm cục bộ. Bạn có thể nghe lại ngay.");
+        }
+        state.voiceRecorder = null;
+        state.voiceRecordingStream = null;
+        state.voiceRecordingOwnsStream = false;
+        state.voiceRecordingChunks = [];
+        state.voiceRecordingStartedAt = 0;
+        ui.recordVoiceButton.classList.remove("active");
+        ui.recordVoiceButton.setAttribute("aria-pressed", "false");
+        ui.recordVoiceButton.lastChild.textContent = " Ghi âm";
+        setConversationPhase(
+          state.nativeListening || state.recognitionShouldRun ? "listening" : "idle"
+        );
+      };
+      state.voiceRecorder.start(250);
+      state.voiceRecordingStartedAt = performance.now();
+      state.voiceRecordingTimer = window.setInterval(updateVoiceRecordingTimer, 250);
+      ui.recordVoiceButton.classList.add("active");
+      ui.recordVoiceButton.setAttribute("aria-pressed", "true");
+      ui.recordVoiceButton.lastChild.textContent = " Dừng ghi";
+      setConversationPhase("recording");
+      setStage("Đang ghi âm", "Âm thanh chỉ nằm trong bộ nhớ trình duyệt", true);
+    } catch (error) {
+      console.error(error);
+      showToast("Không mở được microphone để ghi âm. Hãy kiểm tra quyền của Edge.", true);
+      setConversationPhase("idle", "Không mở được ghi âm");
+    }
+  }
+
+  function stopVoiceRecording() {
+    if (state.voiceRecorder?.state === "recording") {
+      state.voiceRecorder.stop();
+    }
+  }
+
+  function toggleVoiceRecording() {
+    if (state.voiceRecorder?.state === "recording") stopVoiceRecording();
+    else startVoiceRecording();
+  }
+
+  function deleteVoiceRecording() {
+    ui.recordedVoicePlayer.pause();
+    ui.recordedVoicePlayer.removeAttribute("src");
+    ui.recordedVoicePlayer.load();
+    if (state.voiceRecordingUrl) URL.revokeObjectURL(state.voiceRecordingUrl);
+    state.voiceRecordingUrl = null;
+    ui.recordingPreview.hidden = true;
+    ui.recordingTimer.textContent = "00:00";
+    showToast("Đã xóa bản ghi khỏi bộ nhớ.");
+  }
+
+  async function activateRecordedVoice() {
+    await stopMic(false);
+    stopTts(false);
+    const audioContext = await ensureAudioContext();
+    disconnectActiveSource();
+    if (!state.recordedMediaSource) {
+      state.recordedMediaSource = audioContext.createMediaElementSource(ui.recordedVoicePlayer);
+    }
+    state.recordedMediaSource.connect(state.analyser);
+    state.recordedMediaSource.connect(audioContext.destination);
+    state.recordedMediaSource.connect(state.captureDestination);
+    state.activeSource = state.recordedMediaSource;
+    state.activeSignal = "audio";
+    setConversationPhase("speaking", "Đang phát lại bản ghi");
+    setStage("Đang phát bản ghi", "Khẩu hình bám theo phổ âm thanh thật", true);
   }
 
   async function connectNativeCompanion() {
@@ -2492,6 +2771,7 @@
   function stopAll() {
     state.resumeMicAfterTts = false;
     window.clearTimeout(state.voiceSendTimer);
+    stopVoiceRecording();
     stopTts(false);
     stopMic(false);
     ui.audioPlayer.pause();
@@ -2500,6 +2780,7 @@
       state.activeSignal = "idle";
     }
     state.mouthTarget = 0;
+    setConversationPhase("idle");
     setStage("Sẵn sàng", "Chọn một nguồn giọng để tiếp tục");
   }
 
@@ -2650,6 +2931,28 @@
       if (state.nativeListening || state.recognitionShouldRun || state.micStream) stopMic();
       else startMic();
     });
+    ui.liveTalkButton.addEventListener("click", toggleLiveTalk);
+    ui.recordVoiceButton.addEventListener("click", toggleVoiceRecording);
+    ui.deleteVoiceButton.addEventListener("click", deleteVoiceRecording);
+    ui.recordedVoicePlayer.addEventListener("play", () => {
+      activateRecordedVoice().catch((error) => {
+        console.error(error);
+        showToast("Không thể phân tích bản ghi này.", true);
+      });
+    });
+    ui.recordedVoicePlayer.addEventListener("pause", () => {
+      if (!ui.recordedVoicePlayer.ended && state.activeSignal === "audio") {
+        state.mouthTarget = 0;
+        setConversationPhase("idle", "Bản ghi đang tạm dừng");
+      }
+    });
+    ui.recordedVoicePlayer.addEventListener("ended", () => {
+      if (state.activeSource === state.recordedMediaSource) disconnectActiveSource();
+      state.activeSignal = "idle";
+      state.mouthTarget = 0;
+      setConversationPhase("idle");
+      setStage("Hoàn tất", "Đã phát xong bản ghi");
+    });
     ui.snapshotButton.addEventListener("click", downloadSnapshot);
     ui.masterImageButton.addEventListener("click", downloadMasterImage);
     ui.recordWebmButton.addEventListener("click", toggleWebmRecording);
@@ -2671,7 +2974,7 @@
       if (model && ui.providerSelect.value === "ollama") ui.apiModel.value = model;
     });
     ui.chatInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         sendChat();
       }
@@ -2690,6 +2993,7 @@
       ui.pitch.value = "1";
       ui.transcriptText.textContent = "Bản chép lời sẽ xuất hiện ở đây khi bật microphone.";
       clearChat();
+      deleteVoiceRecording();
       state.mouthOpen = 0;
       state.mouthTarget = 0;
       setViseme("idle");
@@ -2749,11 +3053,13 @@
     ui.audioPlayer.addEventListener("error", () => showToast("Edge không giải mã được định dạng âm thanh này.", true));
 
     window.addEventListener("beforeunload", () => {
+      stopVoiceRecording();
       stopTts(false);
       stopMic(false);
       if (state.nativeReady) nativeRequest("interrupt").catch(() => {});
       if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
       if (state.audioObjectUrl) URL.revokeObjectURL(state.audioObjectUrl);
+      if (state.voiceRecordingUrl) URL.revokeObjectURL(state.voiceRecordingUrl);
     });
   }
 

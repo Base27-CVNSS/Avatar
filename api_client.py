@@ -77,7 +77,7 @@ class APIClient:
         request_headers = {
             "Content-Type": "application/json; charset=utf-8",
             "Accept": "application/json",
-            "User-Agent": "Cybergirl/3.2",
+            "User-Agent": "Cybergirl/3.3",
             **(headers or {}),
         }
         request = urllib.request.Request(

@@ -1,4 +1,4 @@
-"""Cybergirl 3.2 — GUI Windows dùng nhân Microsoft Edge.
+"""Cybergirl 3.3 — GUI Windows dùng nhân Microsoft Edge.
 
 Ứng dụng đóng gói thành một tệp EXE bằng PyInstaller. Khi chạy, chương trình:
 
@@ -32,7 +32,7 @@ from api_client import APIClient, CauHinhAPI, LoiAPI
 from voice_registry import LoiCauHinhNhanVat, VoiceRegistry
 
 
-PHIEN_BAN = "3.2.0"
+PHIEN_BAN = "3.3.0"
 CONG_MAC_DINH = 27827
 GIOI_HAN_JSON = 1_000_000
 

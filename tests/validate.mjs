@@ -163,6 +163,24 @@ assert.match(html, /id="masterImageButton"/, "Phải có nút tải ảnh master
 assert.match(html, /id="runtimeWarning"/, "Phải cảnh báo khi người dùng mở file://");
 assert.match(html, /id="chatMessages"/, "Phải có giao diện hội thoại AI");
 assert.match(html, /id="characterSelect"/, "Phải cho phép chuyển nhân vật");
+assert.ok(
+  html.indexOf('id="avatarCanvas"') < html.indexOf('id="chatMessages"'),
+  "Avatar phải nằm phía trên lịch sử chat"
+);
+assert.ok(
+  html.indexOf('id="chatMessages"') < html.indexOf('class="control-panel"'),
+  "Dock chat phải nằm cùng sân khấu, trước bảng cấu hình"
+);
+assert.match(html, /id="conversationDock"/, "Phải có dock hội thoại dưới Avatar");
+assert.match(html, /id="liveTalkButton"/, "Phải có nút Chat live");
+assert.match(html, /id="recordVoiceButton"/, "Phải có nút ghi âm trực tiếp");
+assert.match(html, /id="recordedVoicePlayer"/, "Phải nghe lại được bản ghi cục bộ");
+assert.match(app, /function toggleLiveTalk/, "Chat live phải bật/tắt microphone");
+assert.match(app, /function startVoiceRecording/, "Phải có bộ ghi âm người dùng");
+assert.match(app, /voiceRecorder = new MediaRecorder/, "Ghi âm phải dùng MediaRecorder của Edge");
+assert.match(app, /seconds >= 300/, "Bản ghi phải có giới hạn thời lượng an toàn");
+assert.match(app, /scheduleTextAlignedVisemes/, "Text phải được căn với lịch viseme tiếng Việt");
+assert.match(app, /setConversationPhase/, "Chuyển động phải biết trạng thái hội thoại");
 assert.match(app, /CYBERGIRL_TOKEN/, "API vòng lặp phải dùng mã phiên");
 assert.match(app, /\/api\/hoi-thoai/, "GUI phải kết nối cổng hội thoại cục bộ");
 assert.match(app, /voiceAutoSend/, "Phải hỗ trợ vòng hội thoại giọng nói");
@@ -201,8 +219,8 @@ const securitySource = [
 assert.ok(!securitySource.includes("sk-or-v1-"), "Không được đưa khóa OpenRouter vào mã nguồn");
 assert.match(workflow, /cache-dependency-path: requirements-build\.txt/, "CI phải cache đúng tệp phụ thuộc");
 assert.match(workflow, /cybergirl_companion\.spec/, "CI phải đóng gói Native Companion");
-assert.match(workflow, /Cybergirl-Edge-v3\.2\.0\.zip/, "CI phải xuất gói Edge Extension");
-assert.match(installer, /#define MyAppVersion "3\.2\.0"/, "Bộ cài phải đúng phiên bản 3.2.0");
+assert.match(workflow, /Cybergirl-Edge-v3\.3\.0\.zip/, "CI phải xuất gói Edge Extension");
+assert.match(installer, /#define MyAppVersion "3\.3\.0"/, "Bộ cài phải đúng phiên bản 3.3.0");
 assert.match(installer, /register-native-host\.ps1/, "Bộ cài phải đăng ký Native Messaging");
 
 const characters = JSON.parse(await readText("characters.json"));

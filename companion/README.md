@@ -1,4 +1,4 @@
-# Cybergirl Companion 3.2
+# Cybergirl Companion 3.3
 
 Companion là Native Messaging host chạy cục bộ trên Windows. Microsoft Edge
 giao tiếp bằng JSON có tiền tố độ dài; không mở cổng mạng công khai và không

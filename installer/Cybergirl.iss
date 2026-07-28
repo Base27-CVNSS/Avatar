@@ -1,5 +1,5 @@
 #define MyAppName "Cybergirl"
-#define MyAppVersion "3.0.0"
+#define MyAppVersion "3.1.0"
 #define MyAppPublisher "Long Ngo"
 #define MyAppExeName "Cybergirl-Windows-x64.exe"
 

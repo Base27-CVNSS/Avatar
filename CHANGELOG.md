@@ -2,6 +2,20 @@
 
 Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
 
+## 3.1.0 — 28/07/2026
+
+- Thêm bộ nhớ hội thoại dài hạn SQLite, mặc định tắt và có nút xóa cục bộ.
+- Thêm truy hồi ký ức liên quan theo từ khóa tiếng Việt và độ gần thời gian.
+- Thêm Emotion Engine tiếng Việt chạy cục bộ; nối cảm xúc tới gaze, blink và head motion.
+- Thêm gaze saccade mềm, nhịp chớp mắt và năng lượng chuyển động theo cảm xúc.
+- Thêm full-duplex cho Web Speech; microphone không còn đóng khi gửi câu.
+- Thêm echo-guard cho Edge và Native VAD, đồng thời giữ barge-in để người dùng ngắt lời.
+- TTS cục bộ trả timeline phoneme/viseme theo thời lượng WAV và release đồng cấu âm.
+- Lip-sync audio dùng ba dải phổ tần ngoài RMS để chọn hình môi.
+- Thêm Model Profile Registry, tên giọng Windows SAPI và health pipeline chi tiết.
+- Thêm quay Canvas 30 FPS và xuất WebM cục bộ.
+- Bổ sung kiểm thử memory, emotion, phoneme timing và các thành phần UI mới.
+
 ## 3.0.0 — 28/07/2026
 
 - Thêm Microsoft Edge Native Messaging host `vn.base27.cybergirl`.

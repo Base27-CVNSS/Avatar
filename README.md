@@ -2,7 +2,7 @@
 
 ![Cybergirl](icons/logo.svg)
 
-[![Phiên bản](https://img.shields.io/badge/Phiên_bản-3.0.0-ff4f9a)](CHANGELOG.md)
+[![Phiên bản](https://img.shields.io/badge/Phiên_bản-3.1.0-ff4f9a)](CHANGELOG.md)
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows)](.github/workflows/build-windows.yml)
 [![Microsoft Edge](https://img.shields.io/badge/Microsoft_Edge-110%2B-0aa7f5?logo=microsoftedge)](https://www.microsoft.com/edge)
 [![Giấy phép](https://img.shields.io/badge/Giấy_phép-MIT-a970ff)](LICENSE)
@@ -12,7 +12,7 @@
 và nhép môi bằng tiếng Việt. Người dùng Windows chỉ cài GUI; không phải cài
 Python, Node.js hoặc CUDA.**
 
-Cybergirl 3.0 do **Long Ngo** phát triển. Mouth Engine, Face Mesh, ảnh 4K/8K,
+Cybergirl 3.1 do **Long Ngo** phát triển. Mouth Engine, Face Mesh, ảnh 4K/8K,
 mắt và vi chuyển động được giữ lại; Edge Extension nay kết nối companion cục bộ
 qua Native Messaging để chạy Silero VAD, Whisper, LLM GGUF và TTS tiếng Việt.
 
@@ -29,6 +29,12 @@ qua Native Messaging để chạy Silero VAD, Whisper, LLM GGUF và TTS tiếng 
 - Hỗ trợ GGUF/llama.cpp, Ollama, ChatGPT qua OpenAI Responses API, Gemini
   Interactions API và endpoint tương thích OpenAI.
 - Benchmark TTS ngay trên máy: thời gian tổng hợp, RTF và ký tự/giây.
+- Full-duplex có echo-guard và barge-in; microphone không còn phải đóng khi AI nói.
+- Bộ nhớ dài hạn SQLite cục bộ, chỉ hoạt động khi người dùng chủ động bật.
+- Emotion Engine tiếng Việt điều khiển gaze, chớp mắt và chuyển động đầu.
+- TTS cục bộ trả lịch viseme có timing; audio dùng phổ tần thay vì chỉ RMS.
+- Registry hồ sơ model/voice và health từng module ngay trên dashboard.
+- Quay và xuất WebM trực tiếp từ Canvas; audio Web Audio được ghép khi khả dụng.
 - Ảnh, landmark và dữ liệu Face Mesh không được gửi tới API.
 - Khóa API chỉ giữ trong RAM và bị xóa khi thoát.
 - Tạo ảnh master 7680×4320 ngay trên thiết bị.
@@ -50,7 +56,10 @@ flowchart LR
     B --> A["Gemini Interactions API"]
     B --> K["Ollama / OpenAI-compatible"]
     B --> T["Windows SAPI / Piper TTS"]
+    C --> R["Memory SQLite · opt-in"]
+    C --> X["Emotion + phoneme timing"]
     T --> M
+    X --> M
     F --> M
 ```
 
@@ -64,6 +73,42 @@ flowchart LR
 | Văn bản câu hỏi | Companion | Có, chỉ khi chọn OpenAI/Gemini/API từ xa |
 | Câu trả lời | Companion → Edge/TTS cục bộ | Có ở nhà cung cấp đã chọn |
 | Khóa API | RAM của companion | Chỉ gửi tới nhà cung cấp đã chọn |
+| Bộ nhớ dài hạn | SQLite cục bộ, mặc định tắt | Không |
+
+## Đối chiếu 30 khối sau bản 3.1
+
+| # | Khối | Cybergirl 3.1 | Trạng thái |
+|---:|---|---|---|
+| 1 | Ảnh/Avatar | Face Mesh + Canvas + ảnh 4K/8K | ✅ |
+| 2 | Mắt/miệng | Face Mesh + hiệu chỉnh 5 điểm | ✅ |
+| 3 | Chớp mắt | Chớp đơn/kép, nhịp theo cảm xúc | ✅ Nâng cấp |
+| 4 | Chuyển động đầu | Micro-motion theo emotion/arousal | ✅ Nâng cấp |
+| 5 | Microphone | Edge WebRTC hoặc companion 16 kHz | ✅ |
+| 6 | VAD | Silero VAD ONNX + endpoint detection | ✅ |
+| 7 | STT | whisper.cpp tiếng Việt + Edge fallback | ✅ |
+| 8 | Nhận dạng offline | Whisper cục bộ | ✅ |
+| 9 | LLM | llama.cpp GGUF/Ollama/OpenAI/Gemini | ✅ |
+| 10 | Hội thoại AI | Conversation Orchestrator VAD→STT→LLM→TTS | ✅ |
+| 11 | System Prompt | Persona riêng trong `characters.json` | ✅ |
+| 12 | Bộ nhớ | 24 lượt RAM + SQLite opt-in có truy hồi liên quan | ✅ Nâng cấp |
+| 13 | TTS | Windows SAPI/Piper cục bộ + Edge | ✅ |
+| 14 | Clone giọng | Chưa đóng gói; cần model và cơ chế đồng ý riêng | 🔬 Kế hoạch |
+| 15 | Lip-sync text | Lịch phoneme/viseme theo thời lượng WAV | ✅ Nâng cấp |
+| 16 | Lip-sync audio | RMS + ba dải phổ tần Web Audio | ✅ Nâng cấp |
+| 17 | Coarticulation | Attack/release nhìn trước phoneme kế tiếp | ✅ Nâng cấp |
+| 18 | Ngắt lời AI | Barge-in + hủy TTS | ✅ |
+| 19 | Full duplex | Mic luôn nghe + WebRTC AEC + Native echo-guard | ✅ Nâng cấp |
+| 20 | Tự động trả lời | STT Final → LLM → TTS | ✅ |
+| 21 | Hot-swap giọng | Edge voice + Windows SAPI + Piper | ✅ |
+| 22 | Hot-swap tính cách | Mai/Linh/An qua `characters.json` | ✅ |
+| 23 | Hot-swap LLM | Model Profile Registry | ✅ Nâng cấp |
+| 24 | Local LLM server | llama-server/Ollama adapter | ✅ |
+| 25 | Offline hoàn toàn | Whisper + GGUF + SAPI/Piper | ✅ Khi đủ model |
+| 26 | Emotion | Bộ phân tích cảm xúc tiếng Việt cục bộ | ✅ Nâng cấp |
+| 27 | Emotion → mặt | Gaze, blink, head energy | ✅ Nâng cấp |
+| 28 | Dashboard nhân vật | Character + model + voice manager | ✅ |
+| 29 | Chẩn đoán pipeline | Health VAD/STT/LLM/TTS/memory/duplex | ✅ Nâng cấp |
+| 30 | Xuất sản phẩm | PNG, ảnh master 8K và WebM | ✅; MP4 kế hoạch |
 
 Web Speech do Edge/Windows cung cấp; tùy cấu hình hệ điều hành, nhận dạng giọng
 có thể dùng dịch vụ của Microsoft. Xem [chính sách riêng tư](PRIVACY.md).
@@ -73,7 +118,7 @@ có thể dùng dịch vụ của Microsoft. Xem [chính sách riêng tư](PRIVA
 ### Cách một — Bộ cài GUI
 
 1. Mở mục **Actions** hoặc **Releases** của repository.
-2. Tải `Cybergirl-Setup-v3.0.0-Windows-x64.exe`.
+2. Tải `Cybergirl-Setup-v3.1.0-Windows-x64.exe`.
 3. Chạy bộ cài và chọn tạo biểu tượng ngoài màn hình.
 4. Bộ cài tự đăng ký `vn.base27.cybergirl` trong Native Messaging của Edge.
 5. Mở `edge://extensions`, bật chế độ nhà phát triển và tải thư mục
@@ -168,6 +213,8 @@ Cybergirl không khóa cứng tên mô hình. Hãy nhập tên mà endpoint củ
 6. Mở thẻ **Microphone** và bấm **Bắt đầu nhận giọng Việt**.
 7. Silero cắt câu, Whisper phiên âm cục bộ, bộ não trả lời và TTS phát giọng;
    Mouth Engine nhận sự kiện để đồng bộ môi, mắt và gương mặt.
+8. Có thể bật **Bộ nhớ dài hạn cục bộ**; dữ liệu chỉ nằm trong SQLite trên PC
+   và có nút xóa riêng.
 
 Bạn cũng có thể nhập câu hỏi rồi bấm **Gửi và trả lời** hoặc `Ctrl+Enter`.
 
@@ -233,8 +280,8 @@ GitHub Actions tự tạo:
 
 - `Cybergirl-Windows-x64.exe` — GUI một tệp.
 - `Cybergirl-Companion.exe` — Native Messaging host.
-- `Cybergirl-Edge-v3.0.0.zip` — extension có ID ổn định.
-- `Cybergirl-Setup-v3.0.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
+- `Cybergirl-Edge-v3.1.0.zip` — extension có ID ổn định.
+- `Cybergirl-Setup-v3.1.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
 
 Tự build trên Windows:
 
@@ -262,6 +309,8 @@ Bộ kiểm thử xác thực:
 - Mouth Engine không tái xuất hiện dải màu khoang miệng cố định.
 - Registry nhân vật tiếng Việt.
 - Native protocol, Silero/Whisper/GGUF/TTS component matrix.
+- Memory SQLite opt-in, Emotion Engine và phoneme timing.
+- Full-duplex echo-guard, model registry và xuất WebM.
 - Adapter GGUF, Ollama, OpenAI Responses, Gemini Interactions và compatible.
 - Token bảo vệ cổng vòng lặp.
 - Khóa API không bị ghi xuống ổ đĩa.

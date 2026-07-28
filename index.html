@@ -192,6 +192,7 @@
               <span id="nativeLlmStatus">GGUF · chờ</span>
               <span id="nativeTtsStatus">TTS · chờ</span>
             </div>
+            <output id="pipelineHealth" class="benchmark-result">Health pipeline · đang chờ companion.</output>
 
             <label class="field-label" for="characterSelect">Nhân vật</label>
             <select id="characterSelect">
@@ -199,6 +200,11 @@
             </select>
 
             <div class="api-settings">
+              <label class="field-label" for="modelProfileSelect">Hồ sơ mô hình</label>
+              <select id="modelProfileSelect">
+                <option value="custom">Tùy chỉnh thủ công</option>
+              </select>
+
               <label class="field-label" for="providerSelect">Nhà cung cấp AI</label>
               <select id="providerSelect">
                 <option value="gguf">GGUF cục bộ · llama.cpp</option>
@@ -245,6 +251,9 @@
                 <option value="edge">Microsoft Edge Web Speech</option>
               </select>
 
+              <label class="field-label" for="ttsVoice">Tên giọng Windows SAPI</label>
+              <input id="ttsVoice" type="text" placeholder="Để trống để dùng giọng vi-VN mặc định" spellcheck="false">
+
               <label class="field-label" for="piperPath">piper.exe · tùy chọn</label>
               <input id="piperPath" type="text" placeholder="C:\Cybergirl\bin\piper.exe" spellcheck="false">
 
@@ -274,6 +283,38 @@
               </span>
             </label>
 
+            <label class="toggle-row" for="fullDuplex">
+              <input id="fullDuplex" type="checkbox" checked>
+              <span>
+                <strong>Full-duplex và barge-in</strong>
+                <small>Microphone tiếp tục nghe khi AI nói; người dùng có thể ngắt lời.</small>
+              </span>
+            </label>
+
+            <label class="toggle-row" for="echoGuard">
+              <input id="echoGuard" type="checkbox" checked>
+              <span>
+                <strong>Chống vọng thông minh</strong>
+                <small>Nâng ngưỡng VAD khi TTS đang phát và loại câu lặp lại từ loa.</small>
+              </span>
+            </label>
+
+            <label class="toggle-row" for="memoryEnabled">
+              <input id="memoryEnabled" type="checkbox">
+              <span>
+                <strong>Bộ nhớ dài hạn cục bộ</strong>
+                <small>Lưu hội thoại vào SQLite trên PC; mặc định tắt và không đồng bộ cloud.</small>
+              </span>
+            </label>
+
+            <label class="toggle-row" for="emotionEnabled">
+              <input id="emotionEnabled" type="checkbox" checked>
+              <span>
+                <strong>Cảm xúc điều khiển gương mặt</strong>
+                <small>Câu trả lời tiếng Việt tác động tới gaze, chớp mắt và chuyển động đầu.</small>
+              </span>
+            </label>
+
             <div class="button-row">
               <button id="saveApiButton" class="button secondary" type="button">Lưu cấu hình</button>
               <button id="testApiButton" class="button secondary" type="button">Kiểm tra API</button>
@@ -291,6 +332,7 @@
             <div class="button-row">
               <button id="sendChatButton" class="button primary" type="button">Gửi và trả lời</button>
               <button id="clearChatButton" class="button icon-button" type="button" title="Xóa hội thoại" aria-label="Xóa hội thoại">⌫</button>
+              <button id="clearMemoryButton" class="button secondary" type="button">Xóa bộ nhớ dài hạn</button>
             </div>
           </section>
         </aside>
@@ -303,7 +345,9 @@
               <small id="stageDetail">Ảnh mẫu đã được nạp</small>
             </div>
             <div class="toolbar-actions">
+              <span id="emotionChip" class="emotion-chip">Trung tính</span>
               <button id="masterImageButton" class="text-button" type="button">Ảnh 8K</button>
+              <button id="recordWebmButton" class="text-button" type="button">Quay WebM</button>
               <button id="resetButton" class="text-button" type="button">Đặt lại</button>
               <button id="snapshotButton" class="text-button accent" type="button">Chụp PNG</button>
             </div>
@@ -359,7 +403,7 @@
     </main>
 
     <footer>
-      <span>Cybergirl v3.0.0</span>
+      <span>Cybergirl v3.1.0</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 

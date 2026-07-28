@@ -1,6 +1,6 @@
 # Benchmark tiếng Việt
 
-Cybergirl 3.0 benchmark tại runtime thay vì chép số liệu từ máy khác.
+Cybergirl 3.1 benchmark tại runtime thay vì chép số liệu từ máy khác.
 
 ## TTS
 
@@ -17,4 +17,3 @@ Phiên bản kế tiếp có thể mở rộng cùng nguyên tắc:
 - VAD: thời gian xử lý cửa sổ 32 ms, false-start và missed-speech.
 
 Không trộn kết quả API đám mây với kết quả CPU cục bộ trong cùng bảng xếp hạng.
-

@@ -8,7 +8,10 @@ import unittest
 from pathlib import Path
 
 from companion.config import CauHinhCompanion, KhoCauHinh
+from companion.emotion import phan_tich_cam_xuc
+from companion.memory import BoNhoDaiHan
 from companion.native_host import NativeHost
+from companion.phonemes import lap_lich_viseme
 from companion.protocol import BoGhiBanTin, LoiGiaoThuc, doc_ban_tin
 
 
@@ -52,6 +55,49 @@ class CompanionConfigTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             config.cap_nhat({"provider": "khong-hop-le"})
 
+    def test_duplex_and_memory_flags(self):
+        config = CauHinhCompanion()
+        config.cap_nhat(
+            {
+                "memory_enabled": True,
+                "full_duplex": True,
+                "echo_guard": True,
+                "character_id": "linh",
+            }
+        )
+        self.assertTrue(config.memory_enabled)
+        self.assertTrue(config.full_duplex)
+        self.assertTrue(config.echo_guard)
+        self.assertEqual(config.character_id, "linh")
+
+
+class EmotionAndLipSyncTests(unittest.TestCase):
+    def test_vietnamese_emotion_is_local_and_structured(self):
+        emotion = phan_tich_cam_xuc("Tuyệt vời, mình rất vui và chúc mừng bạn!")
+        self.assertEqual(emotion["name"], "vui")
+        self.assertGreater(emotion["arousal"], 0.4)
+        self.assertEqual(emotion["source"], "vietnamese-local")
+
+    def test_phoneme_timeline_matches_audio_duration(self):
+        timeline = lap_lich_viseme("Xin chào Việt Nam", 2.4)
+        self.assertGreater(len(timeline), 8)
+        end = timeline[-1]["at_ms"] + timeline[-1]["duration_ms"]
+        self.assertAlmostEqual(end, 2400, delta=2)
+        self.assertTrue(all("release_open" in item for item in timeline))
+
+
+class LongTermMemoryTests(unittest.TestCase):
+    def test_recall_and_clear_local_sqlite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            memory = BoNhoDaiHan(Path(directory) / "memory.sqlite3")
+            memory.ghi("mai", "user", "Tôi thích trồng cây sầu riêng.")
+            memory.ghi("mai", "assistant", "Mình sẽ nhớ sở thích trồng sầu riêng.")
+            recalled = memory.goi_lai("mai", "Cây sầu riêng của tôi", limit=2)
+            self.assertEqual(len(recalled), 2)
+            self.assertEqual(memory.thong_ke()["turns"], 2)
+            self.assertEqual(memory.xoa("mai"), 2)
+            memory.dong()
+
 
 class NativeHostTests(unittest.TestCase):
     def test_status_does_not_leak_api_key(self):
@@ -67,6 +113,8 @@ class NativeHostTests(unittest.TestCase):
             rendered = json.dumps(status, ensure_ascii=False)
             self.assertNotIn("bi-mat", rendered)
             self.assertTrue(status["privacy"]["native_channel"])
+            self.assertTrue(status["privacy"]["memory_local_only"])
+            self.assertIn("full_duplex", status["conversation"])
             host.close()
 
     def test_configure_returns_component_matrix(self):
@@ -93,4 +141,3 @@ class NativeHostTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

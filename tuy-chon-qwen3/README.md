@@ -5,7 +5,7 @@ Nó **không được đóng gói** vào Cybergirl Windows và không phải đi
 người dùng cuối chạy ứng dụng.
 
 Qwen3-TTS hiện không công bố tiếng Việt trong danh sách ngôn ngữ hỗ trợ chính
-thức. Vì vậy, Cybergirl 3.0 mặc định dùng giọng `vi-VN` có sẵn trong Microsoft
+thức. Vì vậy, Cybergirl 3.1 mặc định dùng giọng `vi-VN` có sẵn trong Microsoft
 Edge/Windows. Tùy chọn này cần được benchmark riêng trước khi đưa vào bản ổn định.
 
 Các thay đổi so với mã thử nghiệm ban đầu:

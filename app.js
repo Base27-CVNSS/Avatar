@@ -46,12 +46,15 @@
     resetButton: $("#resetButton"),
     snapshotButton: $("#snapshotButton"),
     masterImageButton: $("#masterImageButton"),
+    recordWebmButton: $("#recordWebmButton"),
+    emotionChip: $("#emotionChip"),
     companionStatus: $("#companionStatus"),
     nativeVadStatus: $("#nativeVadStatus"),
     nativeSttStatus: $("#nativeSttStatus"),
     nativeLlmStatus: $("#nativeLlmStatus"),
     nativeTtsStatus: $("#nativeTtsStatus"),
     characterSelect: $("#characterSelect"),
+    modelProfileSelect: $("#modelProfileSelect"),
     providerSelect: $("#providerSelect"),
     apiBaseUrl: $("#apiBaseUrl"),
     apiModel: $("#apiModel"),
@@ -62,6 +65,7 @@
     llamaServerPath: $("#llamaServerPath"),
     ggufPath: $("#ggufPath"),
     ttsEngineSelect: $("#ttsEngineSelect"),
+    ttsVoice: $("#ttsVoice"),
     piperPath: $("#piperPath"),
     piperModelPath: $("#piperModelPath"),
     connectNativeButton: $("#connectNativeButton"),
@@ -69,12 +73,18 @@
     ttsBenchmarkResult: $("#ttsBenchmarkResult"),
     autoSpeak: $("#autoSpeak"),
     voiceAutoSend: $("#voiceAutoSend"),
+    fullDuplex: $("#fullDuplex"),
+    echoGuard: $("#echoGuard"),
+    memoryEnabled: $("#memoryEnabled"),
+    emotionEnabled: $("#emotionEnabled"),
+    pipelineHealth: $("#pipelineHealth"),
     saveApiButton: $("#saveApiButton"),
     testApiButton: $("#testApiButton"),
     chatMessages: $("#chatMessages"),
     chatInput: $("#chatInput"),
     sendChatButton: $("#sendChatButton"),
     clearChatButton: $("#clearChatButton"),
+    clearMemoryButton: $("#clearMemoryButton"),
     toast: $("#toast")
   };
 
@@ -145,10 +155,29 @@
       targetRotation: 0,
       nextTargetAt: performance.now() + 900
     },
+    gaze: {
+      x: 0,
+      y: 0,
+      targetX: 0,
+      targetY: 0,
+      nextTargetAt: performance.now() + 700
+    },
+    emotion: {
+      name: "trung_tính",
+      intensity: 0.3,
+      arousal: 0.22,
+      gaze_x: 0,
+      gaze_y: 0,
+      head_energy: 1,
+      blink_factor: 1
+    },
     activeSignal: "idle",
     analyser: null,
     timeData: null,
+    frequencyData: null,
+    spectralViseme: "neutral",
     audioContext: null,
+    captureDestination: null,
     activeSource: null,
     mediaElementSource: null,
     micStream: null,
@@ -157,6 +186,8 @@
     finalTranscript: "",
     speechActive: false,
     ttsTimer: null,
+    visemeTimers: [],
+    lastTtsText: "",
     audioObjectUrl: null,
     level: 0,
     lastActivityAt: 0,
@@ -170,7 +201,9 @@
     chatHistory: [],
     sendingChat: false,
     voiceSendTimer: null,
-    resumeMicAfterTts: false
+    resumeMicAfterTts: false,
+    mediaRecorder: null,
+    recordedChunks: []
   };
 
   function showToast(message, isError = false) {
@@ -229,7 +262,10 @@
         rate: Number(ui.rate.value),
         pitch: Number(ui.pitch.value),
         autoSpeak: ui.autoSpeak.checked,
-        voiceAutoSend: ui.voiceAutoSend.checked
+        voiceAutoSend: ui.voiceAutoSend.checked,
+        fullDuplex: ui.fullDuplex.checked,
+        echoGuard: ui.echoGuard.checked,
+        emotionEnabled: ui.emotionEnabled.checked
       });
     } catch (error) {
       console.warn("Không thể lưu tùy chọn:", error);
@@ -246,6 +282,9 @@
       if (saved.pitch) ui.pitch.value = String(saved.pitch);
       if (saved.autoSpeak !== undefined) ui.autoSpeak.checked = Boolean(saved.autoSpeak);
       if (saved.voiceAutoSend !== undefined) ui.voiceAutoSend.checked = Boolean(saved.voiceAutoSend);
+      if (saved.fullDuplex !== undefined) ui.fullDuplex.checked = Boolean(saved.fullDuplex);
+      if (saved.echoGuard !== undefined) ui.echoGuard.checked = Boolean(saved.echoGuard);
+      if (saved.emotionEnabled !== undefined) ui.emotionEnabled.checked = Boolean(saved.emotionEnabled);
       updateRangeLabels();
     } catch (error) {
       console.warn("Không thể đọc tùy chọn:", error);
@@ -347,21 +386,90 @@
     ui.llamaServerPath.value = config.llama_server_path || "";
     ui.ggufPath.value = config.gguf_path || "";
     ui.ttsEngineSelect.value = config.tts_engine || "windows-sapi";
+    ui.ttsVoice.value = config.tts_voice || "";
     ui.piperPath.value = config.piper_path || "";
     ui.piperModelPath.value = config.piper_model_path || "";
+    ui.memoryEnabled.checked = Boolean(config.memory_enabled);
+    ui.emotionEnabled.checked = config.emotion_enabled !== false;
+    ui.fullDuplex.checked = config.full_duplex !== false;
+    ui.echoGuard.checked = config.echo_guard !== false;
   }
 
-  function setNativeComponents(components = {}) {
+  function setNativeComponents(components = {}, conversation = {}, config = {}) {
     state.nativeComponents = components;
+    const localLlmReady = components.llama_server && components.gguf_model;
+    const remoteOrAdapterReady = ["ollama", "openai-compatible"].includes(config.provider)
+      || (["openai", "gemini"].includes(config.provider) && config.api_key_present);
+    const llmReady = config.provider === "gguf" ? localLlmReady : remoteOrAdapterReady;
     [
       [ui.nativeVadStatus, components.silero_vad, "VAD"],
       [ui.nativeSttStatus, components.whisper_cli && components.whisper_model, "Whisper"],
-      [ui.nativeLlmStatus, components.llama_server && components.gguf_model, "GGUF"],
+      [ui.nativeLlmStatus, llmReady, config.provider === "gguf" ? "GGUF" : "LLM/API"],
       [ui.nativeTtsStatus, components.tts_local, "TTS"]
     ].forEach(([element, ready, label]) => {
       element.classList.toggle("ready", Boolean(ready));
       element.textContent = `${label} · ${ready ? "sẵn sàng" : "thiếu model"}`;
     });
+    const readyCount = [
+      components.silero_vad,
+      components.whisper_cli && components.whisper_model,
+      llmReady,
+      components.tts_local
+    ].filter(Boolean).length;
+    ui.pipelineHealth.textContent = [
+      `Health ${readyCount}/4 module`,
+      conversation.full_duplex ? "full-duplex" : "half-duplex",
+      conversation.echo_guard ? "echo-guard" : "không echo-guard",
+      conversation.memory_enabled
+        ? `memory ${conversation.memory_turns || 0} lượt`
+        : "memory tắt"
+    ].join(" · ");
+  }
+
+  function applyEmotion(emotion = {}) {
+    state.emotion = {
+      ...state.emotion,
+      ...emotion
+    };
+    const labels = {
+      "trung_tính": "Trung tính",
+      "vui": "Vui",
+      "buồn": "Buồn",
+      "quan_tâm": "Quan tâm",
+      "ngạc_nhiên": "Ngạc nhiên",
+      "căng_thẳng": "Căng thẳng",
+      "bình_tĩnh": "Bình tĩnh"
+    };
+    ui.emotionChip.textContent = labels[state.emotion.name] || state.emotion.name;
+    ui.emotionChip.dataset.emotion = state.emotion.name;
+  }
+
+  function populateModelProfiles(registry = {}) {
+    const current = ui.modelProfileSelect.value;
+    ui.modelProfileSelect.replaceChildren();
+    const custom = document.createElement("option");
+    custom.value = "custom";
+    custom.textContent = "Tùy chỉnh thủ công";
+    ui.modelProfileSelect.append(custom);
+    for (const profile of registry.models || []) {
+      const option = document.createElement("option");
+      option.value = profile.id;
+      option.textContent = `${profile.label}${profile.offline ? " · offline" : " · API"}`;
+      option.dataset.profile = JSON.stringify(profile);
+      ui.modelProfileSelect.append(option);
+    }
+    ui.modelProfileSelect.value = [...ui.modelProfileSelect.options]
+      .some((option) => option.value === current) ? current : "custom";
+  }
+
+  function applyModelProfile() {
+    const option = ui.modelProfileSelect.selectedOptions[0];
+    if (!option?.dataset.profile) return;
+    const profile = JSON.parse(option.dataset.profile);
+    ui.providerSelect.value = profile.provider;
+    ui.apiBaseUrl.value = profile.base_url;
+    ui.apiModel.value = profile.model;
+    showToast(`Đã chọn ${profile.label}.`);
   }
 
   function handleNativeEvent(message) {
@@ -376,6 +484,10 @@
     if (name === "audio.level") {
       state.level = clamp(Number(data.rms || 0) * 8, 0, 1);
       state.activeSignal = "mic";
+      return;
+    }
+    if (name === "audio.echo_suppressed") {
+      ui.pipelineHealth.textContent = "Echo-guard đang loại tiếng vọng từ loa · microphone vẫn mở.";
       return;
     }
     if (name === "vad.speech_start") {
@@ -411,10 +523,19 @@
       setStage("Đã trả lời", "Companion cục bộ");
       return;
     }
+    if (name === "emotion.changed") {
+      applyEmotion(data);
+      return;
+    }
     if (name === "tts.started") {
       state.speechActive = true;
       state.activeSignal = "tts";
-      scheduleVietnameseVisemes(String(data.text || ""), Number(ui.rate.value));
+      state.lastTtsText = String(data.text || "");
+      if (Array.isArray(data.visemes) && data.visemes.length) {
+        scheduleTimedVisemes(data.visemes);
+      } else {
+        scheduleVietnameseVisemes(state.lastTtsText, Number(ui.rate.value));
+      }
       setStage("Đang phát TTS cục bộ", `${data.engine || "TTS"} · RTF ${data.rtf ?? "—"}`, true);
       return;
     }
@@ -502,7 +623,8 @@
         ui.apiBaseUrl.value = config.base_url || "http://127.0.0.1:27829/v1";
         ui.apiModel.value = config.model || "qwen3-4b-vi";
         fillNativeConfig(config);
-        setNativeComponents(status.components);
+        setNativeComponents(status.components, status.conversation, config);
+        populateModelProfiles(await nativeRequest("registry"));
         const response = await fetch("characters.json");
         const characters = await response.json();
         populateCharacters(
@@ -574,10 +696,16 @@
       llama_server_path: ui.llamaServerPath.value.trim(),
       gguf_path: ui.ggufPath.value.trim(),
       tts_engine: ui.ttsEngineSelect.value,
+      tts_voice: ui.ttsVoice.value.trim(),
       piper_path: ui.piperPath.value.trim(),
       piper_model_path: ui.piperModelPath.value.trim(),
+      character_id: ui.characterSelect.value || "mai",
       auto_chat: ui.voiceAutoSend.checked,
       auto_speak: ui.autoSpeak.checked,
+      memory_enabled: ui.memoryEnabled.checked,
+      emotion_enabled: ui.emotionEnabled.checked,
+      full_duplex: ui.fullDuplex.checked,
+      echo_guard: ui.echoGuard.checked,
       system_prompt: state.characters[ui.characterSelect.value]?.system_prompt || ""
     };
   }
@@ -589,7 +717,7 @@
         const status = await nativeRequest("configure", currentApiPayload());
         config = status.config;
         state.nativeReady = true;
-        setNativeComponents(status.components);
+        setNativeComponents(status.components, status.conversation, config);
       } else {
         config = await companionFetch("/api/cau-hinh", {
           method: "POST",
@@ -621,7 +749,8 @@
         ? await nativeRequest("chat", {
           message: "Chỉ trả lời đúng một câu: Kết nối thành công.",
           history: [],
-          speak: false
+          speak: false,
+          remember: false
         })
         : await companionFetch("/api/kiem-tra", {
           method: "POST",
@@ -662,12 +791,6 @@
       return;
     }
     if (!state.companionReady && !(await saveCompanionConfig(false))) return;
-    const fromVoice = Boolean(messageOverride);
-    if (fromVoice) {
-      state.resumeMicAfterTts = ui.voiceAutoSend.checked;
-      await stopMic(false);
-    }
-
     state.sendingChat = true;
     ui.sendChatButton.disabled = true;
     ui.sendChatButton.textContent = "Đang suy nghĩ…";
@@ -703,9 +826,6 @@
       setStage("Đã trả lời", result.nhan_vat || "Cybergirl");
       if (ui.autoSpeak.checked && (!nativeMessagingAvailable() || ui.ttsEngineSelect.value === "edge")) {
         speakText();
-      } else if (state.resumeMicAfterTts) {
-        state.resumeMicAfterTts = false;
-        window.setTimeout(() => startMic(), 350);
       }
     } catch (error) {
       pending.classList.remove("pending");
@@ -726,9 +846,48 @@
     ui.chatMessages.replaceChildren();
     appendChatMessage(
       "assistant",
-      "Hội thoại đã được xóa trên thiết bị. Bạn có thể bắt đầu một câu chuyện mới."
+      "Lịch sử trong phiên đã được xóa. Bộ nhớ dài hạn có nút xóa riêng."
     );
     showToast("Đã xóa lịch sử hội thoại trong phiên.");
+  }
+
+  async function clearLongTermMemory() {
+    if (!state.nativeReady) {
+      showToast("Bộ nhớ dài hạn chỉ có trong Companion cục bộ.", true);
+      return;
+    }
+    ui.clearMemoryButton.disabled = true;
+    try {
+      const result = await nativeRequest("clear_memory", { character_only: false });
+      ui.pipelineHealth.textContent = "Bộ nhớ dài hạn · 0 lượt · chỉ ở máy này";
+      showToast(`Đã xóa ${result.deleted_turns || 0} lượt khỏi SQLite cục bộ.`);
+    } catch (error) {
+      showToast(error.message, true);
+    } finally {
+      ui.clearMemoryButton.disabled = false;
+    }
+  }
+
+  function normalizedSpeech(text) {
+    return text
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function isLikelySpeakerEcho(text) {
+    if (!ui.echoGuard.checked || !state.lastTtsText) return false;
+    const heard = normalizedSpeech(text);
+    const spoken = normalizedSpeech(state.lastTtsText);
+    if (heard.length < 5) return false;
+    if (spoken.includes(heard)) return true;
+    const heardWords = new Set(heard.split(" "));
+    const spokenWords = new Set(spoken.split(" "));
+    const overlap = [...heardWords].filter((word) => spokenWords.has(word)).length;
+    return overlap / Math.max(heardWords.size, 1) >= 0.72;
   }
 
   function pointDistance(a, b) {
@@ -1362,7 +1521,26 @@
       sum += normalized * normalized;
     }
     const rms = Math.sqrt(sum / state.timeData.length);
-    return clamp((rms - 0.012) * 7.8, 0, 1);
+    const level = clamp((rms - 0.012) * 7.8, 0, 1);
+    if (state.frequencyData && level > 0.055) {
+      state.analyser.getByteFrequencyData(state.frequencyData);
+      const bandEnergy = (from, to) => {
+        let total = 0;
+        for (let index = from; index < to; index += 1) total += state.frequencyData[index] || 0;
+        return total / Math.max(1, to - from);
+      };
+      const low = bandEnergy(1, 18);
+      const mid = bandEnergy(18, 52);
+      const high = bandEnergy(52, Math.min(128, state.frequencyData.length));
+      state.spectralViseme = low > high * 1.35
+        ? "round"
+        : high > low * 1.28
+          ? "wide"
+          : mid > low * 1.18
+            ? "narrow"
+            : "neutral";
+    }
+    return level;
   }
 
   function updateMeter(level) {
@@ -1596,7 +1774,8 @@
         state.blink.repeatAfter = true;
         state.blink.nextAt = timestamp + 85 + Math.random() * 55;
       } else {
-        state.blink.nextAt = timestamp + 2400 + Math.random() * 4300;
+        const blinkFactor = clamp(Number(state.emotion.blink_factor || 1), 0.55, 1.8);
+        state.blink.nextAt = timestamp + (2400 + Math.random() * 4300) / blinkFactor;
       }
       state.blink.isRepeat = false;
       return;
@@ -1604,9 +1783,10 @@
     state.blink.amount = Math.sin(Math.PI * progress) ** 1.7 * clamp(0.48 + motion * 0.46, 0, 0.92);
   }
 
-  function drawEyeBlink(fit, eye, index, amount) {
+  function drawEyeBlink(fit, eye, index, amount, gaze = { x: 0, y: 0 }) {
     const patch = state.patches.eyes[index];
-    if (!patch || amount < 0.015) return;
+    const gazeStrength = Math.abs(gaze.x) + Math.abs(gaze.y);
+    if (!patch || (amount < 0.015 && gazeStrength < 0.015)) return;
     const imageWidth = state.image.naturalWidth || state.image.width;
     const eyeWidth = eye.width * imageWidth * (patch.sourceScale || 1);
     const regionWidth = eyeWidth * 1.08;
@@ -1621,6 +1801,19 @@
     const workContext = work.getContext("2d");
     workContext.clearRect(0, 0, work.width, work.height);
     workContext.drawImage(patch, 0, 0);
+    if (gazeStrength >= 0.015) {
+      workContext.save();
+      workContext.beginPath();
+      workContext.ellipse(centerX, centerY, regionWidth * 0.34, regionHeight * 0.43, 0, 0, Math.PI * 2);
+      workContext.clip();
+      workContext.globalAlpha = clamp(gazeStrength * 0.42, 0.08, 0.38);
+      workContext.drawImage(
+        patch,
+        gaze.x * regionWidth * 0.035,
+        gaze.y * regionHeight * 0.045
+      );
+      workContext.restore();
+    }
     workContext.save();
     workContext.beginPath();
     workContext.ellipse(centerX, centerY, regionWidth * 0.56, regionHeight * 0.58, 0, 0, Math.PI * 2);
@@ -1680,9 +1873,16 @@
     const head = state.headMotion;
     if (timestamp >= head.nextTargetAt) {
       const activityScale = active ? 1 : 0.48;
-      head.targetX = (Math.random() - 0.5) * 1.8 * activityScale * motion;
-      head.targetY = (Math.random() - 0.5) * 2.2 * activityScale * motion;
-      head.targetRotation = (Math.random() - 0.5) * 0.0048 * activityScale * motion;
+      const emotionEnergy = clamp(Number(state.emotion.head_energy || 1), 0.45, 1.7);
+      head.targetX = (
+        (Math.random() - 0.5) * 1.8 * activityScale
+        + Number(state.emotion.gaze_x || 0) * 0.62
+      ) * motion * emotionEnergy;
+      head.targetY = (
+        (Math.random() - 0.5) * 2.2 * activityScale
+        + Number(state.emotion.gaze_y || 0) * 0.5
+      ) * motion * emotionEnergy;
+      head.targetRotation = (Math.random() - 0.5) * 0.0048 * activityScale * motion * emotionEnergy;
       head.nextTargetAt = timestamp + 1250 + Math.random() * 2100;
     }
     const easing = active ? 0.036 : 0.024;
@@ -1694,6 +1894,28 @@
       y: head.y + state.level * 0.32 * motion,
       rotation: head.rotation
     };
+  }
+
+  function updateGaze(timestamp, motion) {
+    const gaze = state.gaze;
+    if (timestamp >= gaze.nextTargetAt) {
+      const arousal = clamp(Number(state.emotion.arousal || 0.22), 0, 1);
+      gaze.targetX = clamp(
+        Number(state.emotion.gaze_x || 0) + (Math.random() - 0.5) * (0.22 + arousal * 0.2),
+        -1,
+        1
+      );
+      gaze.targetY = clamp(
+        Number(state.emotion.gaze_y || 0) + (Math.random() - 0.5) * 0.16,
+        -0.7,
+        0.7
+      );
+      gaze.nextTargetAt = timestamp + 650 + Math.random() * (1800 - arousal * 700);
+    }
+    const easing = 0.055;
+    gaze.x += (gaze.targetX - gaze.x) * easing;
+    gaze.y += (gaze.targetY - gaze.y) * easing;
+    return { x: gaze.x * motion, y: gaze.y * motion };
   }
 
   function drawFaceGuides(fit, timestamp) {
@@ -1763,7 +1985,7 @@
         : clamp((audioLevel - 0.045) * 0.72, 0, 0.62);
       state.mouthTarget = controlledMouthLevel;
       if (audioLevel > 0.08) {
-        const envelopeViseme = audioLevel > 0.62 ? "wide" : audioLevel > 0.32 ? "neutral" : "narrow";
+        const envelopeViseme = state.spectralViseme;
         setViseme(
           state.activeSignal === "mic" && timestamp < state.liveVisemeUntil
             ? state.liveViseme
@@ -1796,6 +2018,7 @@
     const t = timestamp / 1000;
     const motion = Number(ui.faceMotion.value) / 100;
     const head = updateHeadMotion(timestamp, motion, active);
+    const gaze = updateGaze(timestamp, motion);
     const breath = 1 + Math.sin(t * 1.05) * 0.0009 * motion;
     const faceCenterX = state.face
       ? fit.x + (state.face.box.x + state.face.box.width / 2) * fit.drawWidth
@@ -1813,7 +2036,9 @@
     ctx.translate(-faceCenterX, -faceCenterY);
     ctx.drawImage(state.image, fit.x, fit.y, fit.drawWidth, fit.drawHeight);
     if (state.face?.eyes) {
-      state.face.eyes.forEach((eye, index) => drawEyeBlink(fit, eye, index, state.blink.amount));
+      state.face.eyes.forEach((eye, index) => drawEyeBlink(
+        fit, eye, index, state.blink.amount, gaze
+      ));
     }
     drawAnimatedMouth(fit, state.mouthOpen);
     ctx.restore();
@@ -1828,7 +2053,26 @@
     setViseme("idle");
     window.clearInterval(state.ttsTimer);
     state.ttsTimer = null;
+    state.visemeTimers.forEach((timer) => window.clearTimeout(timer));
+    state.visemeTimers = [];
     if (updateStatus) setStage("Đã dừng", "Giọng đọc đã dừng");
+  }
+
+  function scheduleTimedVisemes(timeline) {
+    state.visemeTimers.forEach((timer) => window.clearTimeout(timer));
+    state.visemeTimers = timeline.slice(0, 1_200).map((item) => window.setTimeout(() => {
+      if (!state.speechActive) return;
+      setViseme(String(item.viseme || "neutral"));
+      state.mouthTarget = clamp(Number(item.open || 0.02), 0.008, 0.58);
+      state.mouthShape.targetWidth = clamp(Number(item.width || 1), 0.72, 1.25);
+      state.lastActivityAt = performance.now();
+      const releaseTimer = window.setTimeout(() => {
+        if (state.speechActive) {
+          state.mouthTarget = clamp(Number(item.release_open || item.open || 0.02), 0.008, 0.58);
+        }
+      }, Math.max(24, Number(item.duration_ms || 80) * 0.66));
+      state.visemeTimers.push(releaseTimer);
+    }, Math.max(0, Number(item.at_ms || 0))));
   }
 
   function scheduleVietnameseVisemes(text, rate) {
@@ -1861,9 +2105,9 @@
       return;
     }
 
-    stopMic(false);
     ui.audioPlayer.pause();
     stopTts(false);
+    state.lastTtsText = text;
 
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
@@ -1888,11 +2132,8 @@
       state.lastActivityAt = performance.now();
     };
     utterance.onend = () => {
-      const shouldResumeMic = state.resumeMicAfterTts;
-      state.resumeMicAfterTts = false;
       stopTts(false);
       setStage("Hoàn tất", "Đã phát xong nội dung tiếng Việt");
-      if (shouldResumeMic) window.setTimeout(() => startMic(), 350);
     };
     utterance.onerror = (event) => {
       state.resumeMicAfterTts = false;
@@ -1949,6 +2190,8 @@
       state.analyser.fftSize = 512;
       state.analyser.smoothingTimeConstant = 0.65;
       state.timeData = new Uint8Array(state.analyser.fftSize);
+      state.frequencyData = new Uint8Array(state.analyser.frequencyBinCount);
+      state.captureDestination = state.audioContext.createMediaStreamDestination();
       state.mediaElementSource = null;
     }
     if (state.audioContext.state === "suspended") await state.audioContext.resume();
@@ -1975,6 +2218,7 @@
     }
     state.mediaElementSource.connect(state.analyser);
     state.mediaElementSource.connect(audioContext.destination);
+    state.mediaElementSource.connect(state.captureDestination);
     state.activeSource = state.mediaElementSource;
     state.activeSignal = "audio";
     setStage("Đang phát audio", "Khẩu hình bám theo biên độ tệp âm thanh", true);
@@ -2048,6 +2292,7 @@
       state.micStream = stream;
       state.activeSource = audioContext.createMediaStreamSource(stream);
       state.activeSource.connect(state.analyser);
+      state.activeSource.connect(state.captureDestination);
       state.activeSignal = "mic";
       state.recognitionShouldRun = true;
       state.finalTranscript = "";
@@ -2066,6 +2311,15 @@
           const text = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
             const cleaned = text.trim();
+            if (state.speechActive && isLikelySpeakerEcho(cleaned)) {
+              ui.pipelineHealth.textContent = "Echo-guard đã loại câu TTS bị microphone thu lại.";
+              continue;
+            }
+            if (state.speechActive && ui.fullDuplex.checked) {
+              stopTts(false);
+              if (state.nativeReady) nativeRequest("interrupt").catch(() => {});
+              setStage("Bạn đã ngắt lời", "Cybergirl dừng nói và tiếp tục lắng nghe", true);
+            }
             state.finalTranscript += `${cleaned} `;
             completed += `${cleaned} `;
           }
@@ -2161,7 +2415,8 @@
       state.nativeReady = true;
       state.companionReady = true;
       fillNativeConfig(status.config);
-      setNativeComponents(status.components);
+      setNativeComponents(status.components, status.conversation, status.config);
+      populateModelProfiles(await nativeRequest("registry"));
       setCompanionStatus(
         "Companion cục bộ đã kết nối",
         `${status.host} · v${status.version} · ${status.language}`,
@@ -2284,6 +2539,58 @@
     source.src = DEFAULT_IMAGE;
   }
 
+  function toggleWebmRecording() {
+    if (state.mediaRecorder?.state === "recording") {
+      state.mediaRecorder.stop();
+      return;
+    }
+    if (!ui.canvas.captureStream || !globalThis.MediaRecorder) {
+      showToast("Phiên bản Edge này không hỗ trợ quay Canvas WebM.", true);
+      return;
+    }
+    const stream = ui.canvas.captureStream(30);
+    const audioTrack = state.captureDestination?.stream?.getAudioTracks?.()[0];
+    if (audioTrack && ["audio", "mic"].includes(state.activeSignal)) {
+      stream.addTrack(audioTrack);
+    }
+    const mimeCandidates = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm"
+    ];
+    const mimeType = mimeCandidates.find((value) => MediaRecorder.isTypeSupported(value)) || "";
+    state.recordedChunks = [];
+    state.mediaRecorder = new MediaRecorder(stream, {
+      ...(mimeType ? { mimeType } : {}),
+      videoBitsPerSecond: 5_000_000
+    });
+    state.mediaRecorder.ondataavailable = (event) => {
+      if (event.data?.size) state.recordedChunks.push(event.data);
+    };
+    state.mediaRecorder.onstop = () => {
+      stream.getVideoTracks().forEach((track) => track.stop());
+      const blob = new Blob(state.recordedChunks, { type: mimeType || "video/webm" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `cybergirl-${new Date().toISOString().replaceAll(":", "-").slice(0, 19)}.webm`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 2_000);
+      ui.recordWebmButton.classList.remove("recording");
+      ui.recordWebmButton.textContent = "Quay WebM";
+      state.mediaRecorder = null;
+      state.recordedChunks = [];
+      showToast("Đã xuất video WebM cục bộ.");
+    };
+    state.mediaRecorder.start(500);
+    ui.recordWebmButton.classList.add("recording");
+    ui.recordWebmButton.textContent = "Dừng quay";
+    const audioNote = audioTrack && ["audio", "mic"].includes(state.activeSignal)
+      ? "có audio Web Audio"
+      : "video hình; TTS hệ thống không được Edge capture";
+    setStage("Đang quay WebM", audioNote, true);
+  }
+
   async function copyTranscript() {
     const text = ui.transcriptText.textContent.trim();
     if (!text || text.startsWith("Bản chép lời")) {
@@ -2312,6 +2619,7 @@
     });
     ui.snapshotButton.addEventListener("click", downloadSnapshot);
     ui.masterImageButton.addEventListener("click", downloadMasterImage);
+    ui.recordWebmButton.addEventListener("click", toggleWebmRecording);
     ui.copyTranscript.addEventListener("click", copyTranscript);
     ui.saveApiButton.addEventListener("click", () => saveCompanionConfig());
     ui.testApiButton.addEventListener("click", testCompanionApi);
@@ -2319,7 +2627,12 @@
     ui.benchmarkTtsButton.addEventListener("click", benchmarkVietnameseTts);
     ui.sendChatButton.addEventListener("click", () => sendChat());
     ui.clearChatButton.addEventListener("click", clearChat);
-    ui.providerSelect.addEventListener("change", () => applyProviderDefaults(true));
+    ui.clearMemoryButton.addEventListener("click", clearLongTermMemory);
+    ui.modelProfileSelect.addEventListener("change", applyModelProfile);
+    ui.providerSelect.addEventListener("change", () => {
+      ui.modelProfileSelect.value = "custom";
+      applyProviderDefaults(true);
+    });
     ui.characterSelect.addEventListener("change", () => {
       const model = ui.characterSelect.selectedOptions[0]?.dataset.model;
       if (model && ui.providerSelect.value === "ollama") ui.apiModel.value = model;
@@ -2332,6 +2645,9 @@
     });
     ui.autoSpeak.addEventListener("change", savePreferences);
     ui.voiceAutoSend.addEventListener("change", savePreferences);
+    ui.fullDuplex.addEventListener("change", savePreferences);
+    ui.echoGuard.addEventListener("change", savePreferences);
+    ui.emotionEnabled.addEventListener("change", savePreferences);
     ui.resetButton.addEventListener("click", () => {
       stopAll();
       state.mouth = { x: 0.5, y: 0.665, width: 0.16 };
@@ -2415,6 +2731,7 @@
     await restorePreferences();
     await loadCompanionConfig();
     updateRangeLabels();
+    applyEmotion(state.emotion);
     useDefaultImage(true);
     populateVoices();
     if ("speechSynthesis" in window) {

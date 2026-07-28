@@ -13,8 +13,12 @@ from typing import Any
 from . import PHIEN_BAN, TEN_NATIVE_HOST
 from .audio import AudioPipeline, LoiAmThanh
 from .config import CauHinhCompanion, KhoCauHinh
+from .emotion import phan_tich_cam_xuc
 from .engines import BoNao, LoiEngine, TiengNoi, WhisperCLI
+from .memory import BoNhoDaiHan
+from .phonemes import lap_lich_viseme
 from .protocol import BoGhiBanTin, LoiGiaoThuc, doc_ban_tin
+from .registry import danh_ba
 
 
 PROMPT_MAC_DINH = (
@@ -29,6 +33,12 @@ class NativeHost:
         self.output = BoGhiBanTin(output_stream or sys.stdout.buffer)
         self.store = KhoCauHinh(config_path)
         self.config = self.store.doc()
+        memory_path = (
+            Path(config_path).with_name("bo-nho-hoi-thoai.sqlite3")
+            if config_path
+            else None
+        )
+        self.memory = BoNhoDaiHan(memory_path)
         self.api_keys: dict[str, str] = {}
         self.brain = BoNao()
         self.whisper = WhisperCLI()
@@ -41,7 +51,18 @@ class NativeHost:
     def _event(self, name: str, data: dict[str, Any]) -> None:
         self.output.gui({"event": name, "data": data})
         if name == "vad.speech_start":
+            was_playing = self.voice.dang_phat
             self.voice.dung()
+            if was_playing:
+                self.output.gui(
+                    {
+                        "event": "conversation.interrupted",
+                        "data": {
+                            "reason": "barge-in",
+                            "echo_guard": bool(data.get("echo_guard")),
+                        },
+                    }
+                )
 
     def _status(self) -> dict[str, Any]:
         cfg = self.config
@@ -57,16 +78,25 @@ class NativeHost:
                 "whisper_model": Path(cfg.whisper_model_path).is_file(),
                 "llama_server": Path(cfg.llama_server_path).is_file(),
                 "gguf_model": Path(cfg.gguf_path).is_file(),
-                "tts_local": cfg.tts_engine == "windows-sapi"
+                "tts_local": cfg.tts_engine in {"windows-sapi", "edge"}
                 or (
                     Path(cfg.piper_path).is_file()
                     and Path(cfg.piper_model_path).is_file()
                 ),
             },
+            "conversation": {
+                "short_term_turns": len(self.history),
+                "memory_enabled": cfg.memory_enabled,
+                "memory_turns": self.memory.thong_ke()["turns"],
+                "full_duplex": cfg.full_duplex,
+                "echo_guard": cfg.echo_guard,
+                "emotion_enabled": cfg.emotion_enabled,
+            },
             "privacy": {
                 "image_sent": False,
                 "api_keys_persisted": False,
                 "native_channel": True,
+                "memory_local_only": True,
             },
         }
 
@@ -88,12 +118,19 @@ class NativeHost:
         history = payload.get("history", self.history)
         if not isinstance(history, list):
             raise ValueError("Lịch sử hội thoại không hợp lệ.")
+        remember = bool(payload.get("remember", True))
+        memory_context: list[dict[str, str]] = []
+        if self.config.memory_enabled and remember:
+            memory_context = self.memory.goi_lai(
+                self.config.character_id, message, limit=6
+            )
+        context = [*memory_context, *history[-8:]]
         self._event("llm.thinking", {"provider": self.config.provider})
         answer = self.brain.tra_loi(
             self.config,
             self.api_keys.get(self.config.provider, ""),
             message,
-            history,
+            context,
             str(payload.get("system_prompt", self.system_prompt))[:6_000],
         )
         self.history.extend(
@@ -103,11 +140,32 @@ class NativeHost:
             ]
         )
         self.history = self.history[-24:]
-        self._event("llm.answer", {"text": answer})
+        if self.config.memory_enabled and remember:
+            self.memory.ghi(self.config.character_id, "user", message)
+            self.memory.ghi(self.config.character_id, "assistant", answer)
+        emotion = (
+            phan_tich_cam_xuc(answer)
+            if self.config.emotion_enabled
+            else phan_tich_cam_xuc("")
+        )
+        self._event("emotion.changed", emotion)
+        self._event(
+            "llm.answer",
+            {
+                "text": answer,
+                "emotion": emotion,
+                "memory_recalled": len(memory_context),
+            },
+        )
         should_speak = bool(payload.get("speak", self.config.auto_speak))
         if should_speak and self.config.tts_engine != "edge":
             self._speak({"text": answer})
-        return {"text": answer, "provider": self.config.provider}
+        return {
+            "text": answer,
+            "provider": self.config.provider,
+            "emotion": emotion,
+            "memory_recalled": len(memory_context),
+        }
 
     def _speak(self, payload: dict[str, Any]) -> dict[str, Any]:
         text = str(payload.get("text", "")).strip()
@@ -117,6 +175,9 @@ class NativeHost:
         wav_path = directory / "tra-loi.wav"
         metadata = self.voice.tong_hop(self.config, text, wav_path)
         metadata["text"] = text
+        metadata["visemes"] = lap_lich_viseme(
+            text, float(metadata.get("audio_seconds", 0))
+        )
         self.voice.phat(wav_path, metadata, self._event)
         return metadata
 
@@ -126,7 +187,7 @@ class NativeHost:
             text = self.whisper.phien_am(self.config, wav_path)
             self._event("stt.final", {"text": text})
             if self.config.auto_chat:
-                self._chat({"message": text, "history": [], "speak": True})
+                self._chat({"message": text, "speak": True})
         except Exception as exc:  # Event boundary: return a Vietnamese error.
             self._event("pipeline.error", {"error": str(exc)})
         finally:
@@ -145,6 +206,9 @@ class NativeHost:
             self.config.silence_ms,
             self._on_segment,
             self._event,
+            is_tts_playing=lambda: self.voice.dang_phat,
+            full_duplex=self.config.full_duplex,
+            echo_guard=self.config.echo_guard,
         )
         try:
             self.audio.start()
@@ -160,8 +224,10 @@ class NativeHost:
         return self._status()
 
     def dispatch(self, command: str, payload: dict[str, Any]) -> Any:
-        if command in {"ping", "status"}:
+        if command in {"ping", "status", "health"}:
             return self._status()
+        if command == "registry":
+            return danh_ba()
         if command == "configure":
             return self._configure(payload)
         if command == "chat":
@@ -187,6 +253,18 @@ class NativeHost:
         if command == "clear_history":
             self.history.clear()
             return {"cleared": True}
+        if command == "memory_status":
+            return {
+                **self.memory.thong_ke(),
+                "enabled": self.config.memory_enabled,
+                "character_id": self.config.character_id,
+            }
+        if command == "clear_memory":
+            character_only = bool(payload.get("character_only", False))
+            deleted = self.memory.xoa(
+                self.config.character_id if character_only else None
+            )
+            return {"cleared": True, "deleted_turns": deleted}
         raise ValueError(f"Lệnh companion không được hỗ trợ: {command}")
 
     def _handle(self, message: dict[str, Any]) -> None:
@@ -226,6 +304,7 @@ class NativeHost:
             self.audio = None
         self.voice.dung()
         self.brain.dong()
+        self.memory.dong()
 
 
 def main() -> int:

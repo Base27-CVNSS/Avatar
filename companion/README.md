@@ -1,4 +1,4 @@
-# Cybergirl Companion 3.0
+# Cybergirl Companion 3.1
 
 Companion là Native Messaging host chạy cục bộ trên Windows. Microsoft Edge
 giao tiếp bằng JSON có tiền tố độ dài; không mở cổng mạng công khai và không
@@ -13,12 +13,16 @@ Microphone 16 kHz
   → whisper.cpp đa ngôn ngữ, ép ngôn ngữ vi
   → GGUF qua llama-server hoặc OpenAI/Gemini API
   → Windows SAPI hoặc Piper/VITS tiếng Việt
-  → sự kiện TTS cho Mouth Engine trong Edge
+  → phoneme timing + Emotion Engine
+  → Mouth Engine, gaze, blink và head motion trong Edge
 ```
 
 Silero VAD dùng cửa sổ 512 mẫu ở 16 kHz. Hai cửa sổ liên tiếp vượt ngưỡng mới
 mở câu; khoảng lặng mặc định 650 ms đóng câu. Khi người dùng bắt đầu nói,
 companion phát sự kiện ngắt để dừng TTS hiện tại.
+Khi TTS đang phát, echo-guard nâng ngưỡng VAD và yêu cầu nhiều cửa sổ liên tiếp
+hơn; lời nói thật đủ rõ vẫn tạo barge-in. Đây là lớp chống vọng nhẹ, không tuyên
+bố thay thế WebRTC Acoustic Echo Cancellation ở cấp hệ điều hành.
 
 ## Lệnh Native Messaging
 
@@ -32,9 +36,13 @@ companion phát sự kiện ngắt để dừng TTS hiện tại.
 | `speak` | Tổng hợp và phát TTS cục bộ |
 | `interrupt` | Dừng phát giọng ngay |
 | `benchmark_tts` | Đo thời gian tổng hợp, RTF và ký tự/giây |
+| `registry` | Danh bạ model/voice để hot-swap |
+| `memory_status` | Thống kê bộ nhớ SQLite cục bộ |
+| `clear_memory` | Xóa bộ nhớ dài hạn |
 
 Sự kiện gồm `audio.level`, `vad.speech_start`, `vad.speech_end`, `stt.final`,
-`llm.thinking`, `llm.answer`, `tts.started`, `tts.ended` và `pipeline.error`.
+`llm.thinking`, `llm.answer`, `emotion.changed`, `audio.echo_suppressed`,
+`tts.started`, `tts.ended` và `pipeline.error`.
 
 ## Model không được nhúng vào Git
 
@@ -63,4 +71,3 @@ Mỗi engine tổng hợp cùng một câu. Báo cáo không dùng số dựng s
 `RTF < 1` nghĩa là tổng hợp nhanh hơn thời gian phát. Kết quả phụ thuộc CPU,
 voice và model trên chính máy đang chạy, vì vậy Cybergirl không công bố một
 bảng số liệu giả định dùng chung cho mọi máy.
-

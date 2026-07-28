@@ -43,8 +43,13 @@ class CauHinhCompanion:
     tts_voice: str = ""
     piper_path: str = ""
     piper_model_path: str = ""
+    character_id: str = "mai"
     auto_chat: bool = True
     auto_speak: bool = True
+    memory_enabled: bool = False
+    emotion_enabled: bool = True
+    full_duplex: bool = True
+    echo_guard: bool = True
     vad_threshold: float = 0.55
     silence_ms: int = 650
     threads: int = max(2, min((os.cpu_count() or 4) - 1, 8))
@@ -63,11 +68,19 @@ class CauHinhCompanion:
             "tts_voice",
             "piper_path",
             "piper_model_path",
+            "character_id",
         }
         for field in string_fields:
             if field in payload:
                 setattr(self, field, str(payload[field]).strip())
-        for field in ("auto_chat", "auto_speak"):
+        for field in (
+            "auto_chat",
+            "auto_speak",
+            "memory_enabled",
+            "emotion_enabled",
+            "full_duplex",
+            "echo_guard",
+        ):
             if field in payload:
                 setattr(self, field, bool(payload[field]))
         if "vad_threshold" in payload:
@@ -114,4 +127,3 @@ class KhoCauHinh:
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         temp.replace(self.path)
-

@@ -12,6 +12,7 @@ thiểu.
 - Texture môi, răng, mắt và các khung Canvas.
 - Tùy chọn khẩu hình, chuyển động, tốc độ và cao độ.
 - Lịch sử hội thoại của phiên đang mở.
+- Bộ nhớ dài hạn SQLite nếu người dùng chủ động bật.
 
 Ảnh, landmark và texture khuôn mặt không được gửi tới lõi Python hoặc API AI.
 
@@ -73,6 +74,10 @@ Tệp `%LOCALAPPDATA%\Cybergirl\cau-hinh.json` chỉ lưu:
 
 Tệp `cau-hinh-companion.json` chỉ lưu đường dẫn binary/model, engine TTS, ngưỡng
 VAD, số luồng CPU và nhà cung cấp. Tệp này không chứa khóa API.
+
+`bo-nho-hoi-thoai.sqlite3` chỉ được ghi khi bật **Bộ nhớ dài hạn cục bộ**.
+Nội dung không được đồng bộ hoặc gửi tới dịch vụ lưu trữ. Dashboard có nút xóa
+toàn bộ bộ nhớ; tắt tùy chọn sẽ ngừng ghi và truy hồi lượt mới.
 
 Extension chỉ dùng `chrome.storage.local` cho độ mở miệng, vi chuyển động, tốc
 độ, cao độ và tùy chọn hội thoại. Không có analytics, quảng cáo hoặc cookie theo

@@ -36,7 +36,7 @@ def _yeu_cau_json(
         headers={
             "Content-Type": "application/json; charset=utf-8",
             "Accept": "application/json",
-            "User-Agent": "Cybergirl-Companion/3.0",
+            "User-Agent": "Cybergirl-Companion/3.1",
             **(headers or {}),
         },
     )
@@ -311,6 +311,11 @@ def _thoi_luong_wav(path: Path) -> float:
 class TiengNoi:
     def __init__(self):
         self._play_token = 0
+        self._playing = False
+
+    @property
+    def dang_phat(self) -> bool:
+        return self._playing
 
     def tong_hop(
         self, config: CauHinhCompanion, text: str, output: Path
@@ -388,6 +393,7 @@ class TiengNoi:
 
         self._play_token += 1
         token = self._play_token
+        self._playing = True
         winsound.PlaySound(
             str(wav_path), winsound.SND_FILENAME | winsound.SND_ASYNC
         )
@@ -396,12 +402,14 @@ class TiengNoi:
         def wait_end() -> None:
             time.sleep(float(metadata["audio_seconds"]))
             if token == self._play_token:
+                self._playing = False
                 callback("tts.ended", metadata)
 
         threading.Thread(target=wait_end, daemon=True).start()
 
     def dung(self) -> None:
         self._play_token += 1
+        self._playing = False
         if os.name == "nt":
             import winsound
 

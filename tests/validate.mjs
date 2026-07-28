@@ -92,6 +92,10 @@ const companionFiles = [
   "companion/native_host.py",
   "companion/audio.py",
   "companion/engines.py",
+  "companion/emotion.py",
+  "companion/memory.py",
+  "companion/phonemes.py",
+  "companion/registry.py",
   "companion/protocol.py",
   "native-host/vn.base27.cybergirl.json",
   "native-host/register-native-host.ps1",
@@ -153,14 +157,21 @@ assert.match(app, /voiceAutoSend/, "Phải hỗ trợ vòng hội thoại giọn
 assert.match(background, /connectNative/, "Service worker phải kết nối Native Messaging");
 assert.match(background, /vn\.base27\.cybergirl/, "Native host phải có tên ổn định");
 assert.match(app, /benchmark_tts/, "Dashboard phải benchmark TTS tiếng Việt");
+assert.match(app, /scheduleTimedVisemes/, "TTS cục bộ phải cấp timing viseme");
+assert.match(app, /isLikelySpeakerEcho/, "Full-duplex phải có echo-guard");
+assert.match(app, /applyEmotion/, "Cảm xúc phải điều khiển trạng thái gương mặt");
+assert.match(app, /MediaRecorder/, "Phải hỗ trợ xuất video WebM");
 assert.match(html, /id="nativeVadStatus"/, "Phải hiển thị trạng thái Silero VAD");
 assert.match(html, /id="nativeSttStatus"/, "Phải hiển thị trạng thái Whisper");
 assert.match(html, /id="nativeLlmStatus"/, "Phải hiển thị trạng thái GGUF");
 assert.match(html, /id="nativeTtsStatus"/, "Phải hiển thị trạng thái TTS");
+assert.match(html, /id="memoryEnabled"/, "Phải có đồng ý bật bộ nhớ dài hạn");
+assert.match(html, /id="emotionChip"/, "Phải hiển thị cảm xúc hiện tại");
+assert.match(html, /id="recordWebmButton"/, "Phải có nút quay WebM");
 assert.match(workflow, /cache-dependency-path: requirements-build\.txt/, "CI phải cache đúng tệp phụ thuộc");
 assert.match(workflow, /cybergirl_companion\.spec/, "CI phải đóng gói Native Companion");
-assert.match(workflow, /Cybergirl-Edge-v3\.0\.0\.zip/, "CI phải xuất gói Edge Extension");
-assert.match(installer, /#define MyAppVersion "3\.0\.0"/, "Bộ cài phải đúng phiên bản 3.0.0");
+assert.match(workflow, /Cybergirl-Edge-v3\.1\.0\.zip/, "CI phải xuất gói Edge Extension");
+assert.match(installer, /#define MyAppVersion "3\.1\.0"/, "Bộ cài phải đúng phiên bản 3.1.0");
 assert.match(installer, /register-native-host\.ps1/, "Bộ cài phải đăng ký Native Messaging");
 
 const characters = JSON.parse(await readText("characters.json"));

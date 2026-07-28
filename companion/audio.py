@@ -63,6 +63,9 @@ class AudioPipeline:
         silence_ms: int,
         on_segment: Callable[[Path], None],
         on_event: Callable[[str, dict[str, Any]], None],
+        is_tts_playing: Callable[[], bool] | None = None,
+        full_duplex: bool = True,
+        echo_guard: bool = True,
     ):
         try:
             import sounddevice as sd
@@ -74,6 +77,9 @@ class AudioPipeline:
         self.silence_windows = max(4, math.ceil(silence_ms / 32))
         self.on_segment = on_segment
         self.on_event = on_event
+        self.is_tts_playing = is_tts_playing or (lambda: False)
+        self.full_duplex = full_duplex
+        self.echo_guard = echo_guard
         self.queue: queue.Queue[Any] = queue.Queue(maxsize=128)
         self.stop_event = threading.Event()
         self.thread: threading.Thread | None = None
@@ -137,6 +143,7 @@ class AudioPipeline:
         silent = 0
         started_at = 0.0
         last_level_emit = 0.0
+        last_echo_emit = 0.0
         while not self.stop_event.is_set():
             try:
                 chunk = self.queue.get(timeout=0.2)
@@ -145,21 +152,58 @@ class AudioPipeline:
             rms = float((chunk * chunk).mean() ** 0.5)
             probability = self.vad.probability(chunk)
             now = time.monotonic()
+            tts_playing = bool(self.is_tts_playing())
             if now - last_level_emit >= 0.08:
                 self.on_event(
                     "audio.level",
-                    {"rms": round(rms, 5), "speech_probability": round(probability, 4)},
+                    {
+                        "rms": round(rms, 5),
+                        "speech_probability": round(probability, 4),
+                        "tts_playing": tts_playing,
+                    },
                 )
                 last_level_emit = now
+            if tts_playing and not self.full_duplex:
+                pre_roll.clear()
+                speech = []
+                active = False
+                voiced = 0
+                silent = 0
+                continue
             if not active:
                 pre_roll.append(chunk)
-                voiced = voiced + 1 if probability >= self.threshold else 0
-                if voiced >= 2:
+                effective_threshold = self.threshold
+                required_windows = 2
+                if tts_playing and self.echo_guard:
+                    effective_threshold = max(0.78, self.threshold + 0.18)
+                    required_windows = 4
+                    if (
+                        probability >= self.threshold
+                        and probability < effective_threshold
+                        and now - last_echo_emit >= 1.0
+                    ):
+                        self.on_event(
+                            "audio.echo_suppressed",
+                            {
+                                "speech_probability": round(probability, 4),
+                                "threshold": round(effective_threshold, 3),
+                            },
+                        )
+                        last_echo_emit = now
+                voiced = voiced + 1 if probability >= effective_threshold else 0
+                if voiced >= required_windows:
                     active = True
                     speech = list(pre_roll)
                     silent = 0
                     started_at = now
-                    self.on_event("vad.speech_start", {"probability": probability})
+                    self.on_event(
+                        "vad.speech_start",
+                        {
+                            "probability": probability,
+                            "barge_in": tts_playing,
+                            "echo_guard": self.echo_guard,
+                        },
+                    )
                 continue
 
             speech.append(chunk)

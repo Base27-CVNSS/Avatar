@@ -33,5 +33,17 @@ Bản GUI Windows được đóng gói bằng Python và PyInstaller. Python đ�
 theo Python Software Foundation License; PyInstaller được phân phối theo GPL
 với ngoại lệ đặc biệt cho phép đóng gói và phân phối ứng dụng tạo ra.
 
+Companion dùng adapter cho các dự án sau nhưng repository Cybergirl không nhúng
+model hoặc binary của chúng:
+
+- Silero VAD — MIT License.
+- whisper.cpp — MIT License.
+- llama.cpp — MIT License.
+- ONNX Runtime — MIT License.
+- NumPy — BSD-3-Clause.
+- python-sounddevice — MIT License; PortAudio có giấy phép MIT tương thích.
+- Piper/VITS và từng voice tiếng Việt — giấy phép phụ thuộc binary/model do
+  người dùng chọn. Cybergirl không phân phối các model này.
+
 Tùy chọn Qwen3-TTS không nằm trong bản EXE. Người dùng tự cài thành phần này và
 cần tuân thủ giấy phép của Qwen3-TTS, PyTorch, NumPy và SciPy.

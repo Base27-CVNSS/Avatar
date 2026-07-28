@@ -47,11 +47,26 @@
     snapshotButton: $("#snapshotButton"),
     masterImageButton: $("#masterImageButton"),
     companionStatus: $("#companionStatus"),
+    nativeVadStatus: $("#nativeVadStatus"),
+    nativeSttStatus: $("#nativeSttStatus"),
+    nativeLlmStatus: $("#nativeLlmStatus"),
+    nativeTtsStatus: $("#nativeTtsStatus"),
     characterSelect: $("#characterSelect"),
     providerSelect: $("#providerSelect"),
     apiBaseUrl: $("#apiBaseUrl"),
     apiModel: $("#apiModel"),
     apiKey: $("#apiKey"),
+    sileroPath: $("#sileroPath"),
+    whisperCliPath: $("#whisperCliPath"),
+    whisperModelPath: $("#whisperModelPath"),
+    llamaServerPath: $("#llamaServerPath"),
+    ggufPath: $("#ggufPath"),
+    ttsEngineSelect: $("#ttsEngineSelect"),
+    piperPath: $("#piperPath"),
+    piperModelPath: $("#piperModelPath"),
+    connectNativeButton: $("#connectNativeButton"),
+    benchmarkTtsButton: $("#benchmarkTtsButton"),
+    ttsBenchmarkResult: $("#ttsBenchmarkResult"),
     autoSpeak: $("#autoSpeak"),
     voiceAutoSend: $("#voiceAutoSend"),
     saveApiButton: $("#saveApiButton"),
@@ -148,6 +163,10 @@
     lastFrameAt: 0,
     toastTimer: null,
     companionReady: false,
+    nativeReady: false,
+    nativeListening: false,
+    nativeComponents: {},
+    characters: {},
     chatHistory: [],
     sendingChat: false,
     voiceSendTimer: null,
@@ -301,7 +320,127 @@
     return payload;
   }
 
+  function nativeMessagingAvailable() {
+    return location.protocol === "chrome-extension:"
+      && Boolean(globalThis.chrome?.runtime?.sendMessage);
+  }
+
+  async function nativeRequest(type, payload = {}) {
+    if (!nativeMessagingAvailable()) {
+      throw new Error("Native Messaging chỉ hoạt động khi Cybergirl được tải dưới dạng Edge Extension.");
+    }
+    const response = await chrome.runtime.sendMessage({
+      channel: "cybergirl-native-request",
+      type,
+      payload
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Companion cục bộ không phản hồi.");
+    }
+    return response.result;
+  }
+
+  function fillNativeConfig(config = {}) {
+    ui.sileroPath.value = config.silero_vad_path || "";
+    ui.whisperCliPath.value = config.whisper_cli_path || "";
+    ui.whisperModelPath.value = config.whisper_model_path || "";
+    ui.llamaServerPath.value = config.llama_server_path || "";
+    ui.ggufPath.value = config.gguf_path || "";
+    ui.ttsEngineSelect.value = config.tts_engine || "windows-sapi";
+    ui.piperPath.value = config.piper_path || "";
+    ui.piperModelPath.value = config.piper_model_path || "";
+  }
+
+  function setNativeComponents(components = {}) {
+    state.nativeComponents = components;
+    [
+      [ui.nativeVadStatus, components.silero_vad, "VAD"],
+      [ui.nativeSttStatus, components.whisper_cli && components.whisper_model, "Whisper"],
+      [ui.nativeLlmStatus, components.llama_server && components.gguf_model, "GGUF"],
+      [ui.nativeTtsStatus, components.tts_local, "TTS"]
+    ].forEach(([element, ready, label]) => {
+      element.classList.toggle("ready", Boolean(ready));
+      element.textContent = `${label} · ${ready ? "sẵn sàng" : "thiếu model"}`;
+    });
+  }
+
+  function handleNativeEvent(message) {
+    const name = message?.event;
+    const data = message?.data || {};
+    if (name === "native.disconnected") {
+      state.nativeReady = false;
+      state.nativeListening = false;
+      setCompanionStatus("Companion đã ngắt kết nối", data.error || "Hãy cài hoặc đăng ký lại Native Host.", "error");
+      return;
+    }
+    if (name === "audio.level") {
+      state.level = clamp(Number(data.rms || 0) * 8, 0, 1);
+      state.activeSignal = "mic";
+      return;
+    }
+    if (name === "vad.speech_start") {
+      stopTts(false);
+      setStage("Đang nghe câu nói", "Silero VAD phát hiện tiếng Việt", true);
+      return;
+    }
+    if (name === "stt.started") {
+      ui.transcriptText.textContent = "Whisper đang phiên âm cục bộ…";
+      setStage("Đang phiên âm", "Whisper CPU · dữ liệu ở trên máy", true);
+      return;
+    }
+    if (name === "stt.final") {
+      const text = String(data.text || "").trim();
+      ui.transcriptText.textContent = text || "Whisper không trả về nội dung.";
+      if (text) {
+        appendChatMessage("user", text);
+        state.chatHistory.push({ role: "user", content: text });
+      }
+      return;
+    }
+    if (name === "llm.thinking") {
+      setStage("Đang suy nghĩ", `${data.provider || "AI"} đang tạo câu trả lời`, true);
+      return;
+    }
+    if (name === "llm.answer") {
+      const text = String(data.text || "").trim();
+      if (text) {
+        appendChatMessage("assistant", text);
+        state.chatHistory.push({ role: "assistant", content: text });
+        ui.speechText.value = text;
+      }
+      setStage("Đã trả lời", "Companion cục bộ");
+      return;
+    }
+    if (name === "tts.started") {
+      state.speechActive = true;
+      state.activeSignal = "tts";
+      scheduleVietnameseVisemes(String(data.text || ""), Number(ui.rate.value));
+      setStage("Đang phát TTS cục bộ", `${data.engine || "TTS"} · RTF ${data.rtf ?? "—"}`, true);
+      return;
+    }
+    if (name === "tts.ended" || name === "conversation.interrupted") {
+      stopTts(false);
+      setStage(name === "tts.ended" ? "Hoàn tất" : "Đã ngắt lời", "Companion tiếp tục lắng nghe");
+      return;
+    }
+    if (name === "pipeline.error") {
+      setCompanionStatus("Chuỗi giọng nói gặp lỗi", data.error || "Lỗi không xác định.", "error");
+      showToast(data.error || "Companion gặp lỗi.", true);
+    }
+  }
+
+  if (nativeMessagingAvailable()) {
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message?.channel === "cybergirl-native-event") {
+        handleNativeEvent(message.message);
+      }
+    });
+  }
+
   function populateCharacters(characters, active = "") {
+    state.characters = Object.fromEntries(
+      characters.map((character) => [character.id, character])
+    );
     ui.characterSelect.replaceChildren();
     for (const character of characters) {
       const option = document.createElement("option");
@@ -318,6 +457,16 @@
   function applyProviderDefaults(force = false) {
     const provider = ui.providerSelect.value;
     const defaults = {
+      gguf: {
+        base: "http://127.0.0.1:27829/v1",
+        model: "qwen3-4b-vi",
+        needsKey: false
+      },
+      openai: {
+        base: "https://api.openai.com/v1",
+        model: "gpt-5.6-sol",
+        needsKey: true
+      },
       ollama: {
         base: "http://127.0.0.1:11434",
         model: "qwen3:4b",
@@ -329,19 +478,52 @@
         needsKey: false
       },
       gemini: {
-        base: "https://generativelanguage.googleapis.com/v1beta",
-        model: "gemini-2.5-flash",
+        base: "https://generativelanguage.googleapis.com/v1",
+        model: "gemini-3.6-flash",
         needsKey: true
       }
     }[provider];
+    if (!defaults) return;
     if (force || !ui.apiBaseUrl.value.trim()) ui.apiBaseUrl.value = defaults.base;
     if (force || !ui.apiModel.value.trim()) ui.apiModel.value = defaults.model;
     ui.apiKey.placeholder = defaults.needsKey
-      ? "Nhập khóa Gemini · chỉ giữ trong phiên"
+      ? `Nhập khóa ${provider === "openai" ? "OpenAI" : "Gemini"} · chỉ giữ trong RAM`
       : "Không bắt buộc · chỉ giữ trong phiên";
   }
 
   async function loadCompanionConfig() {
+    if (nativeMessagingAvailable()) {
+      try {
+        const status = await nativeRequest("status");
+        state.companionReady = true;
+        state.nativeReady = true;
+        const config = status.config || {};
+        ui.providerSelect.value = config.provider || "gguf";
+        ui.apiBaseUrl.value = config.base_url || "http://127.0.0.1:27829/v1";
+        ui.apiModel.value = config.model || "qwen3-4b-vi";
+        fillNativeConfig(config);
+        setNativeComponents(status.components);
+        const response = await fetch("characters.json");
+        const characters = await response.json();
+        populateCharacters(
+          Object.entries(characters).map(([id, value]) => ({ id, ...value }))
+        );
+        setCompanionStatus(
+          "Companion cục bộ đã kết nối",
+          `Native Messaging · ${status.language} · khóa API không ghi xuống đĩa`,
+          "success"
+        );
+        return;
+      } catch (error) {
+        state.nativeReady = false;
+        setCompanionStatus(
+          "Chưa kết nối được companion cục bộ",
+          `${error.message} Ảnh và giọng Edge vẫn hoạt động độc lập.`,
+          "error"
+        );
+      }
+    }
+
     if (!CYBERGIRL_TOKEN) {
       state.companionReady = false;
       setCompanionStatus(
@@ -385,16 +567,35 @@
       base_url: ui.apiBaseUrl.value.trim(),
       model: ui.apiModel.value.trim(),
       api_key: ui.apiKey.value.trim(),
-      active_character: ui.characterSelect.value
+      active_character: ui.characterSelect.value,
+      silero_vad_path: ui.sileroPath.value.trim(),
+      whisper_cli_path: ui.whisperCliPath.value.trim(),
+      whisper_model_path: ui.whisperModelPath.value.trim(),
+      llama_server_path: ui.llamaServerPath.value.trim(),
+      gguf_path: ui.ggufPath.value.trim(),
+      tts_engine: ui.ttsEngineSelect.value,
+      piper_path: ui.piperPath.value.trim(),
+      piper_model_path: ui.piperModelPath.value.trim(),
+      auto_chat: ui.voiceAutoSend.checked,
+      auto_speak: ui.autoSpeak.checked,
+      system_prompt: state.characters[ui.characterSelect.value]?.system_prompt || ""
     };
   }
 
   async function saveCompanionConfig(showSuccess = true) {
     try {
-      const config = await companionFetch("/api/cau-hinh", {
-        method: "POST",
-        body: JSON.stringify(currentApiPayload())
-      });
+      let config;
+      if (nativeMessagingAvailable()) {
+        const status = await nativeRequest("configure", currentApiPayload());
+        config = status.config;
+        state.nativeReady = true;
+        setNativeComponents(status.components);
+      } else {
+        config = await companionFetch("/api/cau-hinh", {
+          method: "POST",
+          body: JSON.stringify(currentApiPayload())
+        });
+      }
       state.companionReady = true;
       ui.apiKey.value = "";
       setCompanionStatus(
@@ -415,13 +616,20 @@
     ui.testApiButton.disabled = true;
     ui.testApiButton.textContent = "Đang kiểm tra…";
     try {
-      const result = await companionFetch("/api/kiem-tra", {
-        method: "POST",
-        body: JSON.stringify(currentApiPayload())
-      });
+      await saveCompanionConfig(false);
+      const result = nativeMessagingAvailable()
+        ? await nativeRequest("chat", {
+          message: "Chỉ trả lời đúng một câu: Kết nối thành công.",
+          history: [],
+          speak: false
+        })
+        : await companionFetch("/api/kiem-tra", {
+          method: "POST",
+          body: JSON.stringify(currentApiPayload())
+        });
       state.companionReady = true;
       ui.apiKey.value = "";
-      setCompanionStatus("API hoạt động", result.tra_loi, "success");
+      setCompanionStatus("API hoạt động", result.tra_loi || result.text, "success");
       showToast("Kết nối API thành công.");
     } catch (error) {
       setCompanionStatus("API chưa hoạt động", error.message, "error");
@@ -471,19 +679,29 @@
     const pending = appendChatMessage("assistant pending", "Đang tạo câu trả lời tiếng Việt…");
 
     try {
-      const result = await companionFetch("/api/hoi-thoai", {
-        method: "POST",
-        body: JSON.stringify({
+      const result = nativeMessagingAvailable()
+        ? await nativeRequest("chat", {
           message,
-          history: previousHistory
+          history: previousHistory,
+          system_prompt: state.characters[ui.characterSelect.value]?.system_prompt || "",
+          speak: ui.autoSpeak.checked
         })
-      });
+        : await companionFetch("/api/hoi-thoai", {
+          method: "POST",
+          body: JSON.stringify({
+            message,
+            history: previousHistory
+          })
+        });
       pending.remove();
-      appendChatMessage("assistant", result.tra_loi, result.nhan_vat || "Cybergirl");
-      state.chatHistory.push({ role: "assistant", content: result.tra_loi });
-      ui.speechText.value = result.tra_loi;
+      const answer = result.tra_loi || result.text;
+      if (!nativeMessagingAvailable()) {
+        appendChatMessage("assistant", answer, result.nhan_vat || "Cybergirl");
+        state.chatHistory.push({ role: "assistant", content: answer });
+      }
+      ui.speechText.value = answer;
       setStage("Đã trả lời", result.nhan_vat || "Cybergirl");
-      if (ui.autoSpeak.checked) {
+      if (ui.autoSpeak.checked && (!nativeMessagingAvailable() || ui.ttsEngineSelect.value === "edge")) {
         speakText();
       } else if (state.resumeMicAfterTts) {
         state.resumeMicAfterTts = false;
@@ -504,6 +722,7 @@
 
   function clearChat() {
     state.chatHistory = [];
+    if (state.nativeReady) nativeRequest("clear_history").catch(() => {});
     ui.chatMessages.replaceChildren();
     appendChatMessage(
       "assistant",
@@ -1781,6 +2000,29 @@
   }
 
   async function startMic() {
+    if (state.nativeReady
+      && state.nativeComponents.silero_vad
+      && state.nativeComponents.whisper_cli
+      && state.nativeComponents.whisper_model) {
+      try {
+        await saveCompanionConfig(false);
+        await nativeRequest("start_listening");
+        state.nativeListening = true;
+        state.activeSignal = "mic";
+        state.finalTranscript = "";
+        ui.micOrb.classList.add("active");
+        ui.micTitle.textContent = "Companion đang nghe";
+        ui.micHint.textContent = "Silero VAD 16 kHz → Whisper tiếng Việt cục bộ.";
+        ui.micButton.textContent = "Dừng microphone";
+        setStage("Đang nghe", "Silero VAD + Whisper CPU", true);
+        return;
+      } catch (error) {
+        showToast(error.message, true);
+        setStage("Không mở được companion", "Kiểm tra model VAD, Whisper và microphone");
+        return;
+      }
+    }
+
     if (!SpeechRecognition) {
       showToast("Microsoft Edge trên thiết bị này không cung cấp Speech Recognition.", true);
       return;
@@ -1878,6 +2120,14 @@
   }
 
   async function stopMic(updateStatus = true) {
+    if (state.nativeListening) {
+      try {
+        await nativeRequest("stop_listening");
+      } catch (error) {
+        console.warn("Không dừng được microphone companion:", error);
+      }
+      state.nativeListening = false;
+    }
     state.recognitionShouldRun = false;
     if (state.recognition) {
       state.recognition.onend = null;
@@ -1901,6 +2151,54 @@
     ui.micHint.textContent = "Edge sẽ hỏi quyền truy cập khi bạn bắt đầu.";
     ui.micButton.textContent = "Bắt đầu nhận giọng Việt";
     if (updateStatus) setStage("Đã dừng", "Microphone đã được đóng");
+  }
+
+  async function connectNativeCompanion() {
+    ui.connectNativeButton.disabled = true;
+    ui.connectNativeButton.textContent = "Đang kết nối…";
+    try {
+      const status = await nativeRequest("status");
+      state.nativeReady = true;
+      state.companionReady = true;
+      fillNativeConfig(status.config);
+      setNativeComponents(status.components);
+      setCompanionStatus(
+        "Companion cục bộ đã kết nối",
+        `${status.host} · v${status.version} · ${status.language}`,
+        "success"
+      );
+      showToast("Đã kết nối Native Messaging.");
+    } catch (error) {
+      state.nativeReady = false;
+      setCompanionStatus("Không kết nối được companion", error.message, "error");
+      showToast(error.message, true);
+    } finally {
+      ui.connectNativeButton.disabled = false;
+      ui.connectNativeButton.textContent = "Kết nối companion";
+    }
+  }
+
+  async function benchmarkVietnameseTts() {
+    ui.benchmarkTtsButton.disabled = true;
+    ui.benchmarkTtsButton.textContent = "Đang đo…";
+    ui.ttsBenchmarkResult.textContent = "Đang tổng hợp cùng một câu trên các engine có sẵn…";
+    try {
+      await saveCompanionConfig(false);
+      const report = await nativeRequest("benchmark_tts", {
+        text: "Xin chào, đây là phép đo giọng tiếng Việt của Cybergirl."
+      });
+      const lines = report.results.map((item) => item.available
+        ? `${item.recommended_for_speed ? "✓ " : ""}${item.engine}: ${item.synthesis_ms} ms · RTF ${item.rtf} · ${item.characters_per_second} ký tự/giây`
+        : `${item.engine}: chưa sẵn sàng · ${item.error}`);
+      ui.ttsBenchmarkResult.textContent = lines.join("\n");
+      showToast("Đã benchmark TTS trên máy này.");
+    } catch (error) {
+      ui.ttsBenchmarkResult.textContent = error.message;
+      showToast(error.message, true);
+    } finally {
+      ui.benchmarkTtsButton.disabled = false;
+      ui.benchmarkTtsButton.textContent = "Benchmark TTS";
+    }
   }
 
   function stopAll() {
@@ -2009,7 +2307,7 @@
     ui.speakButton.addEventListener("click", speakText);
     ui.stopButton.addEventListener("click", stopAll);
     ui.micButton.addEventListener("click", () => {
-      if (state.recognitionShouldRun || state.micStream) stopMic();
+      if (state.nativeListening || state.recognitionShouldRun || state.micStream) stopMic();
       else startMic();
     });
     ui.snapshotButton.addEventListener("click", downloadSnapshot);
@@ -2017,6 +2315,8 @@
     ui.copyTranscript.addEventListener("click", copyTranscript);
     ui.saveApiButton.addEventListener("click", () => saveCompanionConfig());
     ui.testApiButton.addEventListener("click", testCompanionApi);
+    ui.connectNativeButton.addEventListener("click", connectNativeCompanion);
+    ui.benchmarkTtsButton.addEventListener("click", benchmarkVietnameseTts);
     ui.sendChatButton.addEventListener("click", () => sendChat());
     ui.clearChatButton.addEventListener("click", clearChat);
     ui.providerSelect.addEventListener("change", () => applyProviderDefaults(true));
@@ -2102,6 +2402,7 @@
     window.addEventListener("beforeunload", () => {
       stopTts(false);
       stopMic(false);
+      if (state.nativeReady) nativeRequest("interrupt").catch(() => {});
       if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
       if (state.audioObjectUrl) URL.revokeObjectURL(state.audioObjectUrl);
     });

@@ -42,6 +42,10 @@ class MockAIHandler(BaseHTTPRequestHandler):
         payload = json.loads(self.rfile.read(size))
         if self.path == "/api/chat":
             result = {"message": {"content": "Kết nối Ollama thành công."}}
+        elif self.path == "/responses":
+            result = {"output_text": "Kết nối OpenAI thành công."}
+        elif self.path == "/interactions":
+            result = {"output_text": "Kết nối Gemini thành công."}
         elif self.path == "/chat/completions":
             result = {
                 "choices": [{"message": {"content": "**Kết nối** API thành công."}}]
@@ -94,6 +98,13 @@ class APIClientTests(unittest.TestCase):
         self.assertEqual(
             client.chat("Xin chào", [], "Trả lời tiếng Việt."),
             "Kết nối Gemini thành công.",
+        )
+
+    def test_openai_responses(self):
+        client = APIClient(CauHinhAPI("openai", self.base, "gpt-test", "khoa"))
+        self.assertEqual(
+            client.chat("Xin chào", [], "Trả lời tiếng Việt."),
+            "Kết nối OpenAI thành công.",
         )
 
 
@@ -153,4 +164,3 @@ class LocalServerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

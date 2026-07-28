@@ -1,1 +1,2 @@
-pyinstaller==6.15.0
+pyinstaller>=6.15,<7
+-r companion/requirements-runtime.txt

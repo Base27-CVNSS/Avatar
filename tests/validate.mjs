@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,12 +7,14 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const readText = (file) => readFile(path.join(root, file), "utf8");
 
-const [manifestText, packageText, html, app, background] = await Promise.all([
+const [manifestText, packageText, html, app, background, workflow, installer] = await Promise.all([
   readText("manifest.json"),
   readText("package.json"),
   readText("index.html"),
   readText("app.js"),
-  readText("background.js")
+  readText("background.js"),
+  readText(".github/workflows/build-windows.yml"),
+  readText("installer/Cybergirl.iss")
 ]);
 const manifest = JSON.parse(manifestText);
 const packageJson = JSON.parse(packageText);
@@ -20,9 +23,25 @@ assert.equal(manifest.manifest_version, 3, "Extension phải dùng Manifest V3")
 assert.equal(manifest.version, packageJson.version, "Version manifest và package.json phải trùng");
 assert.match(html, new RegExp(`Cybergirl v${manifest.version.replaceAll(".", "\\.")}`));
 assert.equal(manifest.name, "Cybergirl — Trợ lý ảo tiếng Việt");
-assert.deepEqual(manifest.permissions, ["storage"], "Không được tự ý mở rộng quyền extension");
+assert.deepEqual(
+  manifest.permissions,
+  ["storage", "nativeMessaging"],
+  "Extension chỉ được dùng storage và Native Messaging"
+);
 assert.equal(manifest.host_permissions, undefined, "Extension local-first không cần host_permissions");
 assert.match(manifest.content_security_policy.extension_pages, /wasm-unsafe-eval/);
+const extensionId = [...createHash("sha256")
+  .update(Buffer.from(manifest.key, "base64"))
+  .digest()
+  .subarray(0, 16)]
+  .flatMap((byte) => [byte >> 4, byte & 15])
+  .map((nibble) => String.fromCharCode(97 + nibble))
+  .join("");
+const nativeManifest = JSON.parse(await readText("native-host/vn.base27.cybergirl.json"));
+assert.ok(
+  nativeManifest.allowed_origins.includes(`chrome-extension://${extensionId}/`),
+  "Native host phải cho phép đúng ID sinh từ khóa công khai của extension"
+);
 
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
 assert.equal(new Set(ids).size, ids.length, "HTML không được trùng id");
@@ -65,6 +84,22 @@ const desktopFiles = [
 ];
 for (const file of desktopFiles) {
   assert.ok((await stat(path.join(root, file))).size > 0, `Thiếu thành phần GUI Windows ${file}`);
+}
+
+const companionFiles = [
+  "cybergirl_native_host.py",
+  "cybergirl_companion.spec",
+  "companion/native_host.py",
+  "companion/audio.py",
+  "companion/engines.py",
+  "companion/protocol.py",
+  "native-host/vn.base27.cybergirl.json",
+  "native-host/register-native-host.ps1",
+  "native-host/unregister-native-host.ps1",
+  "models/README.md"
+];
+for (const file of companionFiles) {
+  assert.ok((await stat(path.join(root, file))).size >= 0, `Thiếu companion ${file}`);
 }
 
 const runtimeImage = await readFile(path.join(root, "assets/default-avatar.webp"));
@@ -115,6 +150,18 @@ assert.match(html, /id="characterSelect"/, "Phải cho phép chuyển nhân vậ
 assert.match(app, /CYBERGIRL_TOKEN/, "API vòng lặp phải dùng mã phiên");
 assert.match(app, /\/api\/hoi-thoai/, "GUI phải kết nối cổng hội thoại cục bộ");
 assert.match(app, /voiceAutoSend/, "Phải hỗ trợ vòng hội thoại giọng nói");
+assert.match(background, /connectNative/, "Service worker phải kết nối Native Messaging");
+assert.match(background, /vn\.base27\.cybergirl/, "Native host phải có tên ổn định");
+assert.match(app, /benchmark_tts/, "Dashboard phải benchmark TTS tiếng Việt");
+assert.match(html, /id="nativeVadStatus"/, "Phải hiển thị trạng thái Silero VAD");
+assert.match(html, /id="nativeSttStatus"/, "Phải hiển thị trạng thái Whisper");
+assert.match(html, /id="nativeLlmStatus"/, "Phải hiển thị trạng thái GGUF");
+assert.match(html, /id="nativeTtsStatus"/, "Phải hiển thị trạng thái TTS");
+assert.match(workflow, /cache-dependency-path: requirements-build\.txt/, "CI phải cache đúng tệp phụ thuộc");
+assert.match(workflow, /cybergirl_companion\.spec/, "CI phải đóng gói Native Companion");
+assert.match(workflow, /Cybergirl-Edge-v3\.0\.0\.zip/, "CI phải xuất gói Edge Extension");
+assert.match(installer, /#define MyAppVersion "3\.0\.0"/, "Bộ cài phải đúng phiên bản 3.0.0");
+assert.match(installer, /register-native-host\.ps1/, "Bộ cài phải đăng ký Native Messaging");
 
 const characters = JSON.parse(await readText("characters.json"));
 assert.ok(Object.keys(characters).length >= 3, "Cần tối thiểu ba nhân vật tiếng Việt");
@@ -128,4 +175,4 @@ console.log(`Cybergirl ${manifest.version}: PASS`);
 console.log(`- ${ids.length} HTML ids; ${selectors.length} JS selectors`);
 console.log(`- Runtime WebP 3840x2160; xuất master 7680x4320 cục bộ`);
 console.log(`- ${faceMeshAssets.length} Face Mesh assets; ${wasmFiles.length} WASM modules hợp lệ`);
-console.log("- Manifest V3 local-first; GUI Windows + API vòng lặp có mã phiên");
+console.log("- Manifest V3 + Native Messaging; GUI Windows và khóa API chỉ ở RAM");

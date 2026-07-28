@@ -1,11 +1,11 @@
-"""Cybergirl 2.0 — GUI Windows dùng nhân Microsoft Edge.
+"""Cybergirl 3.0 — GUI Windows dùng nhân Microsoft Edge.
 
 Ứng dụng đóng gói thành một tệp EXE bằng PyInstaller. Khi chạy, chương trình:
 
 1. Mở một dịch vụ vòng lặp chỉ trên ``127.0.0.1``.
-2. Phục vụ giao diện Face Mesh/Web Speech đã nhúng trong gói.
+2. Phục vụ giao diện Face Mesh/Web Speech/Native Companion đã nhúng trong gói.
 3. Mở Microsoft Edge ở chế độ cửa sổ ứng dụng.
-4. Làm cổng nối tới Ollama, Gemini hoặc API tương thích OpenAI.
+4. Làm cổng nối tới GGUF, Ollama, OpenAI, Gemini hoặc API tương thích.
 
 Ảnh, landmark, microphone và hoạt ảnh khuôn mặt được xử lý trong Edge. Lõi
 Python chỉ nhận văn bản hội thoại; khóa API chỉ giữ trong RAM của phiên chạy.
@@ -32,7 +32,7 @@ from api_client import APIClient, CauHinhAPI, LoiAPI
 from voice_registry import LoiCauHinhNhanVat, VoiceRegistry
 
 
-PHIEN_BAN = "2.0.0"
+PHIEN_BAN = "3.0.0"
 CONG_MAC_DINH = 27827
 GIOI_HAN_JSON = 1_000_000
 
@@ -61,9 +61,9 @@ class KhoCauHinh:
 
     def load(self) -> dict[str, Any]:
         defaults = {
-            "provider": "ollama",
-            "base_url": "http://127.0.0.1:11434",
-            "model": "qwen3:4b",
+            "provider": "gguf",
+            "base_url": "http://127.0.0.1:27829/v1",
+            "model": "qwen3-4b-vi",
             "active_character": "mai",
         }
         try:

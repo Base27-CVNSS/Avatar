@@ -24,7 +24,7 @@ class CauHinhAPI:
     timeout_seconds: int = 90
 
     def validated(self) -> "CauHinhAPI":
-        if self.provider not in {"ollama", "openai-compatible", "gemini"}:
+        if self.provider not in {"gguf", "ollama", "openai", "openai-compatible", "gemini"}:
             raise LoiAPI("Nhà cung cấp AI không được hỗ trợ.")
         parsed = urllib.parse.urlparse(self.base_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
@@ -55,7 +55,7 @@ class APIClient:
         request_headers = {
             "Content-Type": "application/json; charset=utf-8",
             "Accept": "application/json",
-            "User-Agent": "Cybergirl/2.0",
+            "User-Agent": "Cybergirl/3.0",
             **(headers or {}),
         }
         request = urllib.request.Request(
@@ -110,46 +110,60 @@ class APIClient:
                 },
             )
             answer = data.get("message", {}).get("content", "")
+        elif self.config.provider == "openai":
+            if not self.config.api_key:
+                raise LoiAPI("Cần nhập khóa OpenAI API.")
+            data = self._request(
+                f"{self.config.base_url}/responses",
+                {
+                    "model": self.config.model,
+                    "instructions": system_prompt,
+                    "input": [
+                        *safe_history,
+                        {"role": "user", "content": message},
+                    ],
+                    "store": False,
+                },
+                {"Authorization": f"Bearer {self.config.api_key}"},
+            )
+            answer = str(data.get("output_text", ""))
+            if not answer:
+                answer = " ".join(
+                    str(part.get("text", ""))
+                    for item in data.get("output", [])
+                    for part in item.get("content", [])
+                    if part.get("type") == "output_text"
+                )
         elif self.config.provider == "gemini":
             if not self.config.api_key:
                 raise LoiAPI("Cần nhập khóa API Gemini.")
-            model = urllib.parse.quote(self.config.model, safe="-_.")
             data = self._request(
-                f"{self.config.base_url}/models/{model}:generateContent",
+                f"{self.config.base_url}/interactions",
                 {
-                    "system_instruction": {
-                        "parts": [{"text": system_prompt}]
-                    },
-                    "contents": [
-                        *[
-                            {
-                                "role": "model" if item["role"] == "assistant" else "user",
-                                "parts": [{"text": item["content"]}],
-                            }
+                    "model": self.config.model,
+                    "system_instruction": system_prompt,
+                    "input": "\n".join(
+                        [
+                            *[
+                            f"{'Cybergirl' if item['role'] == 'assistant' else 'Người dùng'}: {item['content']}"
                             for item in safe_history
-                        ],
-                        {"role": "user", "parts": [{"text": message}]},
-                    ],
-                    "generationConfig": {
-                        "temperature": 0.7,
-                        "maxOutputTokens": 240,
-                    },
+                            ],
+                            f"Người dùng: {message}",
+                        ]
+                    ),
+                    "store": False,
+                    "generation_config": {"thinking_level": "low"},
                 },
                 {"x-goog-api-key": self.config.api_key},
             )
-            candidates = data.get("candidates") or []
-            parts = (
-                candidates[0].get("content", {}).get("parts", [])
-                if candidates
-                else []
-            )
-            answer = " ".join(str(part.get("text", "")) for part in parts)
+            answer = str(data.get("output_text", "") or data.get("text", ""))
         else:
             headers = {}
             if self.config.api_key:
                 headers["Authorization"] = f"Bearer {self.config.api_key}"
+            base_url = self.config.base_url
             data = self._request(
-                f"{self.config.base_url}/chat/completions",
+                f"{base_url}/chat/completions",
                 {
                     "model": self.config.model,
                     "stream": False,
@@ -181,4 +195,3 @@ class APIClient:
             [],
             "Trả lời ngắn gọn bằng tiếng Việt, không dùng markdown.",
         )
-

@@ -36,7 +36,7 @@
           <p class="eyebrow">Nghe · Hiểu · Trả lời · Nhép môi</p>
           <h1>Trợ lý AI có khuôn mặt,<br><span>nói tiếng Việt tự nhiên.</span></h1>
           <p class="lede">
-            Chọn ảnh, trò chuyện bằng giọng Việt và để Cybergirl trả lời qua API bạn chọn.
+            Chọn ảnh, trò chuyện bằng giọng Việt và dùng GGUF cục bộ hoặc ChatGPT/Gemini API.
             Face Mesh, ảnh, mắt, khẩu hình và phần dựng hình luôn chạy cục bộ trong Microsoft Edge.
           </p>
         </div>
@@ -44,7 +44,7 @@
           <span class="engine-icon" aria-hidden="true">⌁</span>
           <div>
             <small>Bộ máy thời gian thực</small>
-            <strong>Face Mesh + Web Speech + API</strong>
+            <strong>Face Mesh + Native AI + API</strong>
             <span id="capabilityText">Đang kiểm tra trình duyệt…</span>
           </div>
         </div>
@@ -186,6 +186,13 @@
               </div>
             </div>
 
+            <div class="native-stack" aria-label="Trạng thái companion cục bộ">
+              <span id="nativeVadStatus">VAD · chờ</span>
+              <span id="nativeSttStatus">Whisper · chờ</span>
+              <span id="nativeLlmStatus">GGUF · chờ</span>
+              <span id="nativeTtsStatus">TTS · chờ</span>
+            </div>
+
             <label class="field-label" for="characterSelect">Nhân vật</label>
             <select id="characterSelect">
               <option value="">Đang tải danh sách nhân vật…</option>
@@ -194,9 +201,11 @@
             <div class="api-settings">
               <label class="field-label" for="providerSelect">Nhà cung cấp AI</label>
               <select id="providerSelect">
+                <option value="gguf">GGUF cục bộ · llama.cpp</option>
+                <option value="openai">ChatGPT · OpenAI Responses API</option>
+                <option value="gemini">Google Gemini API</option>
                 <option value="ollama">Ollama cục bộ · không cần khóa</option>
                 <option value="openai-compatible">API tương thích OpenAI</option>
-                <option value="gemini">Google Gemini</option>
               </select>
 
               <label class="field-label" for="apiBaseUrl">Địa chỉ API</label>
@@ -210,11 +219,50 @@
               <small class="privacy-note">Cybergirl không ghi khóa API vào trình duyệt hoặc tệp cấu hình.</small>
             </div>
 
+            <details class="local-settings">
+              <summary>Thiết lập companion cục bộ</summary>
+              <p>Chọn binary/model trên Windows. Đường dẫn chỉ lưu trong companion; ảnh không được chuyển qua kênh này.</p>
+
+              <label class="field-label" for="sileroPath">Silero VAD ONNX</label>
+              <input id="sileroPath" type="text" placeholder="C:\Cybergirl\models\silero_vad.onnx" spellcheck="false">
+
+              <label class="field-label" for="whisperCliPath">whisper-cli.exe</label>
+              <input id="whisperCliPath" type="text" placeholder="C:\Cybergirl\bin\whisper-cli.exe" spellcheck="false">
+
+              <label class="field-label" for="whisperModelPath">Mô hình Whisper</label>
+              <input id="whisperModelPath" type="text" placeholder="C:\Cybergirl\models\ggml-small-q5_1.bin" spellcheck="false">
+
+              <label class="field-label" for="llamaServerPath">llama-server.exe</label>
+              <input id="llamaServerPath" type="text" placeholder="C:\Cybergirl\bin\llama-server.exe" spellcheck="false">
+
+              <label class="field-label" for="ggufPath">Mô hình LLM GGUF</label>
+              <input id="ggufPath" type="text" placeholder="C:\Cybergirl\models\qwen3-4b-q4_k_m.gguf" spellcheck="false">
+
+              <label class="field-label" for="ttsEngineSelect">Bộ đọc tiếng Việt</label>
+              <select id="ttsEngineSelect">
+                <option value="windows-sapi">Windows SAPI · cục bộ</option>
+                <option value="piper">Piper/VITS ONNX · cục bộ</option>
+                <option value="edge">Microsoft Edge Web Speech</option>
+              </select>
+
+              <label class="field-label" for="piperPath">piper.exe · tùy chọn</label>
+              <input id="piperPath" type="text" placeholder="C:\Cybergirl\bin\piper.exe" spellcheck="false">
+
+              <label class="field-label" for="piperModelPath">Mô hình Piper tiếng Việt · tùy chọn</label>
+              <input id="piperModelPath" type="text" placeholder="C:\Cybergirl\models\vi_VN-voice.onnx" spellcheck="false">
+
+              <div class="button-row">
+                <button id="connectNativeButton" class="button secondary" type="button">Kết nối companion</button>
+                <button id="benchmarkTtsButton" class="button secondary" type="button">Benchmark TTS</button>
+              </div>
+              <output id="ttsBenchmarkResult" class="benchmark-result">Chưa chạy benchmark trên máy này.</output>
+            </details>
+
             <label class="toggle-row" for="autoSpeak">
               <input id="autoSpeak" type="checkbox" checked>
               <span>
                 <strong>Tự phát câu trả lời</strong>
-                <small>Dùng giọng Việt của Microsoft Edge và đồng bộ khẩu hình.</small>
+                <small>Dùng Edge hoặc TTS cục bộ đã chọn và đồng bộ khẩu hình.</small>
               </span>
             </label>
 
@@ -311,7 +359,7 @@
     </main>
 
     <footer>
-      <span>Cybergirl v2.0.0</span>
+      <span>Cybergirl v3.0.0</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 

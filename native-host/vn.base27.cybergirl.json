@@ -1,0 +1,10 @@
+{
+  "name": "vn.base27.cybergirl",
+  "description": "Cybergirl Companion cục bộ cho Microsoft Edge",
+  "path": "__HOST_PATH__",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://pcfncoabnpdbnnhiigkeicboimiilphl/"
+  ]
+}
+

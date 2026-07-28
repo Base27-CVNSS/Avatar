@@ -1,8 +1,8 @@
 {
   "name": "cybergirl-edge-vietnamese-assistant",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "GUI trợ lý ảo tiếng Việt cho Windows chạy bằng Microsoft Edge.",
+  "description": "Edge Extension tiếng Việt kết hợp Native Messaging, ChatGPT/Gemini và companion AI cục bộ.",
   "author": "Long Ngo",
   "license": "MIT",
   "scripts": {

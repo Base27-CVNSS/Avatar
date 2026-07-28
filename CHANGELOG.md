@@ -2,6 +2,22 @@
 
 Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
 
+## 3.0.0 — 28/07/2026
+
+- Thêm Microsoft Edge Native Messaging host `vn.base27.cybergirl`.
+- Thêm companion cục bộ đóng gói EXE, không yêu cầu người dùng cài Python.
+- Tích hợp Silero VAD ONNX 16 kHz và máy trạng thái cắt câu.
+- Tích hợp whisper.cpp đa ngôn ngữ, ép nhận dạng tiếng Việt.
+- Tích hợp llama.cpp/LLM GGUF chạy CPU, chỉ lắng nghe localhost.
+- Thêm OpenAI Responses API và Gemini Interactions API.
+- Giữ Ollama và API tương thích OpenAI.
+- Thêm Windows SAPI và adapter Piper/VITS TTS tiếng Việt.
+- Thêm benchmark TTS thực trên máy: thời gian tổng hợp, RTF và ký tự/giây.
+- Thêm barge-in: VAD phát hiện lời mới sẽ ngắt TTS hiện tại.
+- Dashboard hiển thị trạng thái VAD, Whisper, GGUF và TTS.
+- Bộ cài tự đăng ký/gỡ Native Host trong registry HKCU của Microsoft Edge.
+- GitHub Actions tạo GUI EXE, companion EXE, Edge ZIP và bộ cài đầy đủ.
+
 ## 2.0.0 — 28/07/2026
 
 - Đổi sản phẩm từ Avatar VN thành Cybergirl.

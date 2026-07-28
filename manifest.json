@@ -2,12 +2,14 @@
   "manifest_version": 3,
   "name": "Cybergirl — Trợ lý ảo tiếng Việt",
   "short_name": "Cybergirl",
-  "version": "2.0.0",
-  "description": "Trợ lý ảo có khuôn mặt, giọng Việt và hội thoại AI chạy trong Microsoft Edge trên Windows.",
+  "version": "3.0.0",
+  "description": "Trợ lý ảo tiếng Việt kết hợp Edge, ChatGPT/Gemini API và companion cục bộ VAD–Whisper–GGUF–TTS.",
   "author": "Long Ngo",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt3TJ3DTclkyTS3kKYTA/lPD0BprmzDl2OjG65mjFgI7WBI/87TSpv95B2N+yZTXjm0nyq62hSFwHQptygH/CUj8mvypTWHS9AYspKpKrrICT40S3IeDCkx1YcPFa/GNaWXIILOaZsRVIJo+bz+F5nluQXAGndYRnLBYSHOp9Vy/YKIPjBxaZlDwbDZs2cMqzrJJknibwzOuZrK9dLbX5WVdah+xs8A/yi7VYAmcvwzfOSklom3tLOHIh2Zgbx9wBllYBeymBh6IiISSl4h0QDJdKsA8m+zr8qvUwYt8e8CjzIEnl0xNVL33UEmKozEWPpoCd4wt46G4TylsIWnyvqQIDAQAB",
   "minimum_chrome_version": "110",
   "permissions": [
-    "storage"
+    "storage",
+    "nativeMessaging"
   ],
   "action": {
     "default_title": "Mở Cybergirl"

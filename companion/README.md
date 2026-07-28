@@ -1,0 +1,66 @@
+# Cybergirl Companion 3.0
+
+Companion là Native Messaging host chạy cục bộ trên Windows. Microsoft Edge
+giao tiếp bằng JSON có tiền tố độ dài; không mở cổng mạng công khai và không
+nhận ảnh chân dung.
+
+## Chuỗi xử lý
+
+```text
+Microphone 16 kHz
+  → Silero VAD ONNX (CPU)
+  → WAV của một câu nói
+  → whisper.cpp đa ngôn ngữ, ép ngôn ngữ vi
+  → GGUF qua llama-server hoặc OpenAI/Gemini API
+  → Windows SAPI hoặc Piper/VITS tiếng Việt
+  → sự kiện TTS cho Mouth Engine trong Edge
+```
+
+Silero VAD dùng cửa sổ 512 mẫu ở 16 kHz. Hai cửa sổ liên tiếp vượt ngưỡng mới
+mở câu; khoảng lặng mặc định 650 ms đóng câu. Khi người dùng bắt đầu nói,
+companion phát sự kiện ngắt để dừng TTS hiện tại.
+
+## Lệnh Native Messaging
+
+| Lệnh | Mục đích |
+|---|---|
+| `status` | Kiểm tra host và model/binary |
+| `configure` | Lưu đường dẫn, model, provider; khóa API chỉ vào RAM |
+| `start_listening` | Mở Silero VAD và microphone |
+| `stop_listening` | Đóng stream, thread và bộ đệm |
+| `chat` | GGUF/OpenAI/Gemini tạo câu trả lời |
+| `speak` | Tổng hợp và phát TTS cục bộ |
+| `interrupt` | Dừng phát giọng ngay |
+| `benchmark_tts` | Đo thời gian tổng hợp, RTF và ký tự/giây |
+
+Sự kiện gồm `audio.level`, `vad.speech_start`, `vad.speech_end`, `stt.final`,
+`llm.thinking`, `llm.answer`, `tts.started`, `tts.ended` và `pipeline.error`.
+
+## Model không được nhúng vào Git
+
+- `silero_vad.onnx`: mô hình chính thức từ Silero VAD.
+- Whisper: mô hình đa ngôn ngữ của whisper.cpp; máy RAM 16 GB nên bắt đầu với
+  `small` đã lượng tử hóa.
+- GGUF: ưu tiên mô hình hướng dẫn 3–4B Q4 cho CPU/RAM 16 GB.
+- Piper/VITS: người dùng tự chọn model tiếng Việt và chịu giấy phép riêng của
+  model. Windows SAPI là lựa chọn cục bộ mặc định.
+
+## Benchmark TTS
+
+Chạy từ dashboard hoặc:
+
+```powershell
+python -m companion.benchmark_tts
+```
+
+Mỗi engine tổng hợp cùng một câu. Báo cáo không dùng số dựng sẵn:
+
+- `synthesis_ms`: thời gian từ lúc gọi đến khi WAV hoàn thành;
+- `audio_seconds`: thời lượng WAV;
+- `rtf = synthesis_seconds / audio_seconds`;
+- `characters_per_second`: thông lượng văn bản.
+
+`RTF < 1` nghĩa là tổng hợp nhanh hơn thời gian phát. Kết quả phụ thuộc CPU,
+voice và model trên chính máy đang chạy, vì vậy Cybergirl không công bố một
+bảng số liệu giả định dùng chung cho mọi máy.
+

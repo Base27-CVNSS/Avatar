@@ -2,6 +2,13 @@
 
 Các thay đổi đáng chú ý của Avatar VN được ghi tại đây.
 
+## 1.2.1 — 28/07/2026
+
+- Đặt ảnh chân dung do người dùng cung cấp làm avatar mặc định.
+- Tự chạy Face Mesh trên ảnh mặc định ngay khi studio khởi động hoặc được đặt lại.
+- Bổ sung bộ landmark dự phòng đã căn theo mắt, miệng và khung mặt của ảnh này.
+- Giữ nguyên tệp PNG gốc, không nén lại hoặc thay đổi nội dung ảnh.
+
 ## 1.2.0 — 28/07/2026
 
 - Tách mỗi ảnh upload thành một revision; kết quả landmark trễ không thể áp vào ảnh mới.

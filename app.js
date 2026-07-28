@@ -51,7 +51,7 @@
   const ctx = ui.canvas.getContext("2d", { alpha: false });
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  const SAMPLE_IMAGE = "assets/demo-avatar.svg";
+  const DEFAULT_IMAGE = "assets/default-avatar.png";
   const CALIBRATION_STEPS = [
     { key: "leftEye", label: "Bấm tâm mắt bên trái ảnh" },
     { key: "rightEye", label: "Bấm tâm mắt bên phải ảnh" },
@@ -297,28 +297,29 @@
     image.src = source;
   }
 
-  function useSampleImage(silent = false) {
+  function useDefaultImage(silent = false) {
     if (state.imageUrl) {
       URL.revokeObjectURL(state.imageUrl);
       state.imageUrl = null;
     }
     const revision = ++state.imageRevision;
     const image = new Image();
-    image.onload = () => {
+    image.onload = async () => {
       if (revision !== state.imageRevision) return;
       state.image = image;
       state.avatarReady = true;
-      setSampleFaceGeometry();
-      setStage("Sẵn sàng", "Ảnh mẫu đã được nạp");
-      setDetectionStatus("Đã định vị khuôn mặt mẫu", "Môi và hai mắt dùng mốc cài sẵn.", "success");
-      if (!silent) showToast("Đã khôi phục ảnh mẫu.");
+      setDefaultFaceGeometry();
+      setStage("Đang phân tích mặt", "Ảnh chân dung mặc định");
+      setDetectionStatus("Đang nhận diện ảnh mặc định", "Face Mesh đang khóa mắt, môi và tỷ lệ khuôn mặt.");
+      await detectFaceLandmarks(revision);
+      if (!silent && revision === state.imageRevision) showToast("Đã khôi phục ảnh chân dung mặc định.");
     };
     image.onerror = () => {
       if (revision !== state.imageRevision) return;
       state.avatarReady = false;
       showToast("Không thể nạp ảnh mẫu.", true);
     };
-    image.src = SAMPLE_IMAGE;
+    image.src = DEFAULT_IMAGE;
   }
 
   function handleImageFile(file) {
@@ -349,14 +350,14 @@
     }, false);
   }
 
-  function setSampleFaceGeometry() {
+  function setDefaultFaceGeometry() {
     applyFaceGeometry({
-      source: "sample",
-      box: { x: 0.23, y: 0.1, width: 0.54, height: 0.66 },
-      mouth: { x: 0.5, y: 0.665, width: 0.18, height: 0.052, angle: 0 },
+      source: "default",
+      box: { x: 0.31, y: 0.12, width: 0.47, height: 0.55 },
+      mouth: { x: 0.572, y: 0.548, width: 0.14, height: 0.042, angle: -0.05 },
       eyes: [
-        { x: 0.414, y: 0.477, width: 0.07, height: 0.035, angle: 0 },
-        { x: 0.586, y: 0.477, width: 0.07, height: 0.035, angle: 0 }
+        { x: 0.459, y: 0.347, width: 0.09, height: 0.03, angle: -0.07 },
+        { x: 0.649, y: 0.334, width: 0.082, height: 0.028, angle: -0.07 }
       ],
       landmarks: []
     });
@@ -415,7 +416,7 @@
     ));
 
     return {
-      quality: face.source === "sample" || face.source === "fallback" ? 100 : score,
+      quality: face.source === "default" || face.source === "fallback" ? 100 : score,
       geometry: {
         ...face,
         box,
@@ -647,7 +648,7 @@
       const quality = applyFaceGeometry(geometry);
       setDetectionStatus(
         geometry.source === "mediapipe" ? "Đã nhận diện 468 điểm mặt" : "Đã nhận diện bằng Edge",
-        `Môi, hai mắt và tỷ lệ mặt đã khóa theo ảnh upload · chất lượng ${quality}/100.`,
+        `Môi, hai mắt và tỷ lệ mặt đã khóa theo ảnh hiện tại · chất lượng ${quality}/100.`,
         "success"
       );
       setStage("Khuôn mặt đã khóa", "Khẩu hình mềm và chớp mắt đã sẵn sàng");
@@ -1559,7 +1560,7 @@
       state.mouthTarget = 0;
       setViseme("idle");
       updateRangeLabels();
-      useSampleImage(true);
+      useDefaultImage(true);
       savePreferences();
       showToast("Đã đặt lại dashboard.");
     });
@@ -1627,7 +1628,7 @@
     bindEvents();
     await restorePreferences();
     updateRangeLabels();
-    useSampleImage(true);
+    useDefaultImage(true);
     populateVoices();
     if ("speechSynthesis" in window) {
       window.speechSynthesis.onvoiceschanged = populateVoices;

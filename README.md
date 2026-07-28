@@ -9,13 +9,14 @@
 [![License](https://img.shields.io/badge/License-MIT-8468ff)](LICENSE)
 [![Privacy](https://img.shields.io/badge/Processing-Local%20only-102e49)](PRIVACY.md)
 
-Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát triển. Phiên bản 1.2 nhận diện landmark của môi, hai mắt và khung mặt trên ảnh upload bằng MediaPipe Face Mesh chạy cục bộ, sau đó dựng chuyển động mềm bằng Web Speech API, Web Audio API và Canvas 2D. Phần ảnh, Face Mesh, Canvas và phân tích tệp audio chạy trên thiết bị; dịch vụ TTS/STT cụ thể do Edge/Windows cung cấp và có thể dùng xử lý trực tuyến tùy voice, phiên bản và cấu hình hệ thống.
+Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát triển. Phiên bản 1.2.1 mở sẵn ảnh chân dung mặc định và tự chạy Face Mesh để nhận diện môi, hai mắt và khung mặt. Ảnh upload tiếp theo vẫn được xử lý độc lập bằng Web Speech API, Web Audio API và Canvas 2D. Phần ảnh, Face Mesh, Canvas và phân tích tệp audio chạy trên thiết bị; dịch vụ TTS/STT cụ thể do Edge/Windows cung cấp và có thể dùng xử lý trực tuyến tùy voice, phiên bản và cấu hình hệ thống.
 
 > Bản này được tái cấu trúc từ ý tưởng của ứng dụng `lip-sync-ai-main`. Mã gốc tải ảnh/âm thanh lên fal.ai và gọi OmniHuman 1.5 ở backend. Avatar VN loại bỏ toàn bộ Next.js server, `FAL_KEY`, lưu trữ đám mây và API sinh video.
 
 ## Điểm nổi bật
 
 - Chọn hoặc kéo thả ảnh JPG, PNG, WebP và GIF.
+- Khởi động với ảnh chân dung mặc định trong `assets/default-avatar.png`; Face Mesh tự căn lại landmark ngay khi mở studio.
 - Tự nhận diện hàng trăm landmark để định vị môi, mắt và tỷ lệ mặt.
 - Không dùng lại tọa độ miệng của ảnh trước cho ảnh mới.
 - Mỗi lượt upload có mã phiên riêng; kết quả Face Mesh trễ của ảnh cũ bị loại bỏ.
@@ -133,7 +134,8 @@ Avatar/
 ├── tests/
 │   └── validate.mjs     # Kiểm tra manifest, asset, CSP và hai module WASM
 ├── assets/
-│   └── demo-avatar.svg
+│   ├── default-avatar.png  # Ảnh chân dung mở sẵn
+│   └── demo-avatar.svg     # Minh họa dự phòng của phiên bản đầu
 ├── vendor/
 │   └── face_mesh/       # MediaPipe JS, model data và WASM cục bộ
 ├── icons/

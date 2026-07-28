@@ -35,6 +35,7 @@ for (const script of scripts) {
 }
 
 const localAssets = [
+  "assets/default-avatar.png",
   "vendor/face_mesh/face_mesh.binarypb",
   "vendor/face_mesh/face_mesh_solution_packed_assets.data",
   "vendor/face_mesh/face_mesh_solution_packed_assets_loader.js",
@@ -65,6 +66,7 @@ for (const forbidden of ["fal.ai", "FAL_KEY", "/api/generate", "analytics"]) {
 assert.match(app, /imageRevision/, "Phải chống landmark cũ áp vào ảnh mới");
 assert.match(app, /assessFaceGeometry/, "Phải kiểm tra tỷ lệ landmark trước khi vẽ");
 assert.match(app, /1000 \/ 30/, "Phải giới hạn render để giảm tải CPU");
+assert.match(app, /assets\/default-avatar\.png/, "Phải dùng ảnh chân dung mặc định");
 assert.match(html, /id="runtimeWarning"/, "Phải cảnh báo khi người dùng mở file://");
 
 console.log(`Avatar VN ${manifest.version}: PASS`);

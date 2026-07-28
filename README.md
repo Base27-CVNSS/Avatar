@@ -1,208 +1,249 @@
-# Avatar VN — Edge Talking Photo
+# Cybergirl — Trợ lý ảo tiếng Việt cho Microsoft Edge
 
-![Avatar VN](icons/logo.svg)
+![Cybergirl](icons/logo.svg)
 
-**Tạo ảnh biết nói bằng giọng Việt ngay trong Microsoft Edge — không API key, không backend riêng, không tải ảnh/tệp lên máy chủ của extension.**
+[![Phiên bản](https://img.shields.io/badge/Phiên_bản-2.0.0-ff4f9a)](CHANGELOG.md)
+[![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows)](.github/workflows/build-windows.yml)
+[![Microsoft Edge](https://img.shields.io/badge/Microsoft_Edge-110%2B-0aa7f5?logo=microsoftedge)](https://www.microsoft.com/edge)
+[![Giấy phép](https://img.shields.io/badge/Giấy_phép-MIT-a970ff)](LICENSE)
+[![Riêng tư](https://img.shields.io/badge/Ảnh_xử_lý-cục_bộ-ff4f9a)](PRIVACY.md)
 
-[![Microsoft Edge](https://img.shields.io/badge/Microsoft%20Edge-110%2B-0aa7f5?logo=microsoftedge&logoColor=white)](https://www.microsoft.com/edge)
-[![Manifest](https://img.shields.io/badge/Manifest-V3-34e2bd)](manifest.json)
-[![License](https://img.shields.io/badge/License-MIT-8468ff)](LICENSE)
-[![Privacy](https://img.shields.io/badge/Processing-Local%20only-102e49)](PRIVACY.md)
+**Cybergirl biến một ảnh chân dung thành trợ lý ảo có thể nghe, hiểu, trả lời
+và nhép môi bằng tiếng Việt. Người dùng Windows chỉ cài GUI; không phải cài
+Python, Node.js hoặc CUDA.**
 
-Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát triển. Phiên bản 1.4.0 dùng ảnh chân dung đã phục hồi lại môi hé, răng và bóng khoang miệng làm mặc định, chạy từ WebP 4K nhẹ hơn và tạo bản 8K đúng 7680×4320 ngay trong Edge khi người dùng yêu cầu. Face Mesh tự nhận diện môi, hai mắt và khung mặt; ảnh upload tiếp theo vẫn được xử lý độc lập bằng Web Speech API, Web Audio API và Canvas 2D. Phần ảnh, Face Mesh, Canvas và phân tích tệp audio chạy trên thiết bị; dịch vụ TTS/STT cụ thể do Edge/Windows cung cấp và có thể dùng xử lý trực tuyến tùy voice, phiên bản và cấu hình hệ thống.
-
-> Bản này được tái cấu trúc từ ý tưởng của ứng dụng `lip-sync-ai-main`. Mã gốc tải ảnh/âm thanh lên fal.ai và gọi OmniHuman 1.5 ở backend. Avatar VN loại bỏ toàn bộ Next.js server, `FAL_KEY`, lưu trữ đám mây và API sinh video.
+Cybergirl 2.0 do **Long Ngo** phát triển từ Avatar VN 1.4. Mouth Engine, Face
+Mesh, ảnh 4K/8K, mắt và vi chuyển động được giữ lại; vòng hội thoại AI, registry
+nhân vật, GUI Windows và cổng API được bổ sung mới.
 
 ## Điểm nổi bật
 
-- Chọn hoặc kéo thả ảnh JPG, PNG, WebP và GIF.
-- Khởi động với `assets/default-avatar.webp` 4K; Face Mesh tự căn landmark ngay khi mở studio.
-- Nút **Ảnh 8K** dựng và tải JPEG đúng 7680×4320 cục bộ, không làm gói extension nặng thêm.
-- Ảnh mặc định đã phục hồi lại môi hé, răng màu ngà và bóng khoang miệng trung tính; không còn đường hồng được vẽ đè.
-- Tự nhận diện hàng trăm landmark để định vị môi, mắt và tỷ lệ mặt.
-- Không dùng lại tọa độ miệng của ảnh trước cho ảnh mới.
-- Mỗi lượt upload có mã phiên riêng; kết quả Face Mesh trễ của ảnh cũ bị loại bỏ.
-- Chấm điểm tỷ lệ landmark và từ chối vùng miệng bất thường trước khi dựng.
-- Chế độ hiệu chỉnh dự phòng 5 điểm: hai mắt, hai khóe miệng và tâm môi.
-- Mouth Engine tách lớp môi trên, môi dưới và khẩu độ; mặt nạ feathered loại bỏ biên ngang cứng.
-- Khoang miệng dùng gradient nâu trung tính theo độ sáng ảnh, không tô dải hồng, oval đen hoặc răng giả.
-- Chớp mắt đơn/đôi ngẫu nhiên, nét mí mảnh và vi chuyển động đầu dùng mục tiêu mềm.
-- Tự ưu tiên giọng `vi-VN` có sẵn trong Microsoft Edge/Windows.
-- Đọc văn bản tiếng Việt, nội suy coarticulation và tạo lịch viseme cho cả nguyên âm, phụ âm ghép, khoảng trắng và dấu câu.
-- Chèn tệp MP3, WAV, M4A, OGG hoặc WebM; khẩu hình bám theo biên độ âm thanh thật.
-- Nhận giọng Việt qua `SpeechRecognition`, hiển thị cả kết quả tạm thời và chính thức.
-- Microphone điều khiển môi theo âm lượng thực, có khử vọng và giảm nhiễu của trình duyệt.
-- Dashboard responsive, chạy trực tiếp trong extension.
-- Render giới hạn 30 FPS, tự hạ xuống 10 FPS khi tab bị ẩn để giảm tải CPU.
-- Chụp khung hình nhân vật thành PNG.
-- Không host permission, không analytics, không cookie, không API key hay server do người dùng phải cài.
+- Một bộ cài GUI cho Windows 10/11.
+- Tự mở Microsoft Edge ở chế độ cửa sổ ứng dụng, không hiện cửa sổ lệnh.
+- Toàn bộ giao diện, thông báo lỗi và hướng dẫn bằng tiếng Việt.
+- Nhận giọng `vi-VN` và phát giọng Việt qua Web Speech API của Edge.
+- MediaPipe Face Mesh và hai module WASM chạy cục bộ.
+- Mouth Engine 1.4 giữ môi/răng thật, khẩu độ cong và mặt nạ feathered.
+- Chọn ảnh, âm thanh, microphone hoặc trò chuyện AI.
+- Ba nhân vật tiếng Việt có thể chuyển nóng: Mai, Linh và An.
+- Hỗ trợ Ollama cục bộ, Gemini và mọi API tương thích OpenAI.
+- Ảnh, landmark và dữ liệu Face Mesh không được gửi tới API.
+- Khóa API chỉ giữ trong RAM và bị xóa khi thoát.
+- Tạo ảnh master 7680×4320 ngay trên thiết bị.
+- Mã nguồn MIT; icon hồng giúp nhận diện Cybergirl.
 
 ## Kiến trúc
 
 ```mermaid
-flowchart TD
-    A["Ảnh cục bộ"] --> L["MediaPipe Face Mesh"]
-    L --> M["Môi + mắt + khung mặt"]
-    M --> D["Canvas texture warp"]
-    B["Văn bản tiếng Việt"] --> E["Edge speechSynthesis"]
-    B --> F["Bộ ánh xạ viseme Việt"]
-    C["Audio / Microphone"] --> G["Web Audio Analyser"]
-    H["Microphone"] --> I["Edge SpeechRecognition vi-VN"]
-    F --> D
-    G --> D
-    E --> J["Loa thiết bị"]
-    I --> K["Bản chép lời"]
+flowchart LR
+    U["Người dùng Windows"] --> G["Cybergirl.exe"]
+    G --> E["Microsoft Edge · chế độ ứng dụng"]
+    E --> F["Face Mesh + WASM"]
+    E --> S["Web Speech vi-VN"]
+    E --> M["Mouth Engine + mắt + gương mặt"]
+    E --> L["Cổng vòng lặp có mã phiên"]
+    L --> R["Registry nhân vật"]
+    L --> O["Ollama cục bộ"]
+    L --> A["Gemini / API tương thích OpenAI"]
+    F --> M
+    S --> M
+    O --> L
+    A --> L
+    L --> S
 ```
 
-| Thành phần | API trình duyệt | Vai trò |
-|---|---|---|
-| Ảnh | `File`, `ObjectURL`, Canvas 2D | Đọc ảnh và dựng nhân vật cục bộ |
-| Landmark | MediaPipe Face Mesh + WASM | Định vị môi, mắt và tỷ lệ khuôn mặt |
-| Phát giọng | `speechSynthesis` | Dùng voice tiếng Việt có sẵn trong Edge/Windows |
-| Nhận giọng | `SpeechRecognition` / `webkitSpeechRecognition` | Chuyển lời nói thành văn bản `vi-VN` |
-| Lip-sync TTS | Bộ viseme JavaScript | Ước lượng khẩu hình từ ký tự/âm tiết tiếng Việt |
-| Lip-sync audio | `AudioContext`, `AnalyserNode` | Đo RMS âm thanh theo từng khung hình |
-| Giao diện | HTML, CSS, JavaScript thuần | Không bundler, không framework, không phụ thuộc npm |
+### Dòng dữ liệu riêng tư
 
-## Mouth Engine 1.4
+| Dữ liệu | Xử lý ở đâu | Có gửi tới API AI không? |
+|---|---|---|
+| Ảnh chân dung | Edge + Canvas + Face Mesh | Không |
+| Landmark môi/mắt/mặt | Bộ nhớ trình duyệt | Không |
+| Microphone | Edge/Web Speech | Không do mã Cybergirl chủ động gửi |
+| Văn bản câu hỏi | Cổng API vòng lặp | Có, nếu chọn API từ xa |
+| Câu trả lời | API → Edge TTS | Có |
+| Khóa API | RAM của `Cybergirl.exe` | Chỉ gửi tới nhà cung cấp đã chọn |
+
+Web Speech do Edge/Windows cung cấp; tùy cấu hình hệ điều hành, nhận dạng giọng
+có thể dùng dịch vụ của Microsoft. Xem [chính sách riêng tư](PRIVACY.md).
+
+## Cài trên Windows
+
+### Cách một — Bộ cài GUI
+
+1. Mở mục **Actions** hoặc **Releases** của repository.
+2. Tải `Cybergirl-Setup-v2.0.0-Windows-x64.exe`.
+3. Chạy bộ cài và chọn tạo biểu tượng ngoài màn hình.
+4. Mở **Cybergirl**. Bảng điều khiển nhỏ xuất hiện và Edge tự mở giao diện chính.
+5. Cho phép microphone khi Edge hỏi.
+
+Người dùng cuối không cần cài Python, Node.js, CUDA hoặc Face Mesh riêng.
+
+### Cách hai — Extension dành cho phát triển
+
+1. Tải repository và giải nén.
+2. Mở `edge://extensions`.
+3. Bật **Chế độ nhà phát triển**.
+4. Chọn **Tải tiện ích đã giải nén**.
+5. Chọn thư mục chứa `manifest.json`.
+
+Extension độc lập vẫn dùng ảnh, Face Mesh, TTS/STT và nhép môi. Hội thoại AI
+chỉ hoạt động đầy đủ khi mở bằng GUI Windows, vì cổng API được bảo vệ bằng mã
+phiên tạo riêng ở mỗi lần chạy.
+
+## Chọn bộ não AI
+
+### Ollama cục bộ — mặc định
+
+Phù hợp máy Windows RAM 16 GB, không cần khóa API:
+
+```powershell
+ollama pull qwen3:4b
+```
+
+Trong Cybergirl chọn:
 
 ```text
-Face Mesh
-   ↓
-Vùng môi đã kiểm tra tỷ lệ
-   ↓
-Texture môi trên + texture môi dưới
-   ↓
-Khẩu độ cong màu nâu trung tính
-   ↓
-Mặt nạ feathered
-   ↓
-Coarticulation + noise gate
-   ↓
-Canvas 30 FPS
+Nhà cung cấp: Ollama cục bộ
+Địa chỉ API: http://127.0.0.1:11434
+Mô hình: qwen3:4b
 ```
 
-Ở trạng thái nghỉ hoặc âm lượng rất nhỏ, engine giữ nguyên môi hé từ ảnh nguồn. Khi bắt đầu nói, hai lớp môi được dịch chuyển theo đường cong riêng; vùng răng vẫn lấy từ texture ảnh thật. Khẩu độ chỉ xuất hiện sau ngưỡng mở tối thiểu, vì vậy không còn dải hồng hoặc đường thẳng chạy ngang qua miệng.
+Cybergirl không tự cài Ollama. Nếu không muốn cài thêm mô hình, hãy dùng Gemini
+hoặc một API tương thích OpenAI.
 
-## Cài trên Microsoft Edge
+### Google Gemini
 
-1. Tải repository bằng **Code → Download ZIP** và giải nén.
-2. Mở `edge://extensions`.
-3. Bật **Developer mode / Chế độ nhà phát triển**.
-4. Chọn **Load unpacked / Tải tiện ích đã giải nén**.
-5. Chọn thư mục chứa `manifest.json`.
-6. Ghim **Avatar VN** lên thanh công cụ và bấm icon để mở studio.
+```text
+Nhà cung cấp: Google Gemini
+Địa chỉ API: https://generativelanguage.googleapis.com/v1beta
+Mô hình: tên mô hình Gemini tài khoản của bạn đang được phép sử dụng
+Khóa API: nhập cho phiên hiện tại
+```
 
-## Sử dụng
+### API tương thích OpenAI
 
-1. Chọn ảnh chân dung chính diện; Face Mesh sẽ tự động chạy.
-2. Kiểm tra khung hướng dẫn màu xanh trên mắt và miệng. Nếu nhận diện chưa đúng, bấm **Chỉnh 5 điểm** và lần lượt đặt hai mắt, hai khóe miệng, tâm môi.
-3. Chọn một trong ba nguồn:
-   - **Văn bản:** chọn voice tiếng Việt, chỉnh tốc độ/cao độ, bấm **Phát và nhép môi**.
-   - **Âm thanh:** chọn tệp và bấm Play trên trình phát.
-   - **Microphone:** bấm **Bắt đầu nhận giọng Việt** rồi cho phép Edge dùng mic.
-4. Điều chỉnh **Độ mở khẩu hình** và **Vi chuyển động gương mặt** ở mức vừa phải; mặc định 52% và 24% đã được cân chỉnh cho ảnh đi kèm.
-5. Bấm **Ảnh 8K** để Edge tạo cục bộ master 7680×4320 hoặc **Chụp PNG** để lưu khung hình hiện tại.
+Áp dụng cho llama.cpp, vLLM, LM Studio, Ollama `/v1` hoặc nhà cung cấp khác:
 
-Sau khi upload, trạng thái nhận diện hiển thị điểm chất lượng từ 45–100. Nếu điểm thấp, khuôn mặt nghiêng nhiều hoặc khung xanh lệch khỏi mắt/môi, hãy dùng **Chỉnh 5 điểm**.
+```text
+Địa chỉ API: http://127.0.0.1:11434/v1
+Mô hình: qwen3:4b
+Khóa API: để trống nếu máy chủ cục bộ không yêu cầu
+```
 
-## Cài giọng Việt cho Edge/Windows
+Cybergirl không khóa cứng tên mô hình. Hãy nhập tên mà endpoint của bạn cung cấp.
 
-Nếu danh sách không có giọng `vi-VN`:
+## Hội thoại giọng nói
 
-1. Mở **Windows Settings → Time & language → Language & region**.
-2. Thêm **Vietnamese / Tiếng Việt**.
-3. Trong **Speech**, cài gói giọng đọc tiếng Việt nếu phiên bản Windows cung cấp.
-4. Khởi động lại Edge và mở lại extension.
+1. Chọn ảnh và chờ Face Mesh nhận diện.
+2. Chọn nhân vật và cấu hình API.
+3. Bấm **Kiểm tra API**.
+4. Bật **Hội thoại giọng nói liên tục**.
+5. Mở thẻ **Microphone** và bấm **Bắt đầu nhận giọng Việt**.
+6. Khi Edge xác nhận câu nói, Cybergirl tự gửi văn bản tới AI.
+7. Câu trả lời được đọc bằng voice `vi-VN`; khẩu hình tự đồng bộ và microphone
+   mở lại sau khi nói xong.
 
-Tên voice phụ thuộc phiên bản Windows/Edge. Mã không khóa cứng tên giọng mà tự ưu tiên mọi voice có mã ngôn ngữ bắt đầu bằng `vi`.
+Bạn cũng có thể nhập câu hỏi rồi bấm **Gửi và trả lời** hoặc `Ctrl+Enter`.
 
-## Khác gì OmniHuman/Wav2Lip?
+## Nhân vật
 
-Avatar VN ưu tiên **không server và phản hồi tức thì**. Đây là engine Canvas thời gian thực, không phải mô hình neural video generation.
-
-| Tiêu chí | Avatar VN | OmniHuman/Wav2Lip trên GPU |
-|---|---|---|
-| Cần server/GPU | Không | Có |
-| API key/quota | Không | Thường có |
-| Phản hồi | Thời gian thực | Phải render |
-| Dữ liệu rời thiết bị | Không | Có thể có |
-| Độ quang thực | Tốt cho preview/nhân vật tương tác | Cao hơn rõ rệt |
-| Xuất video neural | Không | Có |
-
-Không nên mô tả Avatar VN là mô hình AI sinh video quang thực. Ứng dụng phù hợp với trợ lý ảo, demo kiosk, lớp học, prototype hội thoại và trải nghiệm riêng tư trên thiết bị. Ảnh chính diện, khuôn mặt lớn và hiệu chỉnh miệng đúng vị trí sẽ cho kết quả tốt nhất.
-
-## Quyền và riêng tư
-
-Manifest chỉ yêu cầu:
+`characters.json` kế thừa ý tưởng registry trong mã nguồn người dùng:
 
 ```json
 {
-  "permissions": ["storage"]
+  "mai": {
+    "label": "Mai · Dịu dàng",
+    "llm_model": "qwen3:4b",
+    "voice_language": "vi-VN",
+    "system_prompt": "Prompt tiếng Việt..."
+  }
 }
 ```
 
-`storage` chỉ lưu cường độ khẩu hình, vi chuyển động, tốc độ và cao độ. Landmark không được tái sử dụng giữa các ảnh. Ảnh và audio được mở qua Object URL trong phiên hiện tại. Quyền microphone chỉ xuất hiện khi người dùng chủ động bấm bắt đầu. `SpeechRecognition` có thể dùng dịch vụ giọng nói của Microsoft, tùy cấu hình Edge/Windows; mã extension không tự gửi dữ liệu tới endpoint nào. Xem [PRIVACY.md](PRIVACY.md).
+`voice_registry.py` kiểm tra JSON, giới hạn prompt, chuyển nhân vật an toàn luồng
+và không gửi system prompt xuống giao diện.
 
-## Cấu trúc mã nguồn
+## Qwen3-TTS
+
+Mã thử nghiệm của người dùng đã được cập nhật trong
+[`tuy-chon-qwen3`](tuy-chon-qwen3). Thành phần này không nằm trong EXE mặc định:
+
+- Qwen3-TTS/PyTorch làm gói nặng và không phù hợp yêu cầu chỉ cài GUI.
+- Máy AMD không hưởng lợi từ đường CUDA của mã cũ.
+- Tiếng Việt chưa nằm trong danh sách hỗ trợ chính thức của Qwen3-TTS.
+
+Bản ổn định ưu tiên giọng Việt sẵn có trong Microsoft Edge/Windows.
+
+## Bảo mật cổng API
+
+- Chỉ lắng nghe trên `127.0.0.1`.
+- Tự chọn cổng từ 27827 đến 27838 nếu cổng mặc định đang bận.
+- Mỗi phiên tạo một token ngẫu nhiên 256 bit.
+- Mọi POST API phải có `X-Cybergirl-Token`.
+- Kiểm tra `Origin`, giới hạn JSON một MB và không bật CORS.
+- Chính sách CSP chặn script, frame và object từ ngoài.
+- Không ghi khóa API vào `localStorage`, `chrome.storage` hoặc tệp cấu hình.
+
+## Đóng gói Windows
+
+GitHub Actions tự tạo:
+
+- `Cybergirl-Windows-x64.exe` — GUI một tệp.
+- `Cybergirl-Setup-v2.0.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
+
+Tự build trên Windows:
+
+```powershell
+python -m pip install -r requirements-build.txt
+npm test
+pyinstaller --noconfirm --clean cybergirl.spec
+```
+
+Sau đó dùng Inno Setup 6 biên dịch `installer/Cybergirl.iss`.
+
+## Kiểm thử
+
+```powershell
+npm test
+python cybergirl.py --tu-kiem-tra
+```
+
+Bộ kiểm thử xác thực:
+
+- Manifest V3 và không có host permission.
+- Ảnh runtime 3840×2160 và xuất master 7680×4320.
+- Face Mesh, model data và hai WASM hợp lệ.
+- Mouth Engine không tái xuất hiện dải màu khoang miệng cố định.
+- Registry nhân vật tiếng Việt.
+- Ba adapter Ollama, Gemini và OpenAI-compatible.
+- Token bảo vệ cổng vòng lặp.
+- Khóa API không bị ghi xuống ổ đĩa.
+- Thành phần bộ cài GUI Windows.
+
+## Cấu trúc
 
 ```text
 Avatar/
-├── manifest.json
-├── background.js
+├── cybergirl.py                 # GUI, máy chủ vòng lặp và bộ mở Edge
+├── api_client.py                # Ollama, Gemini, OpenAI-compatible
+├── voice_registry.py            # Registry nhân vật
+├── characters.json              # Nhân vật tiếng Việt
 ├── index.html
 ├── styles.css
-├── app.js
-├── package.json
-├── tests/
-│   └── validate.mjs     # Kiểm tra manifest, asset, CSP và hai module WASM
+├── app.js                       # Face Mesh, mouth engine, giọng và chat
+├── manifest.json                # Extension Edge MV3
+├── cybergirl.spec               # Đóng gói PyInstaller
+├── installer/Cybergirl.iss      # Bộ cài tiếng Việt
+├── tuy-chon-qwen3/              # Tích hợp TTS thử nghiệm, không đóng gói
 ├── assets/
-│   ├── default-avatar.webp    # Ảnh runtime 4K, ưu tiên tốc độ Edge
-│   └── demo-avatar.svg     # Minh họa dự phòng của phiên bản đầu
-├── vendor/
-│   └── face_mesh/       # MediaPipe JS, model data và WASM cục bộ
+├── vendor/face_mesh/
 ├── icons/
-│   ├── logo.svg
-│   ├── icon16.png
-│   ├── icon32.png
-│   ├── icon48.png
-│   └── icon128.png
-├── PRIVACY.md
-├── THIRD_PARTY_NOTICES.md
-├── CHANGELOG.md
-├── LICENSE
-└── README.md
+├── tests/
+└── .github/workflows/build-windows.yml
 ```
 
-## Phát triển
+## Giấy phép
 
-Không cần cài dependency. Node.js chỉ được dùng để chạy bộ kiểm tra:
-
-- Sửa `index.html`, `styles.css` hoặc `app.js`.
-- Chạy `npm test`.
-- Mở `edge://extensions`.
-- Bấm **Reload** trên thẻ Avatar VN.
-- Bấm icon extension để mở phiên bản mới.
-
-Hãy chạy bằng **Load unpacked** trong `edge://extensions`. Khi mở trực tiếp qua `file://`, Edge có thể chặn việc nạp WASM/model; lúc đó dashboard vẫn hoạt động nhưng nhận diện tự động sẽ chuyển sang hiệu chỉnh 5 điểm. Microphone/STT cũng cần secure context (`https://`, `localhost` hoặc trang extension).
-
-## Kiểm tra nhanh
-
-```bash
-npm test
-```
-
-Bộ kiểm tra xác thực Manifest V3, quyền local-first, WebP runtime đúng 3840×2160, bộ xuất master 7680×4320, quan hệ selector HTML/JavaScript, sự hiện diện của model, khả năng biên dịch hai module WASM và wrapper tương thích CSP.
-
-## Lộ trình
-
-- Căn chỉnh âm vị–thời gian chính xác hơn cho tệp audio.
-- Ghi WebM cục bộ từ Canvas + audio do người dùng tải lên.
-- Nhiều preset biểu cảm và cử động đầu.
-- Tùy chọn mô hình neural on-device khi WebGPU đủ mạnh.
-
-## Tác giả và giấy phép
-
-Phát triển bởi **Long Ngo**.
-
-Phần mã Avatar VN phát hành theo [MIT License](LICENSE). MediaPipe Face Mesh được phân phối theo Apache License 2.0; xem [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Mã Cybergirl phát hành theo [MIT License](LICENSE). Phát triển bởi **Long Ngo**.
+MediaPipe Face Mesh và các thành phần đóng gói có giấy phép riêng được ghi trong
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -7,6 +7,7 @@ chrome.action.onClicked.addListener(() => {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({
     installedAt: new Date().toISOString(),
-    appVersion: chrome.runtime.getManifest().version
+    appVersion: chrome.runtime.getManifest().version,
+    productName: "Cybergirl"
   });
 });

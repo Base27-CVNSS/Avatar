@@ -18,7 +18,8 @@ const packageJson = JSON.parse(packageText);
 
 assert.equal(manifest.manifest_version, 3, "Extension phải dùng Manifest V3");
 assert.equal(manifest.version, packageJson.version, "Version manifest và package.json phải trùng");
-assert.match(html, new RegExp(`Avatar VN v${manifest.version.replaceAll(".", "\\.")}`));
+assert.match(html, new RegExp(`Cybergirl v${manifest.version.replaceAll(".", "\\.")}`));
+assert.equal(manifest.name, "Cybergirl — Trợ lý ảo tiếng Việt");
 assert.deepEqual(manifest.permissions, ["storage"], "Không được tự ý mở rộng quyền extension");
 assert.equal(manifest.host_permissions, undefined, "Extension local-first không cần host_permissions");
 assert.match(manifest.content_security_policy.extension_pages, /wasm-unsafe-eval/);
@@ -49,6 +50,21 @@ const faceMeshAssets = [
 const localAssets = [...imageAssets, ...faceMeshAssets];
 for (const asset of localAssets) {
   assert.ok((await stat(path.join(root, asset))).size > 0, `Thiếu asset cục bộ ${asset}`);
+}
+
+const desktopFiles = [
+  "cybergirl.py",
+  "api_client.py",
+  "voice_registry.py",
+  "characters.json",
+  "cybergirl.spec",
+  "icons/cybergirl.ico",
+  "installer/Cybergirl.iss",
+  "installer/Vietnamese.isl",
+  ".github/workflows/build-windows.yml"
+];
+for (const file of desktopFiles) {
+  assert.ok((await stat(path.join(root, file))).size > 0, `Thiếu thành phần GUI Windows ${file}`);
 }
 
 const runtimeImage = await readFile(path.join(root, "assets/default-avatar.webp"));
@@ -94,9 +110,22 @@ assert.match(app, /createRadialGradient/, "Phải làm mềm biên vùng biến 
 assert.ok(!app.includes("cavityColor"), "Không được tô dải màu khoang miệng cố định");
 assert.match(html, /id="masterImageButton"/, "Phải có nút tải ảnh master 8K");
 assert.match(html, /id="runtimeWarning"/, "Phải cảnh báo khi người dùng mở file://");
+assert.match(html, /id="chatMessages"/, "Phải có giao diện hội thoại AI");
+assert.match(html, /id="characterSelect"/, "Phải cho phép chuyển nhân vật");
+assert.match(app, /CYBERGIRL_TOKEN/, "API vòng lặp phải dùng mã phiên");
+assert.match(app, /\/api\/hoi-thoai/, "GUI phải kết nối cổng hội thoại cục bộ");
+assert.match(app, /voiceAutoSend/, "Phải hỗ trợ vòng hội thoại giọng nói");
 
-console.log(`Avatar VN ${manifest.version}: PASS`);
+const characters = JSON.parse(await readText("characters.json"));
+assert.ok(Object.keys(characters).length >= 3, "Cần tối thiểu ba nhân vật tiếng Việt");
+for (const [id, character] of Object.entries(characters)) {
+  assert.ok(character.label && character.system_prompt, `Nhân vật ${id} thiếu thông tin`);
+  assert.equal(character.voice_language, "vi-VN", `Nhân vật ${id} phải dùng giọng vi-VN`);
+  assert.ok(!/[\u3400-\u9fff]/u.test(character.system_prompt), `Prompt ${id} chưa Việt hóa`);
+}
+
+console.log(`Cybergirl ${manifest.version}: PASS`);
 console.log(`- ${ids.length} HTML ids; ${selectors.length} JS selectors`);
 console.log(`- Runtime WebP 3840x2160; xuất master 7680x4320 cục bộ`);
 console.log(`- ${faceMeshAssets.length} Face Mesh assets; ${wasmFiles.length} WASM modules hợp lệ`);
-console.log("- Manifest V3 local-first; không host permission");
+console.log("- Manifest V3 local-first; GUI Windows + API vòng lặp có mã phiên");

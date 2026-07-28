@@ -2,4 +2,8 @@
 Thumbs.db
 *.log
 *.zip
+*.pyc
+__pycache__/
+build/
+dist/
 .vscode/

@@ -1,6 +1,21 @@
-# Changelog
+# Nhật ký thay đổi
 
-Các thay đổi đáng chú ý của Avatar VN được ghi tại đây.
+Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
+
+## 2.0.0 — 28/07/2026
+
+- Đổi sản phẩm từ Avatar VN thành Cybergirl.
+- Thêm GUI Windows một lần cài, tự mở bằng Microsoft Edge ở chế độ ứng dụng.
+- Không cần Python, Node hoặc CUDA sau khi đóng gói.
+- Thêm cổng API vòng lặp có token phiên, Origin check, CSP và giới hạn dữ liệu.
+- Hỗ trợ Ollama, Google Gemini và API tương thích OpenAI.
+- Thêm hội thoại giọng nói tiếng Việt liên tục.
+- Thêm registry ba nhân vật tiếng Việt: Mai, Linh và An.
+- Khóa API chỉ giữ trong RAM, không ghi xuống ổ đĩa.
+- Giữ Face Mesh/WASM, Mouth Engine 1.4, ảnh mặc định 4K và xuất 8K.
+- Cập nhật mã Qwen3-TTS của người dùng thành tùy chọn thử nghiệm.
+- Thêm PyInstaller, Inno Setup và GitHub Actions đóng gói Windows.
+- Đổi toàn bộ màu nhận diện GUI sang hồng/tím.
 
 ## 1.4.0 — 28/07/2026
 

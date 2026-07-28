@@ -1,16 +1,16 @@
 {
   "manifest_version": 3,
-  "name": "Avatar VN — Edge Talking Photo",
-  "short_name": "Avatar VN",
-  "version": "1.4.0",
-  "description": "Nhận diện môi, mắt và gương mặt để tạo ảnh biết nói tự nhiên bằng giọng Việt ngay trong Microsoft Edge.",
+  "name": "Cybergirl — Trợ lý ảo tiếng Việt",
+  "short_name": "Cybergirl",
+  "version": "2.0.0",
+  "description": "Trợ lý ảo có khuôn mặt, giọng Việt và hội thoại AI chạy trong Microsoft Edge trên Windows.",
   "author": "Long Ngo",
   "minimum_chrome_version": "110",
   "permissions": [
     "storage"
   ],
   "action": {
-    "default_title": "Mở Avatar VN"
+    "default_title": "Mở Cybergirl"
   },
   "background": {
     "service_worker": "background.js"

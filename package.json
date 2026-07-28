@@ -1,11 +1,11 @@
 {
-  "name": "avatar-vn-edge-talking-photo",
-  "version": "1.4.0",
+  "name": "cybergirl-edge-vietnamese-assistant",
+  "version": "2.0.0",
   "private": true,
-  "description": "Ảnh biết nói tiếng Việt chạy cục bộ trong Microsoft Edge.",
+  "description": "GUI trợ lý ảo tiếng Việt cho Windows chạy bằng Microsoft Edge.",
   "author": "Long Ngo",
   "license": "MIT",
   "scripts": {
-    "test": "node tests/validate.mjs"
+    "test": "node tests/validate.mjs && node tests/run-python.mjs"
   }
 }

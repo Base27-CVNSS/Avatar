@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#07111f">
-    <meta name="description" content="Avatar VN nhận diện landmark khuôn mặt và tạo ảnh biết nói bằng MediaPipe, Web Speech API và Canvas ngay trong Microsoft Edge.">
-    <title>Avatar VN — Edge Talking Photo</title>
+    <meta name="description" content="Cybergirl là trợ lý ảo tiếng Việt có khuôn mặt, giọng nói và hội thoại AI chạy trong Microsoft Edge trên Windows.">
+    <meta name="cybergirl-token" content="">
+    <title>Cybergirl — Trợ lý ảo tiếng Việt</title>
     <link rel="icon" href="icons/logo.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css">
   </head>
@@ -14,36 +15,36 @@
     <div class="ambient ambient-two" aria-hidden="true"></div>
 
     <header class="app-header">
-      <a class="brand" href="#studio" aria-label="Avatar VN">
+      <a class="brand" href="#studio" aria-label="Cybergirl">
         <img src="icons/logo.svg" alt="" width="46" height="46">
         <span>
-          <strong>Avatar VN</strong>
-          <small>Edge Talking Photo</small>
+          <strong>Cybergirl</strong>
+          <small>Trợ lý ảo Microsoft Edge</small>
         </span>
       </a>
 
       <div class="status-row" aria-label="Trạng thái công nghệ">
-        <span class="status-pill"><i class="status-dot"></i> No backend</span>
-        <span id="runtimeMode" class="status-pill">Face mesh local</span>
-        <span class="status-pill status-private">Không server riêng</span>
+        <span class="status-pill"><i class="status-dot"></i> GUI Windows</span>
+        <span id="runtimeMode" class="status-pill">Edge + Face Mesh</span>
+        <span class="status-pill status-private">Ảnh luôn ở trên máy</span>
       </div>
     </header>
 
     <main id="studio" class="studio">
       <section class="intro">
         <div>
-          <p class="eyebrow">Ảnh biết nói · Tiếng Việt · Riêng tư</p>
-          <h1>Biến một bức ảnh thành<br><span>nhân vật ảo có giọng nói.</span></h1>
+          <p class="eyebrow">Nghe · Hiểu · Trả lời · Nhép môi</p>
+          <h1>Trợ lý AI có khuôn mặt,<br><span>nói tiếng Việt tự nhiên.</span></h1>
           <p class="lede">
-            Chọn ảnh để nhận diện tự động môi, mắt và tỷ lệ gương mặt, rồi dùng giọng Việt
-            của Microsoft Edge, tệp âm thanh hoặc microphone. Toàn bộ phần dựng hình chạy trên máy.
+            Chọn ảnh, trò chuyện bằng giọng Việt và để Cybergirl trả lời qua API bạn chọn.
+            Face Mesh, ảnh, mắt, khẩu hình và phần dựng hình luôn chạy cục bộ trong Microsoft Edge.
           </p>
         </div>
         <div class="engine-card">
           <span class="engine-icon" aria-hidden="true">⌁</span>
           <div>
-            <small>Realtime engine</small>
-            <strong>MediaPipe Face Mesh + Web Speech</strong>
+            <small>Bộ máy thời gian thực</small>
+            <strong>Face Mesh + Web Speech + API</strong>
             <span id="capabilityText">Đang kiểm tra trình duyệt…</span>
           </div>
         </div>
@@ -52,8 +53,8 @@
       <aside id="runtimeWarning" class="runtime-warning" role="alert" hidden>
         <span aria-hidden="true">!</span>
         <div>
-          <strong>Đang mở bằng file:// nên Face Mesh có thể bị Edge chặn.</strong>
-          <small>Hãy mở <code>edge://extensions</code>, bật Developer mode và chọn Load unpacked.</small>
+          <strong>Đang mở bằng file:// nên Face Mesh và microphone có thể bị Edge chặn.</strong>
+          <small>Hãy chạy Cybergirl Windows hoặc tải extension trong <code>edge://extensions</code>.</small>
         </div>
       </aside>
 
@@ -167,6 +168,83 @@
               <p class="micro-copy">Lời nói tạm thời được hiển thị ngay và chuyển động môi bám theo âm lượng thật.</p>
             </div>
           </section>
+
+          <section class="control-section assistant-section">
+            <div class="section-heading">
+              <span class="step-number">03</span>
+              <div>
+                <h2>Trò chuyện với Cybergirl</h2>
+                <p>Chọn nhân vật và bộ não AI; ảnh không bao giờ được gửi tới API.</p>
+              </div>
+            </div>
+
+            <div id="companionStatus" class="companion-status" aria-live="polite">
+              <span class="detection-dot"></span>
+              <div>
+                <strong>Đang tìm lõi Cybergirl Windows</strong>
+                <small>Chế độ extension vẫn dùng được ảnh và giọng Edge.</small>
+              </div>
+            </div>
+
+            <label class="field-label" for="characterSelect">Nhân vật</label>
+            <select id="characterSelect">
+              <option value="">Đang tải danh sách nhân vật…</option>
+            </select>
+
+            <div class="api-settings">
+              <label class="field-label" for="providerSelect">Nhà cung cấp AI</label>
+              <select id="providerSelect">
+                <option value="ollama">Ollama cục bộ · không cần khóa</option>
+                <option value="openai-compatible">API tương thích OpenAI</option>
+                <option value="gemini">Google Gemini</option>
+              </select>
+
+              <label class="field-label" for="apiBaseUrl">Địa chỉ API</label>
+              <input id="apiBaseUrl" type="url" value="http://127.0.0.1:11434" spellcheck="false">
+
+              <label class="field-label" for="apiModel">Tên mô hình</label>
+              <input id="apiModel" type="text" value="qwen3:4b" spellcheck="false">
+
+              <label class="field-label" for="apiKey">Khóa API</label>
+              <input id="apiKey" type="password" autocomplete="off" placeholder="Chỉ giữ trong bộ nhớ của phiên chạy">
+              <small class="privacy-note">Cybergirl không ghi khóa API vào trình duyệt hoặc tệp cấu hình.</small>
+            </div>
+
+            <label class="toggle-row" for="autoSpeak">
+              <input id="autoSpeak" type="checkbox" checked>
+              <span>
+                <strong>Tự phát câu trả lời</strong>
+                <small>Dùng giọng Việt của Microsoft Edge và đồng bộ khẩu hình.</small>
+              </span>
+            </label>
+
+            <label class="toggle-row" for="voiceAutoSend">
+              <input id="voiceAutoSend" type="checkbox" checked>
+              <span>
+                <strong>Hội thoại giọng nói liên tục</strong>
+                <small>Tự gửi câu đã nhận dạng và mở lại microphone sau khi trả lời.</small>
+              </span>
+            </label>
+
+            <div class="button-row">
+              <button id="saveApiButton" class="button secondary" type="button">Lưu cấu hình</button>
+              <button id="testApiButton" class="button secondary" type="button">Kiểm tra API</button>
+            </div>
+
+            <div id="chatMessages" class="chat-messages" aria-live="polite">
+              <article class="chat-message assistant">
+                <span>Cybergirl</span>
+                <p>Xin chào! Bạn có thể nói bằng microphone hoặc nhập câu hỏi tiếng Việt tại đây.</p>
+              </article>
+            </div>
+
+            <label class="field-label" for="chatInput">Tin nhắn tiếng Việt</label>
+            <textarea id="chatInput" rows="3" placeholder="Nhập câu hỏi…"></textarea>
+            <div class="button-row">
+              <button id="sendChatButton" class="button primary" type="button">Gửi và trả lời</button>
+              <button id="clearChatButton" class="button icon-button" type="button" title="Xóa hội thoại" aria-label="Xóa hội thoại">⌫</button>
+            </div>
+          </section>
         </aside>
 
         <section class="stage-panel" aria-label="Sân khấu nhân vật ảo">
@@ -215,25 +293,25 @@
       <section class="feature-strip" aria-label="Đặc điểm">
         <article>
           <span>01</span>
-          <div><strong>Không API key</strong><small>Không tài khoản, không quota.</small></div>
+          <div><strong>GUI một lần cài</strong><small>Không cần Python, Node hay CUDA.</small></div>
         </article>
         <article>
           <span>02</span>
-          <div><strong>Giọng Việt Edge</strong><small>Tự chọn voice vi-VN có sẵn.</small></div>
+          <div><strong>Tiếng Việt Edge</strong><small>Nghe, nói và nhép môi vi-VN.</small></div>
         </article>
         <article>
           <span>03</span>
-          <div><strong>Ảnh riêng tư</strong><small>Object URL chỉ tồn tại trên máy.</small></div>
+          <div><strong>API tùy chọn</strong><small>Ollama, Gemini hoặc OpenAI-compatible.</small></div>
         </article>
         <article>
           <span>04</span>
-          <div><strong>Ảnh master 8K</strong><small>Tạo cục bộ · runtime WebP 4K.</small></div>
+          <div><strong>Ảnh riêng tư</strong><small>API chỉ nhận văn bản hội thoại.</small></div>
         </article>
       </section>
     </main>
 
     <footer>
-      <span>Avatar VN v1.4.0</span>
+      <span>Cybergirl v2.0.0</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 

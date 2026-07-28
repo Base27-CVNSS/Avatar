@@ -46,6 +46,20 @@
     resetButton: $("#resetButton"),
     snapshotButton: $("#snapshotButton"),
     masterImageButton: $("#masterImageButton"),
+    companionStatus: $("#companionStatus"),
+    characterSelect: $("#characterSelect"),
+    providerSelect: $("#providerSelect"),
+    apiBaseUrl: $("#apiBaseUrl"),
+    apiModel: $("#apiModel"),
+    apiKey: $("#apiKey"),
+    autoSpeak: $("#autoSpeak"),
+    voiceAutoSend: $("#voiceAutoSend"),
+    saveApiButton: $("#saveApiButton"),
+    testApiButton: $("#testApiButton"),
+    chatMessages: $("#chatMessages"),
+    chatInput: $("#chatInput"),
+    sendChatButton: $("#sendChatButton"),
+    clearChatButton: $("#clearChatButton"),
     toast: $("#toast")
   };
 
@@ -55,6 +69,7 @@
   const DEFAULT_IMAGE = "assets/default-avatar.webp";
   const MASTER_WIDTH = 7680;
   const MASTER_HEIGHT = 4320;
+  const CYBERGIRL_TOKEN = document.querySelector('meta[name="cybergirl-token"]')?.content || "";
   const CALIBRATION_STEPS = [
     { key: "leftEye", label: "Bấm tâm mắt bên trái ảnh" },
     { key: "rightEye", label: "Bấm tâm mắt bên phải ảnh" },
@@ -131,7 +146,12 @@
     level: 0,
     lastActivityAt: 0,
     lastFrameAt: 0,
-    toastTimer: null
+    toastTimer: null,
+    companionReady: false,
+    chatHistory: [],
+    sendingChat: false,
+    voiceSendTimer: null,
+    resumeMicAfterTts: false
   };
 
   function showToast(message, isError = false) {
@@ -145,10 +165,10 @@
   function setStage(status, detail, isLive = false) {
     ui.stageStatus.textContent = status;
     ui.stageDetail.textContent = detail;
-    ui.liveDot.style.background = isLive ? "#ff698d" : "#34e2bd";
+    ui.liveDot.style.background = isLive ? "#ff80b7" : "#ff4f9a";
     ui.liveDot.style.boxShadow = isLive
-      ? "0 0 12px rgba(255,105,141,.8)"
-      : "0 0 12px rgba(52,226,189,.8)";
+      ? "0 0 12px rgba(255,128,183,.85)"
+      : "0 0 12px rgba(255,79,154,.75)";
   }
 
   function safeFileName(name) {
@@ -184,11 +204,13 @@
 
   async function savePreferences() {
     try {
-      await storage.set("avatarVnPreferencesV4", {
+      await storage.set("cybergirlPreferencesV2", {
         mouthGain: Number(ui.mouthSize.value),
         faceMotion: Number(ui.faceMotion.value),
         rate: Number(ui.rate.value),
-        pitch: Number(ui.pitch.value)
+        pitch: Number(ui.pitch.value),
+        autoSpeak: ui.autoSpeak.checked,
+        voiceAutoSend: ui.voiceAutoSend.checked
       });
     } catch (error) {
       console.warn("Không thể lưu tùy chọn:", error);
@@ -197,12 +219,14 @@
 
   async function restorePreferences() {
     try {
-      const saved = await storage.get("avatarVnPreferencesV4");
+      const saved = await storage.get("cybergirlPreferencesV2");
       if (!saved) return;
       if (saved.mouthGain) ui.mouthSize.value = String(clamp(Number(saved.mouthGain), 25, 75));
       if (saved.faceMotion !== undefined) ui.faceMotion.value = String(clamp(Number(saved.faceMotion), 0, 100));
       if (saved.rate) ui.rate.value = String(saved.rate);
       if (saved.pitch) ui.pitch.value = String(saved.pitch);
+      if (saved.autoSpeak !== undefined) ui.autoSpeak.checked = Boolean(saved.autoSpeak);
+      if (saved.voiceAutoSend !== undefined) ui.voiceAutoSend.checked = Boolean(saved.voiceAutoSend);
       updateRangeLabels();
     } catch (error) {
       console.warn("Không thể đọc tùy chọn:", error);
@@ -236,9 +260,256 @@
   function configureRuntimeContext() {
     const extensionMode = window.location.protocol === "chrome-extension:"
       && Boolean(globalThis.chrome?.runtime?.id);
+    const desktopMode = window.location.protocol === "http:" && Boolean(CYBERGIRL_TOKEN);
     ui.runtimeWarning.hidden = window.location.protocol !== "file:";
-    ui.runtimeMode.textContent = extensionMode ? "WASM local · 30 FPS" : "Chế độ tương thích";
-    if (extensionMode) ui.runtimeMode.classList.add("status-private");
+    ui.runtimeMode.textContent = desktopMode
+      ? "GUI Windows · Edge local"
+      : extensionMode
+        ? "Extension · WASM local"
+        : "Chế độ tương thích";
+    if (extensionMode || desktopMode) ui.runtimeMode.classList.add("status-private");
+  }
+
+  function setCompanionStatus(title, detail, tone = "") {
+    ui.companionStatus.classList.remove("success", "error");
+    if (tone) ui.companionStatus.classList.add(tone);
+    ui.companionStatus.querySelector("strong").textContent = title;
+    ui.companionStatus.querySelector("small").textContent = detail;
+  }
+
+  async function companionFetch(path, options = {}) {
+    if (!CYBERGIRL_TOKEN) {
+      throw new Error("Hãy chạy ứng dụng Cybergirl Windows để sử dụng hội thoại AI.");
+    }
+    const response = await fetch(path, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Cybergirl-Token": CYBERGIRL_TOKEN,
+        ...(options.headers || {})
+      }
+    });
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error(`Lõi Cybergirl trả về dữ liệu không hợp lệ (${response.status}).`);
+    }
+    if (!response.ok || payload.ok === false) {
+      throw new Error(payload.loi || `Yêu cầu thất bại (${response.status}).`);
+    }
+    return payload;
+  }
+
+  function populateCharacters(characters, active = "") {
+    ui.characterSelect.replaceChildren();
+    for (const character of characters) {
+      const option = document.createElement("option");
+      option.value = character.id;
+      option.textContent = character.label;
+      option.dataset.model = character.llm_model || "";
+      ui.characterSelect.append(option);
+    }
+    if (active && characters.some((character) => character.id === active)) {
+      ui.characterSelect.value = active;
+    }
+  }
+
+  function applyProviderDefaults(force = false) {
+    const provider = ui.providerSelect.value;
+    const defaults = {
+      ollama: {
+        base: "http://127.0.0.1:11434",
+        model: "qwen3:4b",
+        needsKey: false
+      },
+      "openai-compatible": {
+        base: "http://127.0.0.1:11434/v1",
+        model: "qwen3:4b",
+        needsKey: false
+      },
+      gemini: {
+        base: "https://generativelanguage.googleapis.com/v1beta",
+        model: "gemini-2.5-flash",
+        needsKey: true
+      }
+    }[provider];
+    if (force || !ui.apiBaseUrl.value.trim()) ui.apiBaseUrl.value = defaults.base;
+    if (force || !ui.apiModel.value.trim()) ui.apiModel.value = defaults.model;
+    ui.apiKey.placeholder = defaults.needsKey
+      ? "Nhập khóa Gemini · chỉ giữ trong phiên"
+      : "Không bắt buộc · chỉ giữ trong phiên";
+  }
+
+  async function loadCompanionConfig() {
+    if (!CYBERGIRL_TOKEN) {
+      state.companionReady = false;
+      setCompanionStatus(
+        "Chưa chạy lõi Cybergirl Windows",
+        "Ảnh và giọng Edge vẫn dùng được; hội thoại AI cần mở bằng ứng dụng Windows.",
+        "error"
+      );
+      try {
+        const response = await fetch("characters.json");
+        const characters = await response.json();
+        populateCharacters(
+          Object.entries(characters).map(([id, value]) => ({ id, ...value }))
+        );
+      } catch {
+        ui.characterSelect.innerHTML = '<option value="">Không có dữ liệu nhân vật</option>';
+      }
+      return;
+    }
+
+    try {
+      const config = await companionFetch("/api/cau-hinh");
+      state.companionReady = true;
+      ui.providerSelect.value = config.provider;
+      ui.apiBaseUrl.value = config.base_url;
+      ui.apiModel.value = config.model;
+      populateCharacters(config.characters, config.active_character);
+      setCompanionStatus(
+        "Cybergirl Windows đã sẵn sàng",
+        `${config.che_do} · khóa API ${config.co_khoa_api ? "đang có trong phiên" : "chưa nhập"}`,
+        "success"
+      );
+    } catch (error) {
+      state.companionReady = false;
+      setCompanionStatus("Không kết nối được lõi Cybergirl", error.message, "error");
+    }
+  }
+
+  function currentApiPayload() {
+    return {
+      provider: ui.providerSelect.value,
+      base_url: ui.apiBaseUrl.value.trim(),
+      model: ui.apiModel.value.trim(),
+      api_key: ui.apiKey.value.trim(),
+      active_character: ui.characterSelect.value
+    };
+  }
+
+  async function saveCompanionConfig(showSuccess = true) {
+    try {
+      const config = await companionFetch("/api/cau-hinh", {
+        method: "POST",
+        body: JSON.stringify(currentApiPayload())
+      });
+      state.companionReady = true;
+      ui.apiKey.value = "";
+      setCompanionStatus(
+        "Đã lưu cấu hình Cybergirl",
+        `${config.provider} · ${config.model} · khóa chỉ giữ trong phiên`,
+        "success"
+      );
+      if (showSuccess) showToast("Đã lưu cấu hình API và nhân vật.");
+      return true;
+    } catch (error) {
+      setCompanionStatus("Không lưu được cấu hình", error.message, "error");
+      showToast(error.message, true);
+      return false;
+    }
+  }
+
+  async function testCompanionApi() {
+    ui.testApiButton.disabled = true;
+    ui.testApiButton.textContent = "Đang kiểm tra…";
+    try {
+      const result = await companionFetch("/api/kiem-tra", {
+        method: "POST",
+        body: JSON.stringify(currentApiPayload())
+      });
+      state.companionReady = true;
+      ui.apiKey.value = "";
+      setCompanionStatus("API hoạt động", result.tra_loi, "success");
+      showToast("Kết nối API thành công.");
+    } catch (error) {
+      setCompanionStatus("API chưa hoạt động", error.message, "error");
+      showToast(error.message, true);
+    } finally {
+      ui.testApiButton.disabled = false;
+      ui.testApiButton.textContent = "Kiểm tra API";
+    }
+  }
+
+  function appendChatMessage(role, text, label = "") {
+    const article = document.createElement("article");
+    article.className = `chat-message ${role}`;
+    const heading = document.createElement("span");
+    heading.textContent = label || (role === "user" ? "Bạn" : "Cybergirl");
+    const paragraph = document.createElement("p");
+    paragraph.textContent = text;
+    article.append(heading, paragraph);
+    ui.chatMessages.append(article);
+    ui.chatMessages.scrollTop = ui.chatMessages.scrollHeight;
+    return article;
+  }
+
+  async function sendChat(messageOverride = "") {
+    if (state.sendingChat) return;
+    const message = (messageOverride || ui.chatInput.value).trim();
+    if (!message) {
+      showToast("Hãy nhập hoặc nói một câu tiếng Việt.", true);
+      ui.chatInput.focus();
+      return;
+    }
+    if (!state.companionReady && !(await saveCompanionConfig(false))) return;
+    const fromVoice = Boolean(messageOverride);
+    if (fromVoice) {
+      state.resumeMicAfterTts = ui.voiceAutoSend.checked;
+      await stopMic(false);
+    }
+
+    state.sendingChat = true;
+    ui.sendChatButton.disabled = true;
+    ui.sendChatButton.textContent = "Đang suy nghĩ…";
+    const previousHistory = state.chatHistory.slice(-12);
+    appendChatMessage("user", message);
+    state.chatHistory.push({ role: "user", content: message });
+    ui.chatInput.value = "";
+    setStage("Đang suy nghĩ", `${ui.characterSelect.selectedOptions[0]?.textContent || "Cybergirl"} đang trả lời`, true);
+    const pending = appendChatMessage("assistant pending", "Đang tạo câu trả lời tiếng Việt…");
+
+    try {
+      const result = await companionFetch("/api/hoi-thoai", {
+        method: "POST",
+        body: JSON.stringify({
+          message,
+          history: previousHistory
+        })
+      });
+      pending.remove();
+      appendChatMessage("assistant", result.tra_loi, result.nhan_vat || "Cybergirl");
+      state.chatHistory.push({ role: "assistant", content: result.tra_loi });
+      ui.speechText.value = result.tra_loi;
+      setStage("Đã trả lời", result.nhan_vat || "Cybergirl");
+      if (ui.autoSpeak.checked) {
+        speakText();
+      } else if (state.resumeMicAfterTts) {
+        state.resumeMicAfterTts = false;
+        window.setTimeout(() => startMic(), 350);
+      }
+    } catch (error) {
+      pending.classList.remove("pending");
+      pending.querySelector("p").textContent = error.message;
+      setCompanionStatus("Hội thoại bị gián đoạn", error.message, "error");
+      setStage("Lỗi hội thoại", "Kiểm tra cấu hình API");
+      showToast(error.message, true);
+    } finally {
+      state.sendingChat = false;
+      ui.sendChatButton.disabled = false;
+      ui.sendChatButton.textContent = "Gửi và trả lời";
+    }
+  }
+
+  function clearChat() {
+    state.chatHistory = [];
+    ui.chatMessages.replaceChildren();
+    appendChatMessage(
+      "assistant",
+      "Hội thoại đã được xóa trên thiết bị. Bạn có thể bắt đầu một câu chuyện mới."
+    );
+    showToast("Đã xóa lịch sử hội thoại trong phiên.");
   }
 
   function pointDistance(a, b) {
@@ -1209,8 +1480,8 @@
   function drawFaceGuides(fit, timestamp) {
     if (!state.face || (!state.calibrating && timestamp > state.showGuidesUntil)) return;
     ctx.save();
-    ctx.strokeStyle = "rgba(52, 226, 189, .9)";
-    ctx.fillStyle = "rgba(52, 226, 189, .95)";
+    ctx.strokeStyle = "rgba(255, 79, 154, .9)";
+    ctx.fillStyle = "rgba(255, 79, 154, .95)";
     ctx.lineWidth = 3;
     ctx.setLineDash([10, 8]);
     const box = state.face.box;
@@ -1398,10 +1669,14 @@
       state.lastActivityAt = performance.now();
     };
     utterance.onend = () => {
+      const shouldResumeMic = state.resumeMicAfterTts;
+      state.resumeMicAfterTts = false;
       stopTts(false);
       setStage("Hoàn tất", "Đã phát xong nội dung tiếng Việt");
+      if (shouldResumeMic) window.setTimeout(() => startMic(), 350);
     };
     utterance.onerror = (event) => {
+      state.resumeMicAfterTts = false;
       stopTts(false);
       if (event.error !== "canceled" && event.error !== "interrupted") {
         showToast(`Không thể phát giọng: ${event.error || "lỗi không xác định"}.`, true);
@@ -1544,9 +1819,14 @@
 
       recognition.onresult = (event) => {
         let interim = "";
+        let completed = "";
         for (let i = event.resultIndex; i < event.results.length; i += 1) {
           const text = event.results[i][0].transcript;
-          if (event.results[i].isFinal) state.finalTranscript += `${text.trim()} `;
+          if (event.results[i].isFinal) {
+            const cleaned = text.trim();
+            state.finalTranscript += `${cleaned} `;
+            completed += `${cleaned} `;
+          }
           else interim += text;
         }
         const visibleText = `${state.finalTranscript}${interim}`.trim();
@@ -1555,6 +1835,13 @@
           state.liveViseme = visemeFromText(visibleText.slice(-2));
           state.liveVisemeUntil = performance.now() + 190;
           setViseme(state.liveViseme);
+        }
+        if (completed.trim() && ui.voiceAutoSend.checked && state.companionReady) {
+          window.clearTimeout(state.voiceSendTimer);
+          state.voiceSendTimer = window.setTimeout(
+            () => sendChat(completed.trim()),
+            620
+          );
         }
       };
       recognition.onerror = (event) => {
@@ -1617,6 +1904,8 @@
   }
 
   function stopAll() {
+    state.resumeMicAfterTts = false;
+    window.clearTimeout(state.voiceSendTimer);
     stopTts(false);
     stopMic(false);
     ui.audioPlayer.pause();
@@ -1661,7 +1950,7 @@
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
       link.href = url;
-      link.download = `avatar-vn-${new Date().toISOString().slice(0, 10)}.png`;
+      link.download = `cybergirl-${new Date().toISOString().slice(0, 10)}.png`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       showToast("Đã chụp khung hình PNG.");
@@ -1687,7 +1976,7 @@
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.href = url;
-        link.download = "avatar-vn-default-7680x4320.jpg";
+        link.download = "cybergirl-default-7680x4320.jpg";
         link.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
         showToast("Đã tạo ảnh master 7680×4320 hoàn toàn cục bộ.");
@@ -1726,6 +2015,23 @@
     ui.snapshotButton.addEventListener("click", downloadSnapshot);
     ui.masterImageButton.addEventListener("click", downloadMasterImage);
     ui.copyTranscript.addEventListener("click", copyTranscript);
+    ui.saveApiButton.addEventListener("click", () => saveCompanionConfig());
+    ui.testApiButton.addEventListener("click", testCompanionApi);
+    ui.sendChatButton.addEventListener("click", () => sendChat());
+    ui.clearChatButton.addEventListener("click", clearChat);
+    ui.providerSelect.addEventListener("change", () => applyProviderDefaults(true));
+    ui.characterSelect.addEventListener("change", () => {
+      const model = ui.characterSelect.selectedOptions[0]?.dataset.model;
+      if (model && ui.providerSelect.value === "ollama") ui.apiModel.value = model;
+    });
+    ui.chatInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        sendChat();
+      }
+    });
+    ui.autoSpeak.addEventListener("change", savePreferences);
+    ui.voiceAutoSend.addEventListener("change", savePreferences);
     ui.resetButton.addEventListener("click", () => {
       stopAll();
       state.mouth = { x: 0.5, y: 0.665, width: 0.16 };
@@ -1734,6 +2040,7 @@
       ui.rate.value = "1";
       ui.pitch.value = "1";
       ui.transcriptText.textContent = "Bản chép lời sẽ xuất hiện ở đây khi bật microphone.";
+      clearChat();
       state.mouthOpen = 0;
       state.mouthTarget = 0;
       setViseme("idle");
@@ -1805,6 +2112,7 @@
     detectCapabilities();
     bindEvents();
     await restorePreferences();
+    await loadCompanionConfig();
     updateRangeLabels();
     useDefaultImage(true);
     populateVoices();

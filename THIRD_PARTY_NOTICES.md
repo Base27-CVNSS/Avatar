@@ -1,6 +1,6 @@
 # Thông báo thành phần bên thứ ba
 
-Avatar VN bao gồm thành phần MediaPipe Face Mesh do Google cung cấp:
+Cybergirl bao gồm thành phần MediaPipe Face Mesh do Google cung cấp:
 
 - Package: `@mediapipe/face_mesh`
 - Version: `0.4.1633559619`
@@ -28,3 +28,10 @@ limitations under the License.
 Hai wrapper Emscripten được chỉnh tối thiểu để thay helper `new Function`
 bằng closure tĩnh tương đương, giúp WASM cục bộ tuân thủ Content Security
 Policy của Microsoft Edge Manifest V3. Trọng số model và phép tính không đổi.
+
+Bản GUI Windows được đóng gói bằng Python và PyInstaller. Python được phân phối
+theo Python Software Foundation License; PyInstaller được phân phối theo GPL
+với ngoại lệ đặc biệt cho phép đóng gói và phân phối ứng dụng tạo ra.
+
+Tùy chọn Qwen3-TTS không nằm trong bản EXE. Người dùng tự cài thành phần này và
+cần tuân thủ giấy phép của Qwen3-TTS, PyTorch, NumPy và SciPy.

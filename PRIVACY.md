@@ -1,48 +1,68 @@
-# Chính sách riêng tư — Avatar VN
+# Chính sách riêng tư — Cybergirl
 
 Ngày hiệu lực: 28/07/2026
 
-Avatar VN được thiết kế theo nguyên tắc xử lý cục bộ.
+Cybergirl được thiết kế theo nguyên tắc ảnh cục bộ, API minh bạch và quyền tối
+thiểu.
 
-## Dữ liệu ứng dụng xử lý
+## Dữ liệu được xử lý cục bộ
 
-- Ảnh do người dùng chọn.
-- Tệp âm thanh do người dùng chọn.
-- Luồng microphone khi người dùng chủ động bật.
-- Văn bản nhập để phát giọng.
-- Bản chép lời do Speech Recognition trả về.
-- Landmark khuôn mặt được MediaPipe Face Mesh tính trong bộ nhớ.
-- Tùy chọn độ mở miệng, vi chuyển động, tốc độ và cao độ.
+- Ảnh và tệp âm thanh do người dùng chọn.
+- Landmark khuôn mặt do MediaPipe Face Mesh tạo.
+- Texture môi, răng, mắt và các khung Canvas.
+- Tùy chọn khẩu hình, chuyển động, tốc độ và cao độ.
+- Lịch sử hội thoại của phiên đang mở.
+
+Ảnh, landmark và texture khuôn mặt không được gửi tới lõi Python hoặc API AI.
+
+## Microphone và Web Speech
+
+Microphone chỉ mở sau khi người dùng bấm bắt đầu. Khi dừng hoặc đóng ứng dụng,
+track microphone được đóng. Web Speech API do Microsoft Edge/Windows cung cấp;
+tùy phiên bản và cấu hình, dịch vụ nhận dạng giọng có thể xử lý trực tuyến theo
+chính sách của Microsoft.
+
+## API hội thoại
+
+Khi người dùng chọn Ollama, Gemini hoặc API tương thích OpenAI, Cybergirl gửi:
+
+- Câu hỏi dạng văn bản.
+- Tối đa mười hai tin nhắn gần nhất.
+- System prompt của nhân vật đang chọn.
+- Tên mô hình và tham số sinh câu trả lời.
+
+Cybergirl không gửi ảnh, landmark, canvas hoặc tệp âm thanh tới API hội thoại.
+Người dùng tự chọn nhà cung cấp và chịu sự điều chỉnh của chính sách nhà cung cấp
+đó.
+
+## Khóa API
+
+Khóa API:
+
+- Chỉ tồn tại trong RAM của tiến trình `Cybergirl.exe`.
+- Không ghi vào `localStorage`, `chrome.storage` hoặc `cau-hinh.json`.
+- Bị xóa khi thoát ứng dụng.
+- Có thể được nạp từ biến môi trường `CYBERGIRL_API_KEY` cho môi trường quản trị.
+
+## Cổng vòng lặp
+
+Cybergirl chỉ lắng nghe `127.0.0.1`, dùng token ngẫu nhiên cho mỗi phiên, kiểm
+tra Origin, không bật CORS và giới hạn kích thước yêu cầu. Cổng vòng lặp không
+được mở ra mạng LAN.
 
 ## Dữ liệu được lưu
 
-Extension chỉ dùng `chrome.storage.local` để lưu:
+Tệp `%LOCALAPPDATA%\Cybergirl\cau-hinh.json` chỉ lưu:
 
-- Độ mở khẩu hình.
-- Mức vi chuyển động gương mặt.
-- Tốc độ phát giọng.
-- Cao độ phát giọng.
-- Phiên bản và thời điểm cài đặt extension.
+- Nhà cung cấp API.
+- Địa chỉ API.
+- Tên mô hình.
+- Nhân vật đang dùng.
 
-Ảnh, audio, văn bản và bản chép lời không được extension tải lên máy chủ hoặc lưu vào cơ sở dữ liệu bên ngoài.
-Landmark môi, mắt và gương mặt chỉ tồn tại trong phiên hiện tại và không được dùng lại cho ảnh khác.
-
-## Truyền dữ liệu
-
-Mã nguồn Avatar VN:
-
-- Không chứa endpoint API.
-- Không chứa analytics hoặc tracking.
-- Không yêu cầu host permission.
-- Không sử dụng cookie quảng cáo.
-- Không gửi ảnh hay audio cho tác giả.
-
-Web Speech API là tính năng do Microsoft Edge/Windows cung cấp. Cách triển khai voice hoặc nhận dạng giọng nói có thể phụ thuộc vào phiên bản hệ điều hành, gói ngôn ngữ và chính sách của Microsoft. Người dùng cần xem chính sách của Microsoft đối với dịch vụ giọng nói đang được bật trên thiết bị.
-
-## Microphone
-
-Microphone chỉ được mở sau thao tác bấm rõ ràng của người dùng. Khi bấm dừng hoặc đóng dashboard, các track microphone được đóng. Người dùng có thể thu hồi quyền trong phần cài đặt quyền của Microsoft Edge.
+Extension chỉ dùng `chrome.storage.local` cho độ mở miệng, vi chuyển động, tốc
+độ, cao độ và tùy chọn hội thoại. Không có analytics, quảng cáo hoặc cookie theo
+dõi.
 
 ## Liên hệ
 
-Dự án mã nguồn mở: `Base27-CVNSS/Avatar`
+Mã nguồn: `https://github.com/Base27-CVNSS/Avatar`

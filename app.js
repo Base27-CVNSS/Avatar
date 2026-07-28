@@ -33,6 +33,8 @@
     canvasShell: $("#canvasShell"),
     calibrationHint: $("#calibrationHint"),
     calibrationText: $("#calibrationText"),
+    runtimeMode: $("#runtimeMode"),
+    runtimeWarning: $("#runtimeWarning"),
     capabilityText: $("#capabilityText"),
     stageStatus: $("#stageStatus"),
     stageDetail: $("#stageDetail"),
@@ -61,9 +63,12 @@
   const state = {
     image: new Image(),
     imageUrl: null,
+    imageRevision: 0,
+    pendingDetectionRevision: null,
     avatarReady: false,
     mouth: { x: 0.5, y: 0.665, width: 0.16 },
     face: null,
+    faceQuality: 100,
     patches: { mouth: null, eyes: [] },
     featureWork: { mouth: document.createElement("canvas"), eyes: [document.createElement("canvas"), document.createElement("canvas")] },
     faceMesh: null,
@@ -73,6 +78,12 @@
     mouthOpen: 0,
     mouthTarget: 0,
     viseme: "idle",
+    mouthShape: {
+      width: 1,
+      open: 0,
+      targetWidth: 1,
+      targetOpen: 0
+    },
     calibrating: false,
     calibrationIndex: 0,
     manualPoints: {},
@@ -81,7 +92,18 @@
       amount: 0,
       startedAt: 0,
       duration: 190,
-      nextAt: performance.now() + 2600 + Math.random() * 2200
+      nextAt: performance.now() + 2600 + Math.random() * 2200,
+      repeatAfter: false,
+      isRepeat: false
+    },
+    headMotion: {
+      x: 0,
+      y: 0,
+      rotation: 0,
+      targetX: 0,
+      targetY: 0,
+      targetRotation: 0,
+      nextTargetAt: performance.now() + 900
     },
     activeSignal: "idle",
     analyser: null,
@@ -98,6 +120,7 @@
     audioObjectUrl: null,
     level: 0,
     lastActivityAt: 0,
+    lastFrameAt: 0,
     toastTimer: null
   };
 
@@ -200,6 +223,14 @@
     ui.capabilityText.textContent = `Thiếu: ${missing.join(", ")}`;
   }
 
+  function configureRuntimeContext() {
+    const extensionMode = window.location.protocol === "chrome-extension:"
+      && Boolean(globalThis.chrome?.runtime?.id);
+    ui.runtimeWarning.hidden = window.location.protocol !== "file:";
+    ui.runtimeMode.textContent = extensionMode ? "WASM local · 30 FPS" : "Chế độ tương thích";
+    if (extensionMode) ui.runtimeMode.classList.add("status-private");
+  }
+
   function pointDistance(a, b) {
     return Math.hypot(a.x - b.x, a.y - b.y);
   }
@@ -246,19 +277,24 @@
   }
 
   function loadImage(source, label = "Ảnh đã chọn") {
-    state.image.onload = async () => {
+    const revision = ++state.imageRevision;
+    const image = new Image();
+    image.onload = async () => {
+      if (revision !== state.imageRevision) return;
+      state.image = image;
       state.avatarReady = true;
       setFallbackFaceGeometry();
       setStage("Đang phân tích mặt", label);
       setDetectionStatus("Đang nhận diện khuôn mặt", "Tìm môi, mắt và tỷ lệ gương mặt bằng Face Mesh.");
-      await detectFaceLandmarks();
+      await detectFaceLandmarks(revision);
     };
-    state.image.onerror = () => {
+    image.onerror = () => {
+      if (revision !== state.imageRevision) return;
       state.avatarReady = false;
       showToast("Không thể đọc tệp ảnh này.", true);
     };
-    state.image.decoding = "async";
-    state.image.src = source;
+    image.decoding = "async";
+    image.src = source;
   }
 
   function useSampleImage(silent = false) {
@@ -266,14 +302,23 @@
       URL.revokeObjectURL(state.imageUrl);
       state.imageUrl = null;
     }
-    state.image.onload = () => {
+    const revision = ++state.imageRevision;
+    const image = new Image();
+    image.onload = () => {
+      if (revision !== state.imageRevision) return;
+      state.image = image;
       state.avatarReady = true;
       setSampleFaceGeometry();
       setStage("Sẵn sàng", "Ảnh mẫu đã được nạp");
       setDetectionStatus("Đã định vị khuôn mặt mẫu", "Môi và hai mắt dùng mốc cài sẵn.", "success");
       if (!silent) showToast("Đã khôi phục ảnh mẫu.");
     };
-    state.image.src = SAMPLE_IMAGE;
+    image.onerror = () => {
+      if (revision !== state.imageRevision) return;
+      state.avatarReady = false;
+      showToast("Không thể nạp ảnh mẫu.", true);
+    };
+    image.src = SAMPLE_IMAGE;
   }
 
   function handleImageFile(file) {
@@ -317,15 +362,93 @@
     });
   }
 
+  function assessFaceGeometry(face) {
+    if (!face?.box || !face?.mouth || !Array.isArray(face.eyes) || face.eyes.length < 2) {
+      throw new Error("Thiếu dữ liệu mắt, miệng hoặc khung mặt.");
+    }
+    const values = [
+      face.box.x, face.box.y, face.box.width, face.box.height,
+      face.mouth.x, face.mouth.y, face.mouth.width, face.mouth.height,
+      ...face.eyes.flatMap((eye) => [eye.x, eye.y, eye.width, eye.height])
+    ];
+    if (!values.every(Number.isFinite)) throw new Error("Landmark chứa tọa độ không hợp lệ.");
+
+    const box = {
+      x: clamp(face.box.x, 0, 0.98),
+      y: clamp(face.box.y, 0, 0.98),
+      width: clamp(face.box.width, 0.08, 1),
+      height: clamp(face.box.height, 0.12, 1)
+    };
+    box.width = Math.min(box.width, 1 - box.x);
+    box.height = Math.min(box.height, 1 - box.y);
+
+    const eyes = [...face.eyes].sort((a, b) => a.x - b.x);
+    const eyeMid = pointMid(eyes[0], eyes[1]);
+    const eyeDistance = pointDistance(eyes[0], eyes[1]);
+    const mouthRelativeX = (face.mouth.x - box.x) / box.width;
+    const mouthRelativeY = (face.mouth.y - box.y) / box.height;
+    const eyeRelativeY = (eyeMid.y - box.y) / box.height;
+    const eyeDistanceRatio = eyeDistance / box.width;
+    const mouthWidthRatio = face.mouth.width / box.width;
+    const roll = Math.abs(face.mouth.angle || 0);
+
+    if (
+      mouthRelativeX < 0.04 || mouthRelativeX > 0.96
+      || mouthRelativeY < 0.4 || mouthRelativeY > 1.02
+      || eyeRelativeY < 0.06 || eyeRelativeY > 0.72
+      || eyeDistanceRatio < 0.16 || eyeDistanceRatio > 0.78
+      || mouthWidthRatio < 0.08 || mouthWidthRatio > 0.68
+    ) {
+      throw new Error("Landmark không có tỷ lệ khuôn mặt hợp lý.");
+    }
+
+    const score = Math.round(clamp(
+      100
+      - Math.abs(mouthRelativeX - 0.5) * 45
+      - Math.abs(mouthRelativeY - 0.74) * 22
+      - Math.abs(eyeRelativeY - 0.4) * 22
+      - Math.abs(eyeDistanceRatio - 0.4) * 32
+      - Math.abs(mouthWidthRatio - 0.32) * 34
+      - Math.max(0, roll - 0.12) * 35,
+      45,
+      100
+    ));
+
+    return {
+      quality: face.source === "sample" || face.source === "fallback" ? 100 : score,
+      geometry: {
+        ...face,
+        box,
+        mouth: {
+          ...face.mouth,
+          x: clamp(face.mouth.x, box.x, box.x + box.width),
+          y: clamp(face.mouth.y, box.y + box.height * 0.4, box.y + box.height),
+          width: clamp(face.mouth.width, box.width * 0.12, box.width * 0.52),
+          height: clamp(face.mouth.height, box.height * 0.018, box.height * 0.16),
+          angle: clamp(face.mouth.angle || 0, -0.62, 0.62)
+        },
+        eyes: eyes.map((eye) => ({
+          ...eye,
+          width: clamp(eye.width, box.width * 0.08, box.width * 0.32),
+          height: clamp(eye.height, box.height * 0.018, box.height * 0.12),
+          angle: clamp(eye.angle || 0, -0.62, 0.62)
+        }))
+      }
+    };
+  }
+
   function applyFaceGeometry(face, showGuides = true) {
-    state.face = face;
+    const assessed = assessFaceGeometry(face);
+    state.face = assessed.geometry;
+    state.faceQuality = assessed.quality;
     state.mouth = {
-      x: face.mouth.x,
-      y: face.mouth.y,
-      width: face.mouth.width
+      x: state.face.mouth.x,
+      y: state.face.mouth.y,
+      width: state.face.mouth.width
     };
     buildFeaturePatches();
     if (showGuides) state.showGuidesUntil = performance.now() + 1800;
+    return assessed.quality;
   }
 
   function createAlignedPatch(feature, widthFactor, heightFactor) {
@@ -369,13 +492,13 @@
     };
   }
 
-  async function detectWithNativeFaceDetector() {
+  async function detectWithNativeFaceDetector(image) {
     if (!window.FaceDetector) return null;
     const detector = new window.FaceDetector({ maxDetectedFaces: 1, fastMode: false });
-    const faces = await detector.detect(state.image);
+    const faces = await detector.detect(image);
     if (!faces.length) return null;
-    const imageWidth = state.image.naturalWidth;
-    const imageHeight = state.image.naturalHeight;
+    const imageWidth = image.naturalWidth;
+    const imageHeight = image.naturalHeight;
     const face = faces[0];
     const eyeLandmarks = (face.landmarks || []).filter((landmark) => landmark.type === "eye");
     const mouthLandmark = (face.landmarks || []).find((landmark) => landmark.type === "mouth");
@@ -436,7 +559,7 @@
     return mesh;
   }
 
-  async function detectWithMediaPipe() {
+  async function detectWithMediaPipe(image) {
     const mesh = await ensureFaceMesh();
     return new Promise((resolve, reject) => {
       const timeout = window.setTimeout(() => {
@@ -449,7 +572,7 @@
         resolve(results);
       };
       state.faceMeshRejecter = reject;
-      mesh.send({ image: state.image }).catch((error) => {
+      mesh.send({ image }).catch((error) => {
         window.clearTimeout(timeout);
         state.faceMeshResolver = null;
         state.faceMeshRejecter = null;
@@ -497,8 +620,13 @@
     };
   }
 
-  async function detectFaceLandmarks() {
-    if (!state.avatarReady || state.detectingFace) return;
+  async function detectFaceLandmarks(revision = state.imageRevision) {
+    if (!state.avatarReady || revision !== state.imageRevision) return;
+    if (state.detectingFace) {
+      state.pendingDetectionRevision = revision;
+      return;
+    }
+    const image = state.image;
     state.detectingFace = true;
     ui.detectFaceButton.disabled = true;
     ui.detectFaceButton.textContent = "Đang nhận diện…";
@@ -506,24 +634,26 @@
     try {
       let geometry = null;
       try {
-        geometry = await detectWithNativeFaceDetector();
+        geometry = await detectWithNativeFaceDetector(image);
       } catch (nativeError) {
         console.info("Native FaceDetector không khả dụng:", nativeError);
       }
       if (!geometry) {
-        const results = await detectWithMediaPipe();
+        const results = await detectWithMediaPipe(image);
         geometry = geometryFromMesh(results.multiFaceLandmarks?.[0]);
       }
+      if (revision !== state.imageRevision) return;
       if (!geometry) throw new Error("Không tìm thấy đủ landmark khuôn mặt.");
-      applyFaceGeometry(geometry);
+      const quality = applyFaceGeometry(geometry);
       setDetectionStatus(
         geometry.source === "mediapipe" ? "Đã nhận diện 468 điểm mặt" : "Đã nhận diện bằng Edge",
-        "Môi, hai mắt và tỷ lệ mặt đã khóa theo ảnh upload.",
+        `Môi, hai mắt và tỷ lệ mặt đã khóa theo ảnh upload · chất lượng ${quality}/100.`,
         "success"
       );
       setStage("Khuôn mặt đã khóa", "Khẩu hình mềm và chớp mắt đã sẵn sàng");
       showToast("Đã tự động định vị môi, mắt và gương mặt.");
     } catch (error) {
+      if (revision !== state.imageRevision) return;
       console.error("Face detection failed:", error);
       const fileHint = window.location.protocol === "file:"
         ? " Hãy cài bằng edge://extensions để mô hình WASM hoạt động."
@@ -533,8 +663,15 @@
       showToast(`Không nhận diện được khuôn mặt.${fileHint}`, true);
     } finally {
       state.detectingFace = false;
-      ui.detectFaceButton.disabled = false;
-      ui.detectFaceButton.textContent = "Nhận diện tự động";
+      if (revision === state.imageRevision) {
+        ui.detectFaceButton.disabled = false;
+        ui.detectFaceButton.textContent = "Nhận diện tự động";
+      }
+      const queuedRevision = state.pendingDetectionRevision;
+      state.pendingDetectionRevision = null;
+      if (queuedRevision === state.imageRevision && queuedRevision !== revision) {
+        window.queueMicrotask(() => detectFaceLandmarks(queuedRevision));
+      }
     }
   }
 
@@ -587,7 +724,7 @@
       manual.mouthRight.y - manual.mouthLeft.y,
       manual.mouthRight.x - manual.mouthLeft.x
     );
-    applyFaceGeometry({
+    const manualGeometry = {
       source: "manual",
       box: {
         x: clamp(eyeMid.x - faceWidth / 2, 0, 1),
@@ -613,25 +750,42 @@
         )
       })),
       landmarks: Object.values(manual)
-    });
+    };
+    try {
+      applyFaceGeometry(manualGeometry);
+    } catch (error) {
+      console.warn("Manual calibration rejected:", error);
+      setDetectionStatus("Năm điểm chưa hợp lý", "Hãy đặt lại hai mắt, hai khóe miệng và tâm môi.", "error");
+      showToast("Các điểm hiệu chỉnh chưa đúng tỷ lệ khuôn mặt. Hãy thử lại.", true);
+      state.calibrationIndex = 0;
+      state.manualPoints = {};
+      ui.calibrationText.textContent = CALIBRATION_STEPS[0].label;
+      setStage("Hiệu chỉnh 1/5", CALIBRATION_STEPS[0].label);
+      return;
+    }
     toggleCalibration(false);
-    setDetectionStatus("Đã hiệu chỉnh thủ công", "Đã khóa hai mắt, hai khóe miệng và tâm môi.", "success");
+    setDetectionStatus(
+      "Đã hiệu chỉnh thủ công",
+      `Đã khóa hai mắt, hai khóe miệng và tâm môi · chất lượng ${state.faceQuality}/100.`,
+      "success"
+    );
     showToast("Đã hoàn tất hiệu chỉnh 5 điểm khuôn mặt.");
   }
 
   function visemeFromText(text) {
     const value = text.toLocaleLowerCase("vi-VN");
-    if (/[mbp]/u.test(value)) return "closed";
-    if (/[uưoôơ]/u.test(value)) return "round";
-    if (/[aăâeê]/u.test(value)) return "wide";
-    if (/[iy]/u.test(value)) return "narrow";
-    if (/[fvph]/u.test(value)) return "bite";
-    if (/[lntdđ]/u.test(value)) return "tongue";
+    const unit = value.match(/\p{L}/u)?.[0] || value[0] || "";
+    if (/[mbp]/u.test(unit)) return "closed";
+    if (/[uưoôơ]/u.test(unit)) return "round";
+    if (/[aăâeê]/u.test(unit)) return "wide";
+    if (/[iy]/u.test(unit)) return "narrow";
+    if (/[fv]/u.test(unit) || value.startsWith("ph")) return "bite";
+    if (/[lntdđ]/u.test(unit)) return "tongue";
     return "neutral";
   }
 
-  function visemeShape() {
-    switch (state.viseme) {
+  function getVisemeShape(viseme = state.viseme) {
+    switch (viseme) {
       case "closed": return { width: 1, open: 0.02 };
       case "round": return { width: 0.87, open: 0.72 };
       case "wide": return { width: 1.04, open: 0.66 };
@@ -641,6 +795,13 @@
       case "neutral": return { width: 1, open: 0.42 };
       default: return { width: 1, open: 0 };
     }
+  }
+
+  function setViseme(viseme) {
+    state.viseme = viseme;
+    const shape = getVisemeShape(viseme);
+    state.mouthShape.targetWidth = shape.width;
+    state.mouthShape.targetOpen = shape.open;
   }
 
   function calculateAudioLevel() {
@@ -681,7 +842,10 @@
     if (!state.face?.mouth || !state.patches.mouth) return;
     const feature = state.face.mouth;
     const patch = state.patches.mouth;
-    const shape = visemeShape();
+    const shape = {
+      width: state.mouthShape.width,
+      open: state.mouthShape.open
+    };
     const mouthGain = Number(ui.mouthSize.value) / 100;
     const effectiveOpen = clamp(openAmount * (0.62 + shape.open * 0.45) * mouthGain, 0, 0.88);
     if (effectiveOpen < 0.018) return;
@@ -721,7 +885,7 @@
       }
     }
 
-    const cavityWidth = regionWidth * (state.viseme === "round" ? 0.29 : 0.44);
+    const cavityWidth = regionWidth * (shape.width < 0.91 ? 0.29 : 0.44);
     workContext.fillStyle = patch.cavityColor;
     workContext.beginPath();
     workContext.ellipse(
@@ -792,6 +956,8 @@
     if (!state.blink.startedAt && timestamp >= state.blink.nextAt) {
       state.blink.startedAt = timestamp;
       state.blink.duration = 155 + Math.random() * 70;
+      state.blink.isRepeat = state.blink.repeatAfter;
+      state.blink.repeatAfter = false;
     }
     if (!state.blink.startedAt) {
       state.blink.amount = 0;
@@ -801,7 +967,13 @@
     if (progress >= 1) {
       state.blink.amount = 0;
       state.blink.startedAt = 0;
-      state.blink.nextAt = timestamp + 2400 + Math.random() * 4300;
+      if (!state.blink.isRepeat && Math.random() < 0.14) {
+        state.blink.repeatAfter = true;
+        state.blink.nextAt = timestamp + 85 + Math.random() * 55;
+      } else {
+        state.blink.nextAt = timestamp + 2400 + Math.random() * 4300;
+      }
+      state.blink.isRepeat = false;
       return;
     }
     state.blink.amount = Math.sin(Math.PI * progress) ** 1.7 * clamp(0.48 + motion * 0.46, 0, 0.92);
@@ -879,6 +1051,26 @@
     ctx.restore();
   }
 
+  function updateHeadMotion(timestamp, motion, active) {
+    const head = state.headMotion;
+    if (timestamp >= head.nextTargetAt) {
+      const activityScale = active ? 1 : 0.48;
+      head.targetX = (Math.random() - 0.5) * 1.8 * activityScale * motion;
+      head.targetY = (Math.random() - 0.5) * 2.2 * activityScale * motion;
+      head.targetRotation = (Math.random() - 0.5) * 0.0048 * activityScale * motion;
+      head.nextTargetAt = timestamp + 1250 + Math.random() * 2100;
+    }
+    const easing = active ? 0.036 : 0.024;
+    head.x += (head.targetX - head.x) * easing;
+    head.y += (head.targetY - head.y) * easing;
+    head.rotation += (head.targetRotation - head.rotation) * easing;
+    return {
+      x: head.x,
+      y: head.y + state.level * 0.32 * motion,
+      rotation: head.rotation
+    };
+  }
+
   function drawFaceGuides(fit, timestamp) {
     if (!state.face || (!state.calibrating && timestamp > state.showGuidesUntil)) return;
     ctx.save();
@@ -934,28 +1126,35 @@
   }
 
   function renderFrame(timestamp) {
+    requestAnimationFrame(renderFrame);
+    const frameInterval = document.hidden ? 100 : (1000 / 30);
+    if (state.lastFrameAt && timestamp - state.lastFrameAt < frameInterval) return;
+    state.lastFrameAt = timestamp;
+
     const audioLevel = calculateAudioLevel();
     if (state.activeSignal === "audio" || state.activeSignal === "mic") {
       state.mouthTarget = audioLevel;
       if (audioLevel > 0.08) {
-        state.viseme = audioLevel > 0.62 ? "wide" : audioLevel > 0.32 ? "neutral" : "narrow";
+        setViseme(audioLevel > 0.62 ? "wide" : audioLevel > 0.32 ? "neutral" : "narrow");
         state.lastActivityAt = timestamp;
       } else if (timestamp - state.lastActivityAt > 130) {
-        state.viseme = "closed";
+        setViseme("closed");
       }
     } else if (!state.speechActive) {
       state.mouthTarget = 0;
-      state.viseme = "idle";
+      setViseme("idle");
     }
 
     state.level += (Math.max(audioLevel, state.speechActive ? state.mouthTarget : 0) - state.level) * 0.22;
     state.mouthOpen += (state.mouthTarget - state.mouthOpen) * (state.mouthTarget > state.mouthOpen ? 0.38 : 0.22);
+    const shapeEase = state.mouthShape.targetOpen > state.mouthShape.open ? 0.34 : 0.23;
+    state.mouthShape.open += (state.mouthShape.targetOpen - state.mouthShape.open) * shapeEase;
+    state.mouthShape.width += (state.mouthShape.targetWidth - state.mouthShape.width) * 0.27;
     updateMeter(state.level);
     updateBlink(timestamp);
 
     if (!state.avatarReady) {
       drawEmptyStage();
-      requestAnimationFrame(renderFrame);
       return;
     }
 
@@ -963,10 +1162,8 @@
     const active = state.activeSignal !== "idle" || state.speechActive;
     const t = timestamp / 1000;
     const motion = Number(ui.faceMotion.value) / 100;
-    const bobX = Math.sin(t * (active ? 1.35 : 0.52)) * (active ? 1.15 : 0.45) * motion;
-    const bobY = Math.sin(t * (active ? 1.78 : 0.72)) * (active ? 1.65 : 0.7) * motion;
+    const head = updateHeadMotion(timestamp, motion, active);
     const breath = 1 + Math.sin(t * 1.05) * 0.0009 * motion;
-    const headRotation = Math.sin(t * 0.43) * 0.0022 * motion;
     const faceCenterX = state.face
       ? fit.x + (state.face.box.x + state.face.box.width / 2) * fit.drawWidth
       : ui.canvas.width / 2;
@@ -977,8 +1174,8 @@
     ctx.fillStyle = "#050a12";
     ctx.fillRect(0, 0, ui.canvas.width, ui.canvas.height);
     ctx.save();
-    ctx.translate(faceCenterX + bobX, faceCenterY + bobY);
-    ctx.rotate(headRotation);
+    ctx.translate(faceCenterX + head.x, faceCenterY + head.y);
+    ctx.rotate(head.rotation);
     ctx.scale(breath, breath);
     ctx.translate(-faceCenterX, -faceCenterY);
     ctx.drawImage(state.image, fit.x, fit.y, fit.drawWidth, fit.drawHeight);
@@ -988,7 +1185,6 @@
     drawAnimatedMouth(fit, state.mouthOpen);
     ctx.restore();
     drawFaceGuides(fit, timestamp);
-    requestAnimationFrame(renderFrame);
   }
 
   function stopTts(updateStatus = true) {
@@ -996,23 +1192,24 @@
     state.speechActive = false;
     state.activeSignal = state.activeSignal === "tts" ? "idle" : state.activeSignal;
     state.mouthTarget = 0;
-    state.viseme = "idle";
+    setViseme("idle");
     window.clearInterval(state.ttsTimer);
     state.ttsTimer = null;
     if (updateStatus) setStage("Đã dừng", "Giọng đọc đã dừng");
   }
 
   function scheduleVietnameseVisemes(text, rate) {
-    const units = text.match(/[\p{L}\p{N}]+|[.,!?;:]/gu) || [text];
+    const units = [...text].filter((unit) => /[\p{L}\p{N}.,!?;:]/u.test(unit));
+    if (!units.length) units.push(" ");
     let index = 0;
     window.clearInterval(state.ttsTimer);
-    const interval = clamp(155 / rate, 75, 250);
+    const interval = clamp(102 / rate, 68, 180);
     state.ttsTimer = window.setInterval(() => {
       if (!state.speechActive) return;
       const unit = units[index % units.length];
       const punctuation = /^[.,!?;:]$/u.test(unit);
-      state.viseme = punctuation ? "closed" : visemeFromText(unit);
-      state.mouthTarget = punctuation ? 0.01 : 0.28 + Math.random() * 0.38;
+      setViseme(punctuation ? "closed" : visemeFromText(unit));
+      state.mouthTarget = punctuation ? 0.01 : 0.3 + Math.random() * 0.3;
       state.lastActivityAt = performance.now();
       index += 1;
     }, interval);
@@ -1050,8 +1247,8 @@
       setStage("Đang phát giọng", `${selected?.name || "Giọng mặc định"} · ${utterance.lang}`, true);
     };
     utterance.onboundary = (event) => {
-      const sample = text.slice(event.charIndex, event.charIndex + Math.max(event.charLength || 1, 4));
-      state.viseme = visemeFromText(sample);
+      const sample = text.slice(event.charIndex, event.charIndex + Math.max(event.charLength || 1, 2));
+      setViseme(visemeFromText(sample));
       state.mouthTarget = state.viseme === "closed" ? 0.04 : 0.54;
       state.lastActivityAt = performance.now();
     };
@@ -1209,7 +1406,7 @@
         }
         const visibleText = `${state.finalTranscript}${interim}`.trim();
         ui.transcriptText.textContent = visibleText || "Đang nghe…";
-        if (visibleText) state.viseme = visemeFromText(visibleText.slice(-8));
+        if (visibleText) setViseme(visemeFromText(visibleText.slice(-2)));
       };
       recognition.onerror = (event) => {
         if (event.error === "no-speech" || event.error === "aborted") return;
@@ -1339,7 +1536,7 @@
   function bindEvents() {
     ui.imageInput.addEventListener("change", (event) => handleImageFile(event.target.files?.[0]));
     ui.audioInput.addEventListener("change", (event) => handleAudioFile(event.target.files?.[0]));
-    ui.detectFaceButton.addEventListener("click", detectFaceLandmarks);
+    ui.detectFaceButton.addEventListener("click", () => detectFaceLandmarks());
     ui.calibrateButton.addEventListener("click", () => toggleCalibration());
     ui.canvas.addEventListener("click", setMouthFromCanvas);
     ui.speakButton.addEventListener("click", speakText);
@@ -1358,6 +1555,9 @@
       ui.rate.value = "1";
       ui.pitch.value = "1";
       ui.transcriptText.textContent = "Bản chép lời sẽ xuất hiện ở đây khi bật microphone.";
+      state.mouthOpen = 0;
+      state.mouthTarget = 0;
+      setViseme("idle");
       updateRangeLabels();
       useSampleImage(true);
       savePreferences();
@@ -1422,6 +1622,7 @@
   }
 
   async function initialize() {
+    configureRuntimeContext();
     detectCapabilities();
     bindEvents();
     await restorePreferences();

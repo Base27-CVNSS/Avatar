@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/License-MIT-8468ff)](LICENSE)
 [![Privacy](https://img.shields.io/badge/Processing-Local%20only-102e49)](PRIVACY.md)
 
-Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát triển. Phiên bản 1.1 nhận diện landmark của môi, hai mắt và khung mặt trên ảnh upload bằng MediaPipe Face Mesh chạy cục bộ, sau đó dựng chuyển động mềm bằng Web Speech API, Web Audio API và Canvas 2D. Phần ảnh, Face Mesh, Canvas và phân tích tệp audio chạy trên thiết bị; dịch vụ TTS/STT cụ thể do Edge/Windows cung cấp và có thể dùng xử lý trực tuyến tùy voice, phiên bản và cấu hình hệ thống.
+Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát triển. Phiên bản 1.2 nhận diện landmark của môi, hai mắt và khung mặt trên ảnh upload bằng MediaPipe Face Mesh chạy cục bộ, sau đó dựng chuyển động mềm bằng Web Speech API, Web Audio API và Canvas 2D. Phần ảnh, Face Mesh, Canvas và phân tích tệp audio chạy trên thiết bị; dịch vụ TTS/STT cụ thể do Edge/Windows cung cấp và có thể dùng xử lý trực tuyến tùy voice, phiên bản và cấu hình hệ thống.
 
 > Bản này được tái cấu trúc từ ý tưởng của ứng dụng `lip-sync-ai-main`. Mã gốc tải ảnh/âm thanh lên fal.ai và gọi OmniHuman 1.5 ở backend. Avatar VN loại bỏ toàn bộ Next.js server, `FAL_KEY`, lưu trữ đám mây và API sinh video.
 
@@ -18,15 +18,18 @@ Avatar VN là Microsoft Edge Extension mã nguồn mở do **Long Ngo** phát tr
 - Chọn hoặc kéo thả ảnh JPG, PNG, WebP và GIF.
 - Tự nhận diện hàng trăm landmark để định vị môi, mắt và tỷ lệ mặt.
 - Không dùng lại tọa độ miệng của ảnh trước cho ảnh mới.
+- Mỗi lượt upload có mã phiên riêng; kết quả Face Mesh trễ của ảnh cũ bị loại bỏ.
+- Chấm điểm tỷ lệ landmark và từ chối vùng miệng bất thường trước khi dựng.
 - Chế độ hiệu chỉnh dự phòng 5 điểm: hai mắt, hai khóe miệng và tâm môi.
 - Biến dạng mềm giữ texture môi gốc; không vẽ oval đen hoặc răng giả đè lên ảnh.
-- Chớp mắt ngẫu nhiên và vi chuyển động đầu ở biên độ thấp.
+- Chớp mắt đơn/đôi ngẫu nhiên và vi chuyển động đầu dùng mục tiêu mềm.
 - Tự ưu tiên giọng `vi-VN` có sẵn trong Microsoft Edge/Windows.
-- Đọc văn bản tiếng Việt và tạo viseme gần đúng theo nguyên âm/phụ âm.
+- Đọc văn bản tiếng Việt, nội suy coarticulation và tạo viseme gần đúng theo từng ký tự.
 - Chèn tệp MP3, WAV, M4A, OGG hoặc WebM; khẩu hình bám theo biên độ âm thanh thật.
 - Nhận giọng Việt qua `SpeechRecognition`, hiển thị cả kết quả tạm thời và chính thức.
 - Microphone điều khiển môi theo âm lượng thực, có khử vọng và giảm nhiễu của trình duyệt.
 - Dashboard responsive, chạy trực tiếp trong extension.
+- Render giới hạn 30 FPS, tự hạ xuống 10 FPS khi tab bị ẩn để giảm tải CPU.
 - Chụp khung hình nhân vật thành PNG.
 - Không host permission, không analytics, không cookie, không API key hay server do người dùng phải cài.
 
@@ -77,6 +80,8 @@ flowchart TD
 4. Điều chỉnh **Độ mở khẩu hình** và **Vi chuyển động gương mặt** ở mức vừa phải; 55–75% thường tự nhiên nhất.
 5. Bấm **Chụp PNG** để lưu khung hình hiện tại.
 
+Sau khi upload, trạng thái nhận diện hiển thị điểm chất lượng từ 45–100. Nếu điểm thấp, khuôn mặt nghiêng nhiều hoặc khung xanh lệch khỏi mắt/môi, hãy dùng **Chỉnh 5 điểm**.
+
 ## Cài giọng Việt cho Edge/Windows
 
 Nếu danh sách không có giọng `vi-VN`:
@@ -124,6 +129,9 @@ Avatar/
 ├── index.html
 ├── styles.css
 ├── app.js
+├── package.json
+├── tests/
+│   └── validate.mjs     # Kiểm tra manifest, asset, CSP và hai module WASM
 ├── assets/
 │   └── demo-avatar.svg
 ├── vendor/
@@ -136,15 +144,17 @@ Avatar/
 │   └── icon128.png
 ├── PRIVACY.md
 ├── THIRD_PARTY_NOTICES.md
+├── CHANGELOG.md
 ├── LICENSE
 └── README.md
 ```
 
 ## Phát triển
 
-Không cần `npm install`.
+Không cần cài dependency. Node.js chỉ được dùng để chạy bộ kiểm tra:
 
 - Sửa `index.html`, `styles.css` hoặc `app.js`.
+- Chạy `npm test`.
 - Mở `edge://extensions`.
 - Bấm **Reload** trên thẻ Avatar VN.
 - Bấm icon extension để mở phiên bản mới.
@@ -154,14 +164,14 @@ Hãy chạy bằng **Load unpacked** trong `edge://extensions`. Khi mở trực 
 ## Kiểm tra nhanh
 
 ```bash
-node --check app.js
-node --check background.js
-python -m json.tool manifest.json
+npm test
 ```
+
+Bộ kiểm tra xác thực Manifest V3, quyền local-first, quan hệ selector HTML/JavaScript, sự hiện diện của model, khả năng biên dịch hai module WASM và wrapper tương thích CSP.
 
 ## Lộ trình
 
-- Bộ viseme tiếng Việt theo âm vị chính xác hơn.
+- Căn chỉnh âm vị–thời gian chính xác hơn cho tệp audio.
 - Ghi WebM cục bộ từ Canvas + audio do người dùng tải lên.
 - Nhiều preset biểu cảm và cử động đầu.
 - Tùy chọn mô hình neural on-device khi WebGPU đủ mạnh.

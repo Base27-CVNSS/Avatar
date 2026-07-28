@@ -24,7 +24,7 @@
 
       <div class="status-row" aria-label="Trạng thái công nghệ">
         <span class="status-pill"><i class="status-dot"></i> No backend</span>
-        <span class="status-pill">Face mesh local</span>
+        <span id="runtimeMode" class="status-pill">Face mesh local</span>
         <span class="status-pill status-private">Không server riêng</span>
       </div>
     </header>
@@ -48,6 +48,14 @@
           </div>
         </div>
       </section>
+
+      <aside id="runtimeWarning" class="runtime-warning" role="alert" hidden>
+        <span aria-hidden="true">!</span>
+        <div>
+          <strong>Đang mở bằng file:// nên Face Mesh có thể bị Edge chặn.</strong>
+          <small>Hãy mở <code>edge://extensions</code>, bật Developer mode và chọn Load unpacked.</small>
+        </div>
+      </aside>
 
       <div class="workspace">
         <aside class="control-panel" aria-label="Bảng điều khiển">
@@ -224,7 +232,7 @@
     </main>
 
     <footer>
-      <span>Avatar VN v1.1.0</span>
+      <span>Avatar VN v1.2.0</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 

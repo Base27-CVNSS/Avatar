@@ -24,3 +24,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ```
+
+Hai wrapper Emscripten được chỉnh tối thiểu để thay helper `new Function`
+bằng closure tĩnh tương đương, giúp WASM cục bộ tuân thủ Content Security
+Policy của Microsoft Edge Manifest V3. Trọng số model và phép tính không đổi.

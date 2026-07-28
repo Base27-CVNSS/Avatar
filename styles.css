@@ -243,6 +243,48 @@ h1 span {
   font-size: 0.88rem;
 }
 
+.runtime-warning {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: -18px 0 24px;
+  padding: 13px 15px;
+  border: 1px solid rgba(255, 189, 92, 0.3);
+  border-radius: 15px;
+  color: #ffe4b5;
+  background: rgba(70, 42, 12, 0.58);
+}
+
+.runtime-warning > span {
+  display: grid;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  color: #151006;
+  background: #ffbd5c;
+  font-weight: 900;
+}
+
+.runtime-warning > div {
+  display: grid;
+  gap: 3px;
+}
+
+.runtime-warning strong {
+  font-size: 0.76rem;
+}
+
+.runtime-warning small {
+  color: #d8b98a;
+  font-size: 0.68rem;
+}
+
+.runtime-warning code {
+  color: #fff2d7;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(330px, 0.82fr) minmax(500px, 1.35fr);

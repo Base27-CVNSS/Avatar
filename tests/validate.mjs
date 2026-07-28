@@ -7,14 +7,26 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const readText = (file) => readFile(path.join(root, file), "utf8");
 
-const [manifestText, packageText, html, app, background, workflow, installer] = await Promise.all([
+const [
+  manifestText,
+  packageText,
+  html,
+  app,
+  background,
+  workflow,
+  installer,
+  apiClient,
+  companionEngines
+] = await Promise.all([
   readText("manifest.json"),
   readText("package.json"),
   readText("index.html"),
   readText("app.js"),
   readText("background.js"),
   readText(".github/workflows/build-windows.yml"),
-  readText("installer/Cybergirl.iss")
+  readText("installer/Cybergirl.iss"),
+  readText("api_client.py"),
+  readText("companion/engines.py")
 ]);
 const manifest = JSON.parse(manifestText);
 const packageJson = JSON.parse(packageText);
@@ -168,10 +180,29 @@ assert.match(html, /id="nativeTtsStatus"/, "Phải hiển thị trạng thái TT
 assert.match(html, /id="memoryEnabled"/, "Phải có đồng ý bật bộ nhớ dài hạn");
 assert.match(html, /id="emotionChip"/, "Phải hiển thị cảm xúc hiện tại");
 assert.match(html, /id="recordWebmButton"/, "Phải có nút quay WebM");
+assert.match(html, /value="openrouter"/, "Phải có nhà cung cấp OpenRouter");
+assert.match(html, /id="openRouterReferer"/, "Phải cấu hình HTTP-Referer OpenRouter");
+assert.match(html, /id="openRouterTitle"/, "Phải cấu hình tên ứng dụng OpenRouter");
+assert.match(html, /id="openRouterZdr"/, "Phải có tùy chọn Zero Data Retention");
+assert.match(app, /https:\/\/openrouter\.ai\/api\/v1/, "Phải có endpoint OpenRouter mặc định");
+assert.match(app, /openai\/gpt-4o/, "Phải có model OpenRouter mặc định");
+for (const source of [apiClient, companionEngines]) {
+  assert.match(source, /X-OpenRouter-Title/, "Adapter phải dùng header OpenRouter hiện hành");
+  assert.ok(!source.includes('"X-Title"'), "Không được gửi header X-Title cũ");
+}
+const securitySource = [
+  html,
+  app,
+  background,
+  apiClient,
+  companionEngines,
+  await readText("README.md")
+].join("\n");
+assert.ok(!securitySource.includes("sk-or-v1-"), "Không được đưa khóa OpenRouter vào mã nguồn");
 assert.match(workflow, /cache-dependency-path: requirements-build\.txt/, "CI phải cache đúng tệp phụ thuộc");
 assert.match(workflow, /cybergirl_companion\.spec/, "CI phải đóng gói Native Companion");
-assert.match(workflow, /Cybergirl-Edge-v3\.1\.0\.zip/, "CI phải xuất gói Edge Extension");
-assert.match(installer, /#define MyAppVersion "3\.1\.0"/, "Bộ cài phải đúng phiên bản 3.1.0");
+assert.match(workflow, /Cybergirl-Edge-v3\.2\.0\.zip/, "CI phải xuất gói Edge Extension");
+assert.match(installer, /#define MyAppVersion "3\.2\.0"/, "Bộ cài phải đúng phiên bản 3.2.0");
 assert.match(installer, /register-native-host\.ps1/, "Bộ cài phải đăng ký Native Messaging");
 
 const characters = JSON.parse(await readText("characters.json"));

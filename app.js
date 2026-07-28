@@ -59,6 +59,10 @@
     apiBaseUrl: $("#apiBaseUrl"),
     apiModel: $("#apiModel"),
     apiKey: $("#apiKey"),
+    openRouterSettings: $("#openRouterSettings"),
+    openRouterReferer: $("#openRouterReferer"),
+    openRouterTitle: $("#openRouterTitle"),
+    openRouterZdr: $("#openRouterZdr"),
     sileroPath: $("#sileroPath"),
     whisperCliPath: $("#whisperCliPath"),
     whisperModelPath: $("#whisperModelPath"),
@@ -393,13 +397,18 @@
     ui.emotionEnabled.checked = config.emotion_enabled !== false;
     ui.fullDuplex.checked = config.full_duplex !== false;
     ui.echoGuard.checked = config.echo_guard !== false;
+    ui.openRouterReferer.value = config.openrouter_referer
+      || "https://github.com/Base27-CVNSS/Avatar";
+    ui.openRouterTitle.value = config.openrouter_title || "Cybergirl";
+    ui.openRouterZdr.checked = Boolean(config.openrouter_zdr);
+    updateOpenRouterVisibility();
   }
 
   function setNativeComponents(components = {}, conversation = {}, config = {}) {
     state.nativeComponents = components;
     const localLlmReady = components.llama_server && components.gguf_model;
     const remoteOrAdapterReady = ["ollama", "openai-compatible"].includes(config.provider)
-      || (["openai", "gemini"].includes(config.provider) && config.api_key_present);
+      || (["openai", "gemini", "openrouter"].includes(config.provider) && config.api_key_present);
     const llmReady = config.provider === "gguf" ? localLlmReady : remoteOrAdapterReady;
     [
       [ui.nativeVadStatus, components.silero_vad, "VAD"],
@@ -469,6 +478,7 @@
     ui.providerSelect.value = profile.provider;
     ui.apiBaseUrl.value = profile.base_url;
     ui.apiModel.value = profile.model;
+    updateOpenRouterVisibility();
     showToast(`Đã chọn ${profile.label}.`);
   }
 
@@ -588,6 +598,11 @@
         model: "gpt-5.6-sol",
         needsKey: true
       },
+      openrouter: {
+        base: "https://openrouter.ai/api/v1",
+        model: "openai/gpt-4o",
+        needsKey: true
+      },
       ollama: {
         base: "http://127.0.0.1:11434",
         model: "qwen3:4b",
@@ -607,9 +622,19 @@
     if (!defaults) return;
     if (force || !ui.apiBaseUrl.value.trim()) ui.apiBaseUrl.value = defaults.base;
     if (force || !ui.apiModel.value.trim()) ui.apiModel.value = defaults.model;
+    updateOpenRouterVisibility();
+    const keyNames = {
+      openai: "OpenAI",
+      gemini: "Gemini",
+      openrouter: "OpenRouter"
+    };
     ui.apiKey.placeholder = defaults.needsKey
-      ? `Nhập khóa ${provider === "openai" ? "OpenAI" : "Gemini"} · chỉ giữ trong RAM`
+      ? `Nhập khóa ${keyNames[provider]} · chỉ giữ trong RAM`
       : "Không bắt buộc · chỉ giữ trong phiên";
+  }
+
+  function updateOpenRouterVisibility() {
+    ui.openRouterSettings.hidden = ui.providerSelect.value !== "openrouter";
   }
 
   async function loadCompanionConfig() {
@@ -671,6 +696,11 @@
       ui.providerSelect.value = config.provider;
       ui.apiBaseUrl.value = config.base_url;
       ui.apiModel.value = config.model;
+      ui.openRouterReferer.value = config.openrouter_referer
+        || "https://github.com/Base27-CVNSS/Avatar";
+      ui.openRouterTitle.value = config.openrouter_title || "Cybergirl";
+      ui.openRouterZdr.checked = Boolean(config.openrouter_zdr);
+      updateOpenRouterVisibility();
       populateCharacters(config.characters, config.active_character);
       setCompanionStatus(
         "Cybergirl Windows đã sẵn sàng",
@@ -689,6 +719,9 @@
       base_url: ui.apiBaseUrl.value.trim(),
       model: ui.apiModel.value.trim(),
       api_key: ui.apiKey.value.trim(),
+      openrouter_referer: ui.openRouterReferer.value.trim(),
+      openrouter_title: ui.openRouterTitle.value.trim(),
+      openrouter_zdr: ui.openRouterZdr.checked,
       active_character: ui.characterSelect.value,
       silero_vad_path: ui.sileroPath.value.trim(),
       whisper_cli_path: ui.whisperCliPath.value.trim(),

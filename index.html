@@ -210,6 +210,7 @@
                 <option value="gguf">GGUF cục bộ · llama.cpp</option>
                 <option value="openai">ChatGPT · OpenAI Responses API</option>
                 <option value="gemini">Google Gemini API</option>
+                <option value="openrouter">OpenRouter · nhiều mô hình AI</option>
                 <option value="ollama">Ollama cục bộ · không cần khóa</option>
                 <option value="openai-compatible">API tương thích OpenAI</option>
               </select>
@@ -223,6 +224,23 @@
               <label class="field-label" for="apiKey">Khóa API</label>
               <input id="apiKey" type="password" autocomplete="off" placeholder="Chỉ giữ trong bộ nhớ của phiên chạy">
               <small class="privacy-note">Cybergirl không ghi khóa API vào trình duyệt hoặc tệp cấu hình.</small>
+
+              <div id="openRouterSettings" class="openrouter-settings" hidden>
+                <label class="field-label" for="openRouterReferer">HTTP-Referer</label>
+                <input id="openRouterReferer" type="url" value="https://github.com/Base27-CVNSS/Avatar" spellcheck="false">
+
+                <label class="field-label" for="openRouterTitle">Tên ứng dụng OpenRouter</label>
+                <input id="openRouterTitle" type="text" value="Cybergirl" maxlength="120" spellcheck="false">
+
+                <label class="toggle-row compact" for="openRouterZdr">
+                  <input id="openRouterZdr" type="checkbox">
+                  <span>
+                    <strong>Chỉ dùng endpoint Zero Data Retention</strong>
+                    <small>Có thể làm giảm số nhà cung cấp khả dụng cho model.</small>
+                  </span>
+                </label>
+                <small class="privacy-note">Gửi header HTTP-Referer và X-OpenRouter-Title theo chuẩn OpenRouter.</small>
+              </div>
             </div>
 
             <details class="local-settings">
@@ -393,7 +411,7 @@
         </article>
         <article>
           <span>03</span>
-          <div><strong>API tùy chọn</strong><small>Ollama, Gemini hoặc OpenAI-compatible.</small></div>
+          <div><strong>API tùy chọn</strong><small>OpenRouter, Ollama, Gemini hoặc OpenAI-compatible.</small></div>
         </article>
         <article>
           <span>04</span>
@@ -403,7 +421,7 @@
     </main>
 
     <footer>
-      <span>Cybergirl v3.1.0</span>
+      <span>Cybergirl v3.2.0</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 

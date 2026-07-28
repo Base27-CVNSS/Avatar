@@ -1,4 +1,4 @@
-# Cybergirl Companion 3.1
+# Cybergirl Companion 3.2
 
 Companion là Native Messaging host chạy cục bộ trên Windows. Microsoft Edge
 giao tiếp bằng JSON có tiền tố độ dài; không mở cổng mạng công khai và không
@@ -11,7 +11,7 @@ Microphone 16 kHz
   → Silero VAD ONNX (CPU)
   → WAV của một câu nói
   → whisper.cpp đa ngôn ngữ, ép ngôn ngữ vi
-  → GGUF qua llama-server hoặc OpenAI/Gemini API
+  → GGUF qua llama-server hoặc OpenAI/Gemini/OpenRouter API
   → Windows SAPI hoặc Piper/VITS tiếng Việt
   → phoneme timing + Emotion Engine
   → Mouth Engine, gaze, blink và head motion trong Edge
@@ -32,7 +32,7 @@ bố thay thế WebRTC Acoustic Echo Cancellation ở cấp hệ điều hành.
 | `configure` | Lưu đường dẫn, model, provider; khóa API chỉ vào RAM |
 | `start_listening` | Mở Silero VAD và microphone |
 | `stop_listening` | Đóng stream, thread và bộ đệm |
-| `chat` | GGUF/OpenAI/Gemini tạo câu trả lời |
+| `chat` | GGUF/OpenAI/Gemini/OpenRouter tạo câu trả lời |
 | `speak` | Tổng hợp và phát TTS cục bộ |
 | `interrupt` | Dừng phát giọng ngay |
 | `benchmark_tts` | Đo thời gian tổng hợp, RTF và ký tự/giây |

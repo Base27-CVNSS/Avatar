@@ -1,4 +1,4 @@
-"""Cybergirl 3.1 — GUI Windows dùng nhân Microsoft Edge.
+"""Cybergirl 3.2 — GUI Windows dùng nhân Microsoft Edge.
 
 Ứng dụng đóng gói thành một tệp EXE bằng PyInstaller. Khi chạy, chương trình:
 
@@ -32,7 +32,7 @@ from api_client import APIClient, CauHinhAPI, LoiAPI
 from voice_registry import LoiCauHinhNhanVat, VoiceRegistry
 
 
-PHIEN_BAN = "3.1.0"
+PHIEN_BAN = "3.2.0"
 CONG_MAC_DINH = 27827
 GIOI_HAN_JSON = 1_000_000
 
@@ -65,6 +65,9 @@ class KhoCauHinh:
             "base_url": "http://127.0.0.1:27829/v1",
             "model": "qwen3-4b-vi",
             "active_character": "mai",
+            "openrouter_referer": "https://github.com/Base27-CVNSS/Avatar",
+            "openrouter_title": "Cybergirl",
+            "openrouter_zdr": False,
         }
         try:
             value = json.loads(self.path.read_text(encoding="utf-8"))
@@ -72,20 +75,37 @@ class KhoCauHinh:
                 defaults.update(
                     {
                         key: value[key]
-                        for key in defaults
+                        for key in (
+                            "provider",
+                            "base_url",
+                            "model",
+                            "active_character",
+                            "openrouter_referer",
+                            "openrouter_title",
+                        )
                         if isinstance(value.get(key), str) and value[key].strip()
                     }
                 )
+                if isinstance(value.get("openrouter_zdr"), bool):
+                    defaults["openrouter_zdr"] = value["openrouter_zdr"]
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             pass
         return defaults
 
     def save(self, config: dict[str, Any]) -> None:
-        safe = {
+        safe: dict[str, Any] = {
             key: str(config[key])
-            for key in ("provider", "base_url", "model", "active_character")
+            for key in (
+                "provider",
+                "base_url",
+                "model",
+                "active_character",
+                "openrouter_referer",
+                "openrouter_title",
+            )
             if config.get(key)
         }
+        safe["openrouter_zdr"] = bool(config.get("openrouter_zdr", False))
         temp = self.path.with_suffix(".tmp")
         temp.write_text(
             json.dumps(safe, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -115,6 +135,9 @@ class TrangThaiCybergirl:
                 "base_url": self.saved["base_url"],
                 "model": self.saved["model"],
                 "active_character": self.registry.active,
+                "openrouter_referer": self.saved["openrouter_referer"],
+                "openrouter_title": self.saved["openrouter_title"],
+                "openrouter_zdr": bool(self.saved["openrouter_zdr"]),
                 "characters": self.registry.public_list(),
                 "co_khoa_api": bool(self.api_key),
                 "che_do": "GUI Windows + Microsoft Edge",
@@ -124,6 +147,15 @@ class TrangThaiCybergirl:
         provider = str(payload.get("provider", self.saved["provider"])).strip()
         base_url = str(payload.get("base_url", self.saved["base_url"])).strip()
         model = str(payload.get("model", self.saved["model"])).strip()
+        openrouter_referer = str(
+            payload.get("openrouter_referer", self.saved["openrouter_referer"])
+        ).strip()
+        openrouter_title = str(
+            payload.get("openrouter_title", self.saved["openrouter_title"])
+        ).strip()
+        openrouter_zdr = bool(
+            payload.get("openrouter_zdr", self.saved["openrouter_zdr"])
+        )
         api_key = str(payload.get("api_key", "")).strip()
         character = str(
             payload.get("active_character", self.registry.active)
@@ -134,6 +166,9 @@ class TrangThaiCybergirl:
             base_url=base_url,
             model=model,
             api_key=api_key or self.api_key,
+            openrouter_referer=openrouter_referer,
+            openrouter_title=openrouter_title,
+            openrouter_zdr=openrouter_zdr,
         ).validated()
         if not self.registry.switch(character):
             raise LoiAPI("Nhân vật được chọn không tồn tại.")
@@ -145,6 +180,9 @@ class TrangThaiCybergirl:
                     "base_url": validated.base_url,
                     "model": validated.model,
                     "active_character": self.registry.active,
+                    "openrouter_referer": validated.openrouter_referer,
+                    "openrouter_title": validated.openrouter_title,
+                    "openrouter_zdr": validated.openrouter_zdr,
                 }
             )
             if api_key:
@@ -162,6 +200,9 @@ class TrangThaiCybergirl:
                     base_url=self.saved["base_url"],
                     model=self.saved["model"],
                     api_key=self.api_key,
+                    openrouter_referer=self.saved["openrouter_referer"],
+                    openrouter_title=self.saved["openrouter_title"],
+                    openrouter_zdr=bool(self.saved["openrouter_zdr"]),
                 )
             )
 

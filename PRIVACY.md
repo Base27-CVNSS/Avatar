@@ -25,11 +25,13 @@ chính sách của Microsoft.
 
 Khi người dùng chọn companion cục bộ, microphone được companion thu ở 16 kHz.
 Silero VAD, tệp WAV tạm và Whisper chạy trên máy. WAV của câu nói bị xóa sau
-khi phiên âm. Âm thanh không được gửi tới OpenAI, Gemini hoặc LLM GGUF.
+khi phiên âm. Âm thanh không được gửi tới OpenAI, Gemini, OpenRouter hoặc LLM
+GGUF.
 
 ## API hội thoại
 
-Khi người dùng chọn OpenAI, Gemini, Ollama hoặc API tương thích, Cybergirl gửi:
+Khi người dùng chọn OpenAI, Gemini, OpenRouter, Ollama hoặc API tương thích,
+Cybergirl gửi:
 
 - Câu hỏi dạng văn bản.
 - Tối đa mười hai tin nhắn gần nhất.
@@ -41,6 +43,12 @@ Chế độ GGUF giữ cả câu hỏi và câu trả lời trên máy.
 Người dùng tự chọn nhà cung cấp và chịu sự điều chỉnh của chính sách nhà cung cấp
 đó.
 
+Với OpenRouter, Cybergirl có thể gửi thêm `HTTP-Referer` và
+`X-OpenRouter-Title` để nhận diện ứng dụng. Hai giá trị không chứa khóa API và
+có thể chỉnh trong dashboard. Khi bật Zero Data Retention, yêu cầu có thêm
+`provider.zdr: true`; việc định tuyến vẫn phụ thuộc khả năng của model/nhà cung
+cấp trong tài khoản OpenRouter.
+
 ## Khóa API
 
 Khóa API:
@@ -49,6 +57,9 @@ Khóa API:
 - Không ghi vào `localStorage`, `chrome.storage` hoặc `cau-hinh.json`.
 - Bị xóa khi thoát ứng dụng.
 - Có thể được nạp từ biến môi trường `CYBERGIRL_API_KEY` cho môi trường quản trị.
+
+Không đặt khóa thật trực tiếp trong `app.js`, `index.html`, manifest, README
+hoặc kho Git.
 
 ## Cổng vòng lặp
 
@@ -71,6 +82,7 @@ Tệp `%LOCALAPPDATA%\Cybergirl\cau-hinh.json` chỉ lưu:
 - Địa chỉ API.
 - Tên mô hình.
 - Nhân vật đang dùng.
+- Metadata nhận diện OpenRouter và lựa chọn Zero Data Retention.
 
 Tệp `cau-hinh-companion.json` chỉ lưu đường dẫn binary/model, engine TTS, ngưỡng
 VAD, số luồng CPU và nhà cung cấp. Tệp này không chứa khóa API.

@@ -810,6 +810,25 @@ audio:not([src]) {
   margin-top: 7px;
 }
 
+.openrouter-settings {
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 11px;
+  border: 1px solid rgba(119, 100, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(82, 64, 180, 0.08);
+}
+
+.openrouter-settings[hidden] {
+  display: none;
+}
+
+.toggle-row.compact {
+  margin-top: 6px;
+  padding: 9px 10px;
+}
+
 .privacy-note {
   color: #856f7c;
   font-size: 0.63rem;

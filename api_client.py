@@ -21,10 +21,20 @@ class CauHinhAPI:
     base_url: str = "http://127.0.0.1:11434"
     model: str = "qwen3:4b"
     api_key: str = ""
+    openrouter_referer: str = "https://github.com/Base27-CVNSS/Avatar"
+    openrouter_title: str = "Cybergirl"
+    openrouter_zdr: bool = False
     timeout_seconds: int = 90
 
     def validated(self) -> "CauHinhAPI":
-        if self.provider not in {"gguf", "ollama", "openai", "openai-compatible", "gemini"}:
+        if self.provider not in {
+            "gguf",
+            "ollama",
+            "openai",
+            "openrouter",
+            "openai-compatible",
+            "gemini",
+        }:
             raise LoiAPI("Nhà cung cấp AI không được hỗ trợ.")
         parsed = urllib.parse.urlparse(self.base_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
@@ -33,6 +43,18 @@ class CauHinhAPI:
             raise LoiAPI("Tên mô hình không được để trống.")
         self.base_url = self.base_url.rstrip("/")
         self.model = self.model.strip()
+        self.openrouter_referer = self.openrouter_referer.strip()[:500]
+        self.openrouter_title = self.openrouter_title.strip()[:120] or "Cybergirl"
+        if any(
+            marker in value
+            for value in (self.openrouter_referer, self.openrouter_title)
+            for marker in ("\r", "\n")
+        ):
+            raise LoiAPI("Thông tin nhận diện OpenRouter chứa ký tự không hợp lệ.")
+        if self.openrouter_referer:
+            referer = urllib.parse.urlparse(self.openrouter_referer)
+            if referer.scheme not in {"http", "https"} or not referer.netloc:
+                raise LoiAPI("HTTP-Referer OpenRouter phải là địa chỉ http(s) hợp lệ.")
         self.timeout_seconds = max(5, min(int(self.timeout_seconds), 300))
         return self
 
@@ -55,7 +77,7 @@ class APIClient:
         request_headers = {
             "Content-Type": "application/json; charset=utf-8",
             "Accept": "application/json",
-            "User-Agent": "Cybergirl/3.1",
+            "User-Agent": "Cybergirl/3.2",
             **(headers or {}),
         }
         request = urllib.request.Request(
@@ -157,6 +179,39 @@ class APIClient:
                 {"x-goog-api-key": self.config.api_key},
             )
             answer = str(data.get("output_text", "") or data.get("text", ""))
+        elif self.config.provider == "openrouter":
+            if not self.config.api_key:
+                raise LoiAPI("Cần nhập khóa OpenRouter mới cho phiên hiện tại.")
+            headers = {
+                "Authorization": f"Bearer {self.config.api_key}",
+                "X-OpenRouter-Title": self.config.openrouter_title,
+            }
+            if self.config.openrouter_referer:
+                headers["HTTP-Referer"] = self.config.openrouter_referer
+            payload: dict[str, Any] = {
+                "model": self.config.model,
+                "stream": False,
+                "temperature": 0.7,
+                "max_tokens": 240,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    *safe_history,
+                    {"role": "user", "content": message},
+                ],
+            }
+            if self.config.openrouter_zdr:
+                payload["provider"] = {"zdr": True}
+            data = self._request(
+                f"{self.config.base_url}/chat/completions",
+                payload,
+                headers,
+            )
+            choices = data.get("choices") or []
+            answer = (
+                choices[0].get("message", {}).get("content", "")
+                if choices
+                else ""
+            )
         else:
             headers = {}
             if self.config.api_key:

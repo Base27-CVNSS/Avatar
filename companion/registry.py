@@ -38,6 +38,14 @@ MODEL_PROFILES: list[dict[str, Any]] = [
         "model": "gemini-3.6-flash",
         "offline": False,
     },
+    {
+        "id": "openrouter-gpt4o",
+        "label": "OpenRouter · OpenAI GPT-4o",
+        "provider": "openrouter",
+        "base_url": "https://openrouter.ai/api/v1",
+        "model": "openai/gpt-4o",
+        "offline": False,
+    },
 ]
 
 

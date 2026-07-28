@@ -6,9 +6,11 @@ import struct
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from companion.config import CauHinhCompanion, KhoCauHinh
 from companion.emotion import phan_tich_cam_xuc
+from companion.engines import BoNao
 from companion.memory import BoNhoDaiHan
 from companion.native_host import NativeHost
 from companion.phonemes import lap_lich_viseme
@@ -54,6 +56,23 @@ class CompanionConfigTests(unittest.TestCase):
         config = CauHinhCompanion()
         with self.assertRaises(ValueError):
             config.cap_nhat({"provider": "khong-hop-le"})
+
+    def test_openrouter_attribution_validation(self):
+        config = CauHinhCompanion()
+        config.cap_nhat(
+            {
+                "provider": "openrouter",
+                "base_url": "https://openrouter.ai/api/v1",
+                "model": "openai/gpt-4o",
+                "openrouter_referer": "https://github.com/Base27-CVNSS/Avatar",
+                "openrouter_title": "Cybergirl",
+                "openrouter_zdr": True,
+            }
+        )
+        self.assertEqual(config.provider, "openrouter")
+        self.assertTrue(config.openrouter_zdr)
+        with self.assertRaises(ValueError):
+            config.cap_nhat({"openrouter_title": "Cybergirl\r\nX-Fake: true"})
 
     def test_duplex_and_memory_flags(self):
         config = CauHinhCompanion()
@@ -116,6 +135,33 @@ class NativeHostTests(unittest.TestCase):
             self.assertTrue(status["privacy"]["memory_local_only"])
             self.assertIn("full_duplex", status["conversation"])
             host.close()
+
+    def test_openrouter_native_adapter(self):
+        config = CauHinhCompanion(
+            provider="openrouter",
+            base_url="https://openrouter.ai/api/v1",
+            model="openai/gpt-4o",
+            openrouter_zdr=True,
+        )
+        with patch(
+            "companion.engines._yeu_cau_json",
+            return_value={
+                "choices": [{"message": {"content": "OpenRouter hoạt động."}}]
+            },
+        ) as request:
+            answer = BoNao().tra_loi(
+                config,
+                "openrouter-test-key",
+                "Xin chào",
+                [],
+                "Trả lời tiếng Việt.",
+            )
+        self.assertEqual(answer, "OpenRouter hoạt động.")
+        url, payload, headers = request.call_args.args
+        self.assertEqual(url, "https://openrouter.ai/api/v1/chat/completions")
+        self.assertEqual(headers["X-OpenRouter-Title"], "Cybergirl")
+        self.assertEqual(headers["HTTP-Referer"], "https://github.com/Base27-CVNSS/Avatar")
+        self.assertTrue(payload["provider"]["zdr"])
 
     def test_configure_returns_component_matrix(self):
         with tempfile.TemporaryDirectory() as directory:

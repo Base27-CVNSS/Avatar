@@ -34,12 +34,22 @@ class RegistryTests(unittest.TestCase):
 
 
 class MockAIHandler(BaseHTTPRequestHandler):
+    last_headers = {}
+    last_payload = {}
+
     def log_message(self, *_args):
         pass
 
     def do_POST(self):
         size = int(self.headers["Content-Length"])
         payload = json.loads(self.rfile.read(size))
+        type(self).last_headers = {
+            "authorization": self.headers.get("Authorization"),
+            "referer": self.headers.get("HTTP-Referer"),
+            "title": self.headers.get("X-OpenRouter-Title"),
+            "legacy_title": self.headers.get("X-Title"),
+        }
+        type(self).last_payload = payload
         if self.path == "/api/chat":
             result = {"message": {"content": "Kết nối Ollama thành công."}}
         elif self.path == "/responses":
@@ -107,6 +117,31 @@ class APIClientTests(unittest.TestCase):
             "Kết nối OpenAI thành công.",
         )
 
+    def test_openrouter_headers_and_zdr(self):
+        client = APIClient(
+            CauHinhAPI(
+                provider="openrouter",
+                base_url=self.base,
+                model="openai/gpt-4o",
+                api_key="openrouter-test-key",
+                openrouter_referer="https://github.com/Base27-CVNSS/Avatar",
+                openrouter_title="Cybergirl",
+                openrouter_zdr=True,
+            )
+        )
+        self.assertEqual(
+            client.chat("Xin chào", [], "Trả lời tiếng Việt."),
+            "Kết nối API thành công.",
+        )
+        headers = MockAIHandler.last_headers
+        self.assertEqual(headers["authorization"], "Bearer openrouter-test-key")
+        self.assertEqual(
+            headers["referer"], "https://github.com/Base27-CVNSS/Avatar"
+        )
+        self.assertEqual(headers["title"], "Cybergirl")
+        self.assertIsNone(headers["legacy_title"])
+        self.assertTrue(MockAIHandler.last_payload["provider"]["zdr"])
+
 
 class LocalServerTests(unittest.TestCase):
     def setUp(self):
@@ -159,6 +194,30 @@ class LocalServerTests(unittest.TestCase):
         self.assertTrue(payload["co_khoa_api"])
         saved = self.config_path.read_text(encoding="utf-8")
         self.assertNotIn("khong-duoc-ghi-xuong-dia", saved)
+        self.assertNotIn("api_key", saved)
+
+    def test_openrouter_metadata_persists_but_key_stays_in_ram(self):
+        status, payload = self._request(
+            "/api/cau-hinh",
+            self.state.token,
+            "POST",
+            {
+                "provider": "openrouter",
+                "base_url": "https://openrouter.ai/api/v1",
+                "model": "openai/gpt-4o",
+                "api_key": "openrouter-test-key-only",
+                "openrouter_referer": "https://github.com/Base27-CVNSS/Avatar",
+                "openrouter_title": "Cybergirl",
+                "openrouter_zdr": True,
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["co_khoa_api"])
+        self.assertTrue(payload["openrouter_zdr"])
+        saved = self.config_path.read_text(encoding="utf-8")
+        self.assertIn('"provider": "openrouter"', saved)
+        self.assertIn('"openrouter_zdr": true', saved)
+        self.assertNotIn("openrouter-test-key-only", saved)
         self.assertNotIn("api_key", saved)
 
 

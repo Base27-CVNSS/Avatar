@@ -2,6 +2,19 @@
 
 Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
 
+## 3.2.0 — 28/07/2026
+
+- Thêm OpenRouter Chat Completions vào GUI Windows và Native Companion.
+- Thêm hồ sơ mặc định `openai/gpt-4o`, endpoint
+  `https://openrouter.ai/api/v1` và chuyển nóng model từ dashboard.
+- Dùng header chuẩn `X-OpenRouter-Title` cùng `HTTP-Referer`; không gửi
+  `X-Title` cũ.
+- Thêm tùy chọn định tuyến Zero Data Retention qua `provider.zdr`.
+- Xác thực URL/header để ngăn chèn dòng mới và giới hạn độ dài metadata.
+- Giữ khóa OpenRouter trong RAM của tiến trình companion; không ghi vào
+  `chrome.storage`, `localStorage` hay tệp cấu hình.
+- Bổ sung kiểm thử adapter, attribution header, ZDR và quét khóa bí mật.
+
 ## 3.1.0 — 28/07/2026
 
 - Thêm bộ nhớ hội thoại dài hạn SQLite, mặc định tắt và có nút xóa cục bộ.

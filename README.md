@@ -2,7 +2,7 @@
 
 ![Cybergirl](icons/logo.svg)
 
-[![Phiên bản](https://img.shields.io/badge/Phiên_bản-3.1.0-ff4f9a)](CHANGELOG.md)
+[![Phiên bản](https://img.shields.io/badge/Phiên_bản-3.2.0-ff4f9a)](CHANGELOG.md)
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows)](.github/workflows/build-windows.yml)
 [![Microsoft Edge](https://img.shields.io/badge/Microsoft_Edge-110%2B-0aa7f5?logo=microsoftedge)](https://www.microsoft.com/edge)
 [![Giấy phép](https://img.shields.io/badge/Giấy_phép-MIT-a970ff)](LICENSE)
@@ -12,7 +12,7 @@
 và nhép môi bằng tiếng Việt. Người dùng Windows chỉ cài GUI; không phải cài
 Python, Node.js hoặc CUDA.**
 
-Cybergirl 3.1 do **Long Ngo** phát triển. Mouth Engine, Face Mesh, ảnh 4K/8K,
+Cybergirl 3.2 do **Long Ngo** phát triển. Mouth Engine, Face Mesh, ảnh 4K/8K,
 mắt và vi chuyển động được giữ lại; Edge Extension nay kết nối companion cục bộ
 qua Native Messaging để chạy Silero VAD, Whisper, LLM GGUF và TTS tiếng Việt.
 
@@ -27,7 +27,9 @@ qua Native Messaging để chạy Silero VAD, Whisper, LLM GGUF và TTS tiếng 
 - Chọn ảnh, âm thanh, microphone hoặc trò chuyện AI.
 - Ba nhân vật tiếng Việt có thể chuyển nóng: Mai, Linh và An.
 - Hỗ trợ GGUF/llama.cpp, Ollama, ChatGPT qua OpenAI Responses API, Gemini
-  Interactions API và endpoint tương thích OpenAI.
+  Interactions API, OpenRouter và endpoint tương thích OpenAI.
+- OpenRouter dùng Chat Completions, header nhận diện ứng dụng chuẩn
+  `X-OpenRouter-Title`, `HTTP-Referer` và tùy chọn Zero Data Retention.
 - Benchmark TTS ngay trên máy: thời gian tổng hợp, RTF và ký tự/giây.
 - Full-duplex có echo-guard và barge-in; microphone không còn phải đóng khi AI nói.
 - Bộ nhớ dài hạn SQLite cục bộ, chỉ hoạt động khi người dùng chủ động bật.
@@ -54,7 +56,7 @@ flowchart LR
     B --> G["llama.cpp · GGUF"]
     B --> O["OpenAI Responses API"]
     B --> A["Gemini Interactions API"]
-    B --> K["Ollama / OpenAI-compatible"]
+    B --> K["OpenRouter / Ollama / compatible"]
     B --> T["Windows SAPI / Piper TTS"]
     C --> R["Memory SQLite · opt-in"]
     C --> X["Emotion + phoneme timing"]
@@ -70,14 +72,14 @@ flowchart LR
 | Ảnh chân dung | Edge + Canvas + Face Mesh | Không |
 | Landmark môi/mắt/mặt | Bộ nhớ trình duyệt | Không |
 | Microphone | Edge hoặc companion cục bộ | Không, nếu chọn Whisper cục bộ |
-| Văn bản câu hỏi | Companion | Có, chỉ khi chọn OpenAI/Gemini/API từ xa |
+| Văn bản câu hỏi | Companion | Có, chỉ khi chọn OpenAI/Gemini/OpenRouter/API từ xa |
 | Câu trả lời | Companion → Edge/TTS cục bộ | Có ở nhà cung cấp đã chọn |
 | Khóa API | RAM của companion | Chỉ gửi tới nhà cung cấp đã chọn |
 | Bộ nhớ dài hạn | SQLite cục bộ, mặc định tắt | Không |
 
-## Đối chiếu 30 khối sau bản 3.1
+## Đối chiếu 30 khối sau bản 3.2
 
-| # | Khối | Cybergirl 3.1 | Trạng thái |
+| # | Khối | Cybergirl 3.2 | Trạng thái |
 |---:|---|---|---|
 | 1 | Ảnh/Avatar | Face Mesh + Canvas + ảnh 4K/8K | ✅ |
 | 2 | Mắt/miệng | Face Mesh + hiệu chỉnh 5 điểm | ✅ |
@@ -87,7 +89,7 @@ flowchart LR
 | 6 | VAD | Silero VAD ONNX + endpoint detection | ✅ |
 | 7 | STT | whisper.cpp tiếng Việt + Edge fallback | ✅ |
 | 8 | Nhận dạng offline | Whisper cục bộ | ✅ |
-| 9 | LLM | llama.cpp GGUF/Ollama/OpenAI/Gemini | ✅ |
+| 9 | LLM | llama.cpp GGUF/Ollama/OpenAI/Gemini/OpenRouter | ✅ |
 | 10 | Hội thoại AI | Conversation Orchestrator VAD→STT→LLM→TTS | ✅ |
 | 11 | System Prompt | Persona riêng trong `characters.json` | ✅ |
 | 12 | Bộ nhớ | 24 lượt RAM + SQLite opt-in có truy hồi liên quan | ✅ Nâng cấp |
@@ -118,7 +120,7 @@ có thể dùng dịch vụ của Microsoft. Xem [chính sách riêng tư](PRIVA
 ### Cách một — Bộ cài GUI
 
 1. Mở mục **Actions** hoặc **Releases** của repository.
-2. Tải `Cybergirl-Setup-v3.1.0-Windows-x64.exe`.
+2. Tải `Cybergirl-Setup-v3.2.0-Windows-x64.exe`.
 3. Chạy bộ cài và chọn tạo biểu tượng ngoài màn hình.
 4. Bộ cài tự đăng ký `vn.base27.cybergirl` trong Native Messaging của Edge.
 5. Mở `edge://extensions`, bật chế độ nhà phát triển và tải thư mục
@@ -189,6 +191,26 @@ Nhà cung cấp: Google Gemini API
 Mô hình mặc định: gemini-3.6-flash
 Khóa API: nhập cho phiên hiện tại
 ```
+
+### OpenRouter
+
+OpenRouter cho phép dùng nhiều mô hình qua một endpoint tương thích OpenAI.
+Thiết lập mặc định của Cybergirl:
+
+```text
+Nhà cung cấp: OpenRouter · nhiều mô hình AI
+Địa chỉ API: https://openrouter.ai/api/v1
+Mô hình: openai/gpt-4o
+HTTP-Referer: https://github.com/Base27-CVNSS/Avatar
+Tên ứng dụng: Cybergirl
+Khóa API: nhập một khóa mới cho phiên hiện tại
+```
+
+Cybergirl gửi yêu cầu tới `/chat/completions` qua companion cục bộ, không để
+khóa trong mã JavaScript của extension. Khóa chỉ nằm trong RAM và bị xóa khi
+thoát. `X-OpenRouter-Title` là header tên ứng dụng hiện hành; `X-Title` cũ không
+được gửi. Có thể bật **Chỉ định tuyến Zero Data Retention** nếu tài khoản và nhà
+cung cấp model hỗ trợ. Không commit, chụp màn hình hoặc dán khóa thật vào issue.
 
 ### API tương thích OpenAI
 
@@ -280,8 +302,8 @@ GitHub Actions tự tạo:
 
 - `Cybergirl-Windows-x64.exe` — GUI một tệp.
 - `Cybergirl-Companion.exe` — Native Messaging host.
-- `Cybergirl-Edge-v3.1.0.zip` — extension có ID ổn định.
-- `Cybergirl-Setup-v3.1.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
+- `Cybergirl-Edge-v3.2.0.zip` — extension có ID ổn định.
+- `Cybergirl-Setup-v3.2.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
 
 Tự build trên Windows:
 
@@ -311,7 +333,8 @@ Bộ kiểm thử xác thực:
 - Native protocol, Silero/Whisper/GGUF/TTS component matrix.
 - Memory SQLite opt-in, Emotion Engine và phoneme timing.
 - Full-duplex echo-guard, model registry và xuất WebM.
-- Adapter GGUF, Ollama, OpenAI Responses, Gemini Interactions và compatible.
+- Adapter GGUF, Ollama, OpenAI Responses, Gemini Interactions, OpenRouter và compatible.
+- OpenRouter attribution, ZDR routing và kiểm tra chống rò rỉ khóa.
 - Token bảo vệ cổng vòng lặp.
 - Khóa API không bị ghi xuống ổ đĩa.
 - Thành phần bộ cài GUI Windows.
@@ -321,7 +344,7 @@ Bộ kiểm thử xác thực:
 ```text
 Avatar/
 ├── cybergirl.py                 # GUI, máy chủ vòng lặp và bộ mở Edge
-├── api_client.py                # GGUF/Ollama/OpenAI/Gemini/compatible
+├── api_client.py                # GGUF/Ollama/OpenAI/Gemini/OpenRouter/compatible
 ├── cybergirl_native_host.py     # Điểm vào companion EXE
 ├── companion/                   # VAD, Whisper, LLM, TTS, benchmark
 ├── native-host/                 # Manifest và đăng ký Edge HKCU

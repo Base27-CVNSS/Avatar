@@ -36,7 +36,7 @@ def _yeu_cau_json(
         headers={
             "Content-Type": "application/json; charset=utf-8",
             "Accept": "application/json",
-            "User-Agent": "Cybergirl-Companion/3.1",
+            "User-Agent": "Cybergirl-Companion/3.2",
             **(headers or {}),
         },
     )
@@ -211,6 +211,39 @@ class BoNao:
             answer = str(data.get("output_text", ""))
             if not answer:
                 answer = str(data.get("text", ""))
+        elif provider == "openrouter":
+            if not api_key:
+                raise LoiEngine("Cần nhập khóa OpenRouter mới cho phiên hiện tại.")
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "X-OpenRouter-Title": config.openrouter_title,
+            }
+            if config.openrouter_referer:
+                headers["HTTP-Referer"] = config.openrouter_referer
+            payload: dict[str, Any] = {
+                "model": config.model,
+                "stream": False,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    *safe_history,
+                    {"role": "user", "content": message},
+                ],
+                "temperature": 0.7,
+                "max_tokens": 240,
+            }
+            if config.openrouter_zdr:
+                payload["provider"] = {"zdr": True}
+            data = _yeu_cau_json(
+                config.base_url.rstrip("/") + "/chat/completions",
+                payload,
+                headers,
+            )
+            choices = data.get("choices") or []
+            answer = (
+                str(choices[0].get("message", {}).get("content", ""))
+                if choices
+                else ""
+            )
         elif provider == "ollama":
             data = _yeu_cau_json(
                 config.base_url.rstrip("/") + "/api/chat",

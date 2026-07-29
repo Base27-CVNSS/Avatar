@@ -32,7 +32,7 @@ from api_client import APIClient, CauHinhAPI, LoiAPI
 from voice_registry import LoiCauHinhNhanVat, VoiceRegistry
 
 
-PHIEN_BAN = "3.3.0"
+PHIEN_BAN = "3.5.0"
 CONG_MAC_DINH = 27827
 GIOI_HAN_JSON = 1_000_000
 

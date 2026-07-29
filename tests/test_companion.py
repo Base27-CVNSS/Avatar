@@ -104,6 +104,14 @@ class EmotionAndLipSyncTests(unittest.TestCase):
         self.assertAlmostEqual(end, 2400, delta=2)
         self.assertTrue(all("release_open" in item for item in timeline))
 
+    def test_tone_marks_keep_vowel_visemes(self):
+        timeline = lap_lich_viseme("má mạ ế ứ ở", 1.5)
+        visemes = [item["viseme"] for item in timeline]
+        self.assertGreaterEqual(visemes.count("wide"), 4)
+        self.assertGreaterEqual(visemes.count("round"), 2)
+        self.assertEqual(visemes[0], "closed")
+        self.assertEqual(visemes[1], "wide")
+
 
 class LongTermMemoryTests(unittest.TestCase):
     def test_recall_and_clear_local_sqlite(self):

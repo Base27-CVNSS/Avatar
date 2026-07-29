@@ -292,6 +292,29 @@ for (const [id, character] of Object.entries(characters)) {
   assert.ok(!/[\u3400-\u9fff]/u.test(character.system_prompt), `Prompt ${id} chưa Việt hóa`);
 }
 
+const [landingPage, preprint, pagesWorkflow, readme] = await Promise.all([
+  readText("docs/index.html"),
+  readText("PREPRINT.md"),
+  readText(".github/workflows/pages.yml"),
+  readText("README.md")
+]);
+assert.match(landingPage, /<title>Cybergirl 3\.5 — AI Companion tiếng Việt<\/title>/);
+assert.match(landingPage, /name="description"/, "Landing page phải có mô tả SEO");
+assert.match(landingPage, /application\/ld\+json/, "Landing page phải có structured data");
+assert.match(landingPage, /prefers-reduced-motion/, "Landing page phải tôn trọng reduced motion");
+assert.match(landingPage, /Local-first · Windows · MIT/, "Landing page phải nêu định vị sản phẩm");
+assert.match(landingPage, /Motion Rig là biến dạng Canvas 2D/, "Landing page phải công bố giới hạn Motion Rig");
+assert.ok(!/<script\s+src=/i.test(landingPage), "Landing page phải tự chứa, không tải script ngoài");
+assert.match(preprint, /Technical preprint · Working paper · Chưa phản biện đồng cấp/);
+assert.match(preprint, /not peer reviewed/, "Citation phải công bố trạng thái chưa phản biện");
+assert.match(preprint, /@techreport\{ngo2026cybergirl/, "Preprint phải có BibTeX");
+assert.match(pagesWorkflow, /actions\/deploy-pages@v4/, "Workflow phải deploy GitHub Pages");
+assert.match(pagesWorkflow, /path: docs/, "GitHub Pages phải xuất bản thư mục docs");
+assert.match(readme, /base27-cvnss\.github\.io\/Avatar\//, "README phải liên kết trực tiếp landing page");
+assert.match(readme, /Preprint-Technical_Report/, "README phải có badge Preprint");
+assert.match(readme, /Platform-Windows_10/, "README phải có badge Windows");
+assert.match(readme, /License-MIT/, "README phải có badge MIT License");
+
 console.log(`Cybergirl ${manifest.version}: PASS`);
 console.log(`- ${ids.length} HTML ids; ${selectors.length} JS selectors`);
 console.log(`- Runtime WebP 3840x2160; xuất master 7680x4320 cục bộ`);

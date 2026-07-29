@@ -23,7 +23,9 @@ const [
   workflow,
   installer,
   apiClient,
-  companionEngines
+  companionEngines,
+  nativeHost,
+  realtime
 ] = await Promise.all([
   readText("manifest.json"),
   readText("package.json"),
@@ -33,7 +35,9 @@ const [
   readText(".github/workflows/build-windows.yml"),
   readText("installer/Cybergirl.iss"),
   readText("api_client.py"),
-  readText("companion/engines.py")
+  readText("companion/engines.py"),
+  readText("companion/native_host.py"),
+  readText("companion/realtime.py")
 ]);
 const manifest = JSON.parse(manifestText);
 const packageJson = JSON.parse(packageText);
@@ -160,6 +164,17 @@ assert.match(app, /assets\/default-avatar\.webp/, "Phải dùng WebP chân dung 
 assert.match(app, /MASTER_WIDTH = 7680/, "Phải xuất ảnh master rộng 7680 px");
 assert.match(app, /MASTER_HEIGHT = 4320/, "Phải xuất ảnh master cao 4320 px");
 assert.match(app, /buildVietnameseVisemeTimeline/, "Phải có lịch viseme tiếng Việt");
+assert.match(app, /drawProceduralHalfBody/, "Phải có Motion Rig bán thân theo vùng ảnh");
+assert.match(app, /drawMotionRegion/, "Phải có renderer vùng tóc, trán, mũi, vai và tay");
+assert.match(app, /gestureStrength/, "Phải cho phép chỉnh cường độ cử chỉ");
+assert.match(app, /playback_started_unix_ms/, "Lip-sync native phải bù trễ vận chuyển sự kiện");
+assert.match(html, /id="motionEnabled"/, "GUI phải có công tắc Motion Rig bán thân");
+assert.match(html, /id="performanceProfile"/, "GUI phải có hồ sơ hiệu năng");
+assert.match(nativeHost, /BoDieuPhoiLuot/, "Companion phải hủy theo turn id");
+assert.match(nativeHost, /llm\.delta/, "Companion phải phát token LLM theo luồng");
+assert.match(nativeHost, /tts\.stream_finished/, "Companion phải phát TTS theo câu");
+assert.match(realtime, /BoTachCauStreaming/, "Phải có bộ tách câu cho streaming TTS");
+assert.match(companionEngines, /_yeu_cau_json_dong/, "Adapter LLM phải đọc SSE\/JSONL");
 assert.match(app, /stripVietnameseToneMarks/, "Phải giữ đúng khẩu hình nguyên âm có dấu thanh");
 assert.match(app, /compoundVisemes/, "Phải xử lý cụm âm tiếng Việt");
 assert.match(app, /updateTimedViseme\(timestamp\)/, "Viseme phải được lấy mẫu theo frame");

@@ -433,10 +433,17 @@ class TiengNoi:
         callback("tts.started", metadata)
 
         def wait_end() -> None:
-            time.sleep(float(metadata["audio_seconds"]))
-            if token == self._play_token:
-                self._playing = False
-                callback("tts.ended", metadata)
+            try:
+                time.sleep(float(metadata["audio_seconds"]))
+                if token == self._play_token:
+                    self._playing = False
+                    callback("tts.ended", metadata)
+            finally:
+                try:
+                    wav_path.unlink(missing_ok=True)
+                    wav_path.parent.rmdir()
+                except OSError:
+                    pass
 
         threading.Thread(target=wait_end, daemon=True).start()
 

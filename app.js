@@ -986,6 +986,7 @@
         state.chatHistory.push({ role: "assistant", content: answer });
       }
       ui.speechText.value = answer;
+      setGesture(result.gesture_id || gestureFromText(answer), 2800);
       setConversationPhase(ui.autoSpeak.checked ? "speaking" : "idle");
       setStage("Đã trả lời", result.nhan_vat || "Cybergirl");
       if (ui.autoSpeak.checked && (!nativeMessagingAvailable() || ui.ttsEngineSelect.value === "edge")) {

@@ -1702,7 +1702,8 @@
       width: state.mouthShape.width,
       open: state.mouthShape.open
     };
-    const mouthGain = Number(ui.mouthSize.value) / 100;
+    // Thanh 25–75 tinh chỉnh quanh biên độ tự nhiên; không triệt tiêu trực tiếp.
+    const mouthGain = 0.7 + (Number(ui.mouthSize.value) / 100) * 0.9;
     const effectiveOpen = clamp(openAmount * (0.6 + shape.open * 0.4) * mouthGain, 0, 0.72);
     const mouthAperture = clamp((effectiveOpen - 0.035) / 0.62, 0, 1);
     if (mouthAperture < 0.012) return;
@@ -1711,7 +1712,7 @@
     const sourceMouthWidth = feature.width * imageWidth * (patch.sourceScale || 1);
     const regionWidth = sourceMouthWidth * 1.08;
     const regionHeight = sourceMouthWidth * 0.48;
-    const gap = sourceMouthWidth * mouthAperture * 0.095;
+    const gap = sourceMouthWidth * mouthAperture * 0.125;
     const centerX = patch.width / 2;
     const centerY = patch.height / 2;
     const work = state.featureWork.mouth;

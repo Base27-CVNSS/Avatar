@@ -76,32 +76,38 @@ def _yeu_cau_json_dong(
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
+            watcher_done = threading.Event()
+
             def close_on_cancel() -> None:
-                cancel_event.wait()
-                if cancel_event.is_set():
-                    try:
-                        response.close()
-                    except OSError:
-                        pass
+                while not watcher_done.wait(0.05):
+                    if cancel_event.is_set():
+                        try:
+                            response.close()
+                        except OSError:
+                            pass
+                        return
 
             threading.Thread(target=close_on_cancel, daemon=True).start()
-            while True:
-                if cancel_event.is_set():
-                    raise LuotDaHuy("Đã đóng luồng LLM của lượt cũ.")
-                raw = response.readline()
-                if not raw:
-                    break
-                line = raw.decode("utf-8", errors="replace").strip()
-                if not line or line.startswith(("event:", "id:", "retry:")):
-                    continue
-                if line.startswith("data:"):
-                    line = line[5:].strip()
-                if line == "[DONE]":
-                    break
-                try:
-                    yield json.loads(line)
-                except json.JSONDecodeError:
-                    continue
+            try:
+                while True:
+                    if cancel_event.is_set():
+                        raise LuotDaHuy("Đã đóng luồng LLM của lượt cũ.")
+                    raw = response.readline()
+                    if not raw:
+                        break
+                    line = raw.decode("utf-8", errors="replace").strip()
+                    if not line or line.startswith(("event:", "id:", "retry:")):
+                        continue
+                    if line.startswith("data:"):
+                        line = line[5:].strip()
+                    if line == "[DONE]":
+                        break
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+            finally:
+                watcher_done.set()
     except LuotDaHuy:
         raise
     except urllib.error.HTTPError as exc:

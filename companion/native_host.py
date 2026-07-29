@@ -174,6 +174,8 @@ class NativeHost:
                 directory.rmdir()
             except OSError:
                 pass
+            if not stream_chunk:
+                self.turns.ket_thuc(active_turn)
             raise
         metadata.update(
             {
@@ -328,6 +330,7 @@ class NativeHost:
                     tts_chunks.put(sentence)
                 tts_chunks.put(None)
         except Exception:
+            active_turn.cancel.set()
             if tts_chunks is not None:
                 tts_chunks.put(None)
             self.turns.ket_thuc(active_turn)

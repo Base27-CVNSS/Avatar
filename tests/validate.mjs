@@ -6,6 +6,13 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const readText = (file) => readFile(path.join(root, file), "utf8");
+const functionBody = (source, name, nextName) => {
+  const start = source.indexOf(`function ${name}`);
+  const end = source.indexOf(`function ${nextName}`, start + 1);
+  assert.notEqual(start, -1, `Không tìm thấy ${name}`);
+  assert.notEqual(end, -1, `Không tìm thấy mốc ${nextName}`);
+  return source.slice(start, end);
+};
 
 const [
   manifestText,
@@ -153,7 +160,24 @@ assert.match(app, /assets\/default-avatar\.webp/, "Phải dùng WebP chân dung 
 assert.match(app, /MASTER_WIDTH = 7680/, "Phải xuất ảnh master rộng 7680 px");
 assert.match(app, /MASTER_HEIGHT = 4320/, "Phải xuất ảnh master cao 4320 px");
 assert.match(app, /buildVietnameseVisemeTimeline/, "Phải có lịch viseme tiếng Việt");
+assert.match(app, /stripVietnameseToneMarks/, "Phải giữ đúng khẩu hình nguyên âm có dấu thanh");
 assert.match(app, /compoundVisemes/, "Phải xử lý cụm âm tiếng Việt");
+assert.match(app, /updateTimedViseme\(timestamp\)/, "Viseme phải được lấy mẫu theo frame");
+assert.ok(!app.includes("visemeTimers"), "Không được tạo timer riêng cho từng viseme");
+const renderFrameSource = functionBody(app, "renderFrame", "stopTts");
+assert.ok(
+  !renderFrameSource.includes('state.activeSignal === "audio" || state.activeSignal === "mic"'),
+  "Microphone người dùng không được điều khiển miệng avatar"
+);
+const recognitionStart = app.indexOf("recognition.onresult =");
+const recognitionEnd = app.indexOf("recognition.onerror =", recognitionStart);
+assert.notEqual(recognitionStart, -1, "Phải có Speech Recognition");
+assert.ok(
+  !app.slice(recognitionStart, recognitionEnd).includes("setViseme("),
+  "STT người dùng không được ghi đè viseme của nhân vật"
+);
+const schedulerSource = functionBody(app, "scheduleTimedVisemes", "updateTimedViseme");
+assert.doesNotMatch(schedulerSource, /setTimeout|setInterval/, "Scheduler không dùng timer theo viseme");
 assert.match(app, /mouthAperture/, "Phải có khẩu độ miệng mềm");
 assert.match(app, /mouthLayer/, "Phải tách lớp biến dạng môi");
 assert.match(app, /mouthMask/, "Phải có mặt nạ feathered cho vùng môi");
@@ -219,8 +243,17 @@ const securitySource = [
 assert.ok(!securitySource.includes("sk-or-v1-"), "Không được đưa khóa OpenRouter vào mã nguồn");
 assert.match(workflow, /cache-dependency-path: requirements-build\.txt/, "CI phải cache đúng tệp phụ thuộc");
 assert.match(workflow, /cybergirl_companion\.spec/, "CI phải đóng gói Native Companion");
-assert.match(workflow, /Cybergirl-Edge-v3\.3\.0\.zip/, "CI phải xuất gói Edge Extension");
-assert.match(installer, /#define MyAppVersion "3\.3\.0"/, "Bộ cài phải đúng phiên bản 3.3.0");
+const escapedVersion = manifest.version.replaceAll(".", "\\.");
+assert.match(
+  workflow,
+  new RegExp(`Cybergirl-Edge-v${escapedVersion}\\.zip`),
+  "CI phải xuất gói Edge Extension đúng phiên bản"
+);
+assert.match(
+  installer,
+  new RegExp(`#define MyAppVersion "${escapedVersion}"`),
+  "Bộ cài phải trùng phiên bản manifest"
+);
 assert.match(installer, /register-native-host\.ps1/, "Bộ cài phải đăng ký Native Messaging");
 
 const characters = JSON.parse(await readText("characters.json"));

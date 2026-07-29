@@ -197,8 +197,18 @@
     recognitionShouldRun: false,
     finalTranscript: "",
     speechActive: false,
-    ttsTimer: null,
-    visemeTimers: [],
+    lipSync: {
+      mode: "idle",
+      timeline: [],
+      startedAt: 0,
+      anchorAt: 0,
+      anchorTimelineMs: 0,
+      lastIndex: -1,
+      totalDurationMs: 0,
+      lastBoundaryElapsedMs: 0
+    },
+    inputLevel: 0,
+    inputLevelUpdatedAt: 0,
     lastTtsText: "",
     audioObjectUrl: null,
     level: 0,
@@ -536,8 +546,9 @@
       return;
     }
     if (name === "audio.level") {
-      state.level = clamp(Number(data.rms || 0) * 8, 0, 1);
-      state.activeSignal = "mic";
+      state.inputLevel = clamp(Number(data.rms || 0) * 8, 0, 1);
+      state.inputLevelUpdatedAt = performance.now();
+      if (!state.speechActive) state.activeSignal = "mic";
       return;
     }
     if (name === "audio.echo_suppressed") {
@@ -586,6 +597,10 @@
       return;
     }
     if (name === "tts.started") {
+      state.resumeMicAfterTts = state.activeSignal === "mic"
+        || state.nativeListening
+        || state.recognitionShouldRun
+        || Boolean(state.micStream);
       state.speechActive = true;
       state.activeSignal = "tts";
       state.lastTtsText = String(data.text || "");
@@ -1521,22 +1536,34 @@
     showToast("Đã hoàn tất hiệu chỉnh 5 điểm khuôn mặt.");
   }
 
+  const VIETNAMESE_TONE_MARKS = /[\u0300\u0301\u0303\u0309\u0323]/gu;
+
+  function stripVietnameseToneMarks(text) {
+    return String(text || "")
+      .toLocaleLowerCase("vi-VN")
+      .normalize("NFD")
+      .replace(VIETNAMESE_TONE_MARKS, "")
+      .normalize("NFC");
+  }
+
   function visemeFromText(text) {
-    const value = text.toLocaleLowerCase("vi-VN");
+    const value = stripVietnameseToneMarks(text);
+    if (value.startsWith("ph")) return "bite";
     const unit = value.match(/\p{L}/u)?.[0] || value[0] || "";
     if (/[mbp]/u.test(unit)) return "closed";
     if (/[uưoôơ]/u.test(unit)) return "round";
     if (/[aăâeê]/u.test(unit)) return "wide";
     if (/[iy]/u.test(unit)) return "narrow";
-    if (/[fv]/u.test(unit) || value.startsWith("ph")) return "bite";
+    if (/[fv]/u.test(unit)) return "bite";
     if (/[lntdđ]/u.test(unit)) return "tongue";
     return "neutral";
   }
 
   function buildVietnameseVisemeTimeline(text) {
-    const normalized = text.toLocaleLowerCase("vi-VN");
+    const normalized = stripVietnameseToneMarks(text);
     const units = [];
     const compoundVisemes = {
+      ngh: { viseme: "neutral", target: 0.22, weight: 0.92 },
       ph: { viseme: "bite", target: 0.23, weight: 0.9 },
       th: { viseme: "tongue", target: 0.29, weight: 0.86 },
       tr: { viseme: "neutral", target: 0.27, weight: 0.88 },
@@ -1550,10 +1577,13 @@
     };
     for (let index = 0; index < normalized.length; index += 1) {
       const current = normalized[index];
+      const triple = normalized.slice(index, index + 3);
       const pair = normalized.slice(index, index + 2);
-      if (compoundVisemes[pair]) {
-        units.push(compoundVisemes[pair]);
-        index += 1;
+      const compound = compoundVisemes[triple] || compoundVisemes[pair];
+      if (compound) {
+        const length = compoundVisemes[triple] ? 3 : 2;
+        units.push({ ...compound, charIndex: index });
+        index += length - 1;
         continue;
       }
       if (/[\p{L}\p{N}]/u.test(current)) {
@@ -1567,16 +1597,28 @@
           tongue: 0.3,
           neutral: 0.28
         }[viseme];
-        units.push({ viseme, target, weight: /[aăâeêioôơuưy]/u.test(current) ? 1.12 : 0.82 });
+        units.push({
+          viseme,
+          target,
+          weight: /[aăâeêioôơuưy]/u.test(current) ? 1.12 : 0.82,
+          charIndex: index
+        });
         continue;
       }
       if (/[.,!?;:]/u.test(current)) {
-        units.push({ viseme: "closed", target: 0.008, weight: /[.!?]/u.test(current) ? 2.4 : 1.55 });
+        units.push({
+          viseme: "closed",
+          target: 0.008,
+          weight: /[.!?]/u.test(current) ? 2.4 : 1.55,
+          charIndex: index
+        });
       } else if (/\s/u.test(current)) {
-        units.push({ viseme: "closed", target: 0.014, weight: 0.55 });
+        units.push({ viseme: "closed", target: 0.014, weight: 0.55, charIndex: index });
       }
     }
-    return units.length ? units : [{ viseme: "closed", target: 0.008, weight: 1 }];
+    return units.length
+      ? units
+      : [{ viseme: "closed", target: 0.008, weight: 1, charIndex: 0 }];
   }
 
   function getVisemeShape(viseme = state.viseme) {
@@ -1995,11 +2037,14 @@
       ? Math.sin(timestamp / 310) * state.level * 0.26 * motion
       : 0;
     const listeningResponse = ["listening", "recording"].includes(state.conversationPhase)
-      ? Math.sin(timestamp / 760) * Math.min(state.level, 0.5) * 0.18 * motion
+      ? Math.sin(timestamp / 760) * Math.min(state.inputLevel, 0.5) * 0.18 * motion
       : 0;
+    const phaseLevel = state.conversationPhase === "speaking"
+      ? state.level
+      : state.inputLevel * 0.55;
     return {
       x: head.x,
-      y: head.y + state.level * 0.22 * motion + speakingNod + listeningResponse,
+      y: head.y + phaseLevel * 0.22 * motion + speakingNod + listeningResponse,
       rotation: head.rotation
     };
   }
@@ -2097,34 +2142,48 @@
     if (state.lastFrameAt && timestamp - state.lastFrameAt < frameInterval) return;
     state.lastFrameAt = timestamp;
 
+    updateTimedViseme(timestamp);
     const audioLevel = calculateAudioLevel();
-    if (state.activeSignal === "audio" || state.activeSignal === "mic") {
+    if (state.activeSignal === "mic") {
+      if (state.activeSource) {
+        state.inputLevel += (audioLevel - state.inputLevel) * 0.32;
+        state.inputLevelUpdatedAt = timestamp;
+      } else if (timestamp - state.inputLevelUpdatedAt > 220) {
+        state.inputLevel *= 0.72;
+      }
+      if (!state.speechActive) {
+        state.mouthTarget = 0;
+        setViseme("idle");
+      }
+    } else if (state.activeSignal === "audio") {
+      state.inputLevel *= 0.72;
       const controlledMouthLevel = audioLevel < 0.045
         ? 0
         : clamp((audioLevel - 0.045) * 0.72, 0, 0.62);
       state.mouthTarget = controlledMouthLevel;
       if (audioLevel > 0.08) {
-        const envelopeViseme = state.spectralViseme;
-        setViseme(
-          state.activeSignal === "mic" && timestamp < state.liveVisemeUntil
-            ? state.liveViseme
-            : envelopeViseme
-        );
+        setViseme(state.spectralViseme);
         state.lastActivityAt = timestamp;
       } else if (timestamp - state.lastActivityAt > 130) {
         setViseme("closed");
       }
     } else if (!state.speechActive) {
+      state.inputLevel *= 0.72;
       state.mouthTarget = 0;
       setViseme("idle");
     }
 
-    state.level += (Math.max(audioLevel, state.speechActive ? state.mouthTarget : 0) - state.level) * 0.22;
+    const avatarLevel = state.speechActive
+      ? state.mouthTarget
+      : state.activeSignal === "audio"
+        ? audioLevel
+        : 0;
+    state.level += (avatarLevel - state.level) * 0.22;
     state.mouthOpen += (state.mouthTarget - state.mouthOpen) * (state.mouthTarget > state.mouthOpen ? 0.38 : 0.22);
     const shapeEase = state.mouthShape.targetOpen > state.mouthShape.open ? 0.34 : 0.23;
     state.mouthShape.open += (state.mouthShape.targetOpen - state.mouthShape.open) * shapeEase;
     state.mouthShape.width += (state.mouthShape.targetWidth - state.mouthShape.width) * 0.27;
-    updateMeter(state.level);
+    updateMeter(state.activeSignal === "mic" ? state.inputLevel : state.level);
     updateBlink(timestamp);
 
     if (!state.avatarReady) {
@@ -2166,37 +2225,116 @@
 
   function stopTts(updateStatus = true) {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    const shouldRestoreMic = state.resumeMicAfterTts
+      || state.nativeListening
+      || state.recognitionShouldRun
+      || Boolean(state.micStream);
     state.speechActive = false;
-    state.activeSignal = state.activeSignal === "tts" ? "idle" : state.activeSignal;
+    if (state.activeSignal === "tts") {
+      state.activeSignal = shouldRestoreMic ? "mic" : "idle";
+    }
+    state.resumeMicAfterTts = false;
     state.mouthTarget = 0;
     setViseme("idle");
-    window.clearInterval(state.ttsTimer);
-    state.ttsTimer = null;
-    state.visemeTimers.forEach((timer) => window.clearTimeout(timer));
-    state.visemeTimers = [];
+    resetLipSync();
     if (updateStatus) setStage("Đã dừng", "Giọng đọc đã dừng");
   }
 
-  function scheduleTimedVisemes(timeline) {
-    state.visemeTimers.forEach((timer) => window.clearTimeout(timer));
-    state.visemeTimers = timeline.slice(0, 1_200).map((item) => window.setTimeout(() => {
-      if (!state.speechActive) return;
-      setViseme(String(item.viseme || "neutral"));
-      state.mouthTarget = clamp(Number(item.open || 0.02), 0.008, 0.58);
-      state.mouthShape.targetWidth = clamp(Number(item.width || 1), 0.72, 1.25);
-      state.lastActivityAt = performance.now();
-      const releaseTimer = window.setTimeout(() => {
-        if (state.speechActive) {
-          state.mouthTarget = clamp(Number(item.release_open || item.open || 0.02), 0.008, 0.58);
-        }
-      }, Math.max(24, Number(item.duration_ms || 80) * 0.66));
-      state.visemeTimers.push(releaseTimer);
-    }, Math.max(0, Number(item.at_ms || 0))));
+  function resetLipSync() {
+    state.lipSync.mode = "idle";
+    state.lipSync.timeline = [];
+    state.lipSync.startedAt = 0;
+    state.lipSync.anchorAt = 0;
+    state.lipSync.anchorTimelineMs = 0;
+    state.lipSync.lastIndex = -1;
+    state.lipSync.totalDurationMs = 0;
+    state.lipSync.lastBoundaryElapsedMs = 0;
+  }
+
+  function scheduleTimedVisemes(timeline, mode = "timed") {
+    const normalized = timeline
+      .slice(0, 1_200)
+      .map((item, index) => ({
+        at_ms: Math.max(0, Number(item.at_ms || 0)),
+        duration_ms: Math.max(24, Number(item.duration_ms || 80)),
+        viseme: String(item.viseme || "neutral"),
+        open: clamp(Number(item.open || 0.02), 0.008, 0.68),
+        width: clamp(Number(item.width || 1), 0.72, 1.25),
+        release_open: clamp(
+          Number(item.release_open ?? item.open ?? 0.02),
+          0.008,
+          0.68
+        ),
+        char_index: Math.max(0, Number(item.char_index ?? item.charIndex ?? index))
+      }))
+      .sort((a, b) => a.at_ms - b.at_ms);
+    resetLipSync();
+    if (!normalized.length) return;
+    const now = performance.now();
+    const last = normalized[normalized.length - 1];
+    state.lipSync.mode = mode;
+    state.lipSync.timeline = normalized;
+    state.lipSync.startedAt = now;
+    state.lipSync.anchorAt = now;
+    state.lipSync.anchorTimelineMs = 0;
+    state.lipSync.totalDurationMs = last.at_ms + last.duration_ms;
+  }
+
+  function updateTimedViseme(timestamp) {
+    const sync = state.lipSync;
+    if (!state.speechActive || sync.mode === "idle" || !sync.timeline.length) return;
+    const timelineMs = Math.max(
+      0,
+      sync.anchorTimelineMs + (timestamp - sync.anchorAt)
+    );
+    let index = sync.lastIndex;
+    if (index < 0 || timelineMs < sync.timeline[index]?.at_ms) index = 0;
+    while (
+      index + 1 < sync.timeline.length
+      && sync.timeline[index + 1].at_ms <= timelineMs
+    ) {
+      index += 1;
+    }
+    const item = sync.timeline[index];
+    if (!item) return;
+    const progress = clamp(
+      (timelineMs - item.at_ms) / Math.max(24, item.duration_ms),
+      0,
+      1
+    );
+    const next = sync.timeline[index + 1];
+    const releaseTarget = next?.open ?? item.release_open;
+    const blend = progress < 0.62 ? 0 : (progress - 0.62) / 0.38;
+    state.mouthTarget = item.open * (1 - blend) + releaseTarget * blend;
+    if (index !== sync.lastIndex) {
+      setViseme(item.viseme);
+      sync.lastIndex = index;
+    }
+    state.mouthShape.targetWidth = item.width;
+    state.lastActivityAt = timestamp;
+    if (timelineMs > sync.totalDurationMs + 80) {
+      state.mouthTarget = 0.012;
+      setViseme("closed");
+    }
+  }
+
+  function anchorTextViseme(charIndex, elapsedTimeSeconds) {
+    const sync = state.lipSync;
+    if (sync.mode !== "text" || !sync.timeline.length) return;
+    const targetIndex = sync.timeline.findIndex(
+      (item) => item.char_index >= Math.max(0, Number(charIndex || 0))
+    );
+    const item = sync.timeline[targetIndex < 0 ? sync.timeline.length - 1 : targetIndex];
+    const now = performance.now();
+    const elapsedMs = Math.max(0, Number(elapsedTimeSeconds || 0) * 1000);
+    sync.anchorAt = clamp(sync.startedAt + elapsedMs, sync.startedAt, now);
+    sync.anchorTimelineMs = item.at_ms;
+    sync.lastIndex = Math.max(-1, (targetIndex < 0 ? sync.timeline.length : targetIndex) - 1);
+    sync.lastBoundaryElapsedMs = elapsedMs;
   }
 
   function scheduleTextAlignedVisemes(text, rate = 1) {
     const units = buildVietnameseVisemeTimeline(text);
-    window.clearTimeout(state.ttsTimer);
     const millisecondsPerWeight = clamp(90 / Math.max(0.55, Number(rate) || 1), 58, 150);
     let cursor = 0;
     const timeline = units.map((unit, index) => {
@@ -2209,18 +2347,13 @@
         viseme: unit.viseme,
         open: unit.target,
         width: shape.width,
-        release_open: unit.target * 0.62 + next.target * 0.38
+        release_open: unit.target * 0.62 + next.target * 0.38,
+        char_index: unit.charIndex
       };
       cursor += duration;
       return item;
     });
-    scheduleTimedVisemes(timeline);
-    state.ttsTimer = window.setTimeout(() => {
-      if (state.speechActive) {
-        state.mouthTarget = 0.012;
-        setViseme("closed");
-      }
-    }, cursor + 60);
+    scheduleTimedVisemes(timeline, "text");
   }
 
   function speakText() {
@@ -2249,6 +2382,10 @@
     utterance.volume = 1;
 
     utterance.onstart = () => {
+      state.resumeMicAfterTts = state.activeSignal === "mic"
+        || state.nativeListening
+        || state.recognitionShouldRun
+        || Boolean(state.micStream);
       state.speechActive = true;
       state.activeSignal = "tts";
       setConversationPhase("speaking");
@@ -2256,11 +2393,7 @@
       setStage("Đang phát giọng", `${selected?.name || "Giọng mặc định"} · ${utterance.lang}`, true);
     };
     utterance.onboundary = (event) => {
-      const sample = text.slice(event.charIndex, event.charIndex + Math.max(event.charLength || 1, 2));
-      const boundaryUnit = buildVietnameseVisemeTimeline(sample)[0];
-      setViseme(boundaryUnit.viseme);
-      state.mouthTarget = boundaryUnit.target;
-      state.lastActivityAt = performance.now();
+      anchorTextViseme(event.charIndex, event.elapsedTime);
     };
     utterance.onend = () => {
       stopTts(false);
@@ -2442,6 +2575,7 @@
       state.recognition = recognition;
 
       recognition.onresult = (event) => {
+        if (state.speechActive && !ui.fullDuplex.checked) return;
         let interim = "";
         let completed = "";
         for (let i = event.resultIndex; i < event.results.length; i += 1) {
@@ -2464,13 +2598,19 @@
           else interim += text;
         }
         const visibleText = `${state.finalTranscript}${interim}`.trim();
+        if (
+          state.speechActive
+          && ui.fullDuplex.checked
+          && interim.trim()
+          && !isLikelySpeakerEcho(interim.trim())
+        ) {
+          stopTts(false);
+          if (state.nativeReady) nativeRequest("interrupt").catch(() => {});
+          setConversationPhase("interrupted");
+          setStage("Bạn đã ngắt lời", "Cybergirl dừng nói ngay khi nhận được lời mới", true);
+        }
         ui.transcriptText.textContent = visibleText || "Đang nghe…";
         setConversationPhase(interim ? "transcribing" : "listening");
-        if (visibleText) {
-          state.liveViseme = visemeFromText(visibleText.slice(-2));
-          state.liveVisemeUntil = performance.now() + 190;
-          setViseme(state.liveViseme);
-        }
         if (completed.trim() && ui.voiceAutoSend.checked && state.companionReady) {
           window.clearTimeout(state.voiceSendTimer);
           state.voiceSendTimer = window.setTimeout(

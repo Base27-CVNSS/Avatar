@@ -2,6 +2,21 @@
 
 Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
 
+## 3.5.0 — 29/07/2026
+
+- Thêm Turn Coordinator với ID lượt và cancellation dùng chung cho STT, LLM,
+  TTS và playback.
+- Streaming token cho OpenAI Responses, OpenRouter, Ollama và endpoint tương
+  thích OpenAI; đóng kết nối khi người dùng ngắt lời.
+- Tách câu trả lời đang sinh thành các đoạn TTS ngắn để phát sớm hơn.
+- Chuyển Whisper, SAPI và Piper sang Popen có thể terminate thay vì run chặn cứng.
+- Bù độ trễ Native Messaging bằng mốc phát WAV trước khi lấy mẫu viseme.
+- Thêm Motion Rig bán thân theo vùng ảnh: tóc, trán, mũi, nhịp thở, vai và vùng tay.
+- Thêm cử chỉ ngữ nghĩa welcome, explain, point, open-hands và listen.
+- Thêm hồ sơ hiệu năng Lite, Balanced, Pro cùng số đo STT, TTFT và first-audio.
+- Cập nhật bảng đối chiếu 30 khối từ 3.3 đến 3.5 và tiêu chí nghiệm thu 7–9/10.
+- Nâng toàn bộ gói Windows/Edge lên 3.5.0.
+
 ## 3.4.0 — 29/07/2026
 
 - Tách microphone người dùng khỏi bus điều khiển miệng của avatar.

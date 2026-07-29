@@ -178,6 +178,12 @@ assert.ok(
 );
 const schedulerSource = functionBody(app, "scheduleTimedVisemes", "updateTimedViseme");
 assert.doesNotMatch(schedulerSource, /setTimeout|setInterval/, "Scheduler không dùng timer theo viseme");
+const stopAllSource = functionBody(app, "stopAll", "switchTab");
+assert.match(
+  stopAllSource,
+  /nativeRequest\("interrupt"\)/,
+  "Nút Stop phải dừng cả TTS của companion"
+);
 assert.match(app, /mouthAperture/, "Phải có khẩu độ miệng mềm");
 assert.match(app, /mouthLayer/, "Phải tách lớp biến dạng môi");
 assert.match(app, /mouthMask/, "Phải có mặt nạ feathered cho vùng môi");

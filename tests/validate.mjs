@@ -48,6 +48,12 @@ const packageJson = JSON.parse(packageText);
 
 assert.equal(manifest.manifest_version, 3, "Extension phải dùng Manifest V3");
 assert.equal(manifest.version, packageJson.version, "Version manifest và package.json phải trùng");
+assert.equal(packageJson.homepage, "https://base27-cvnss.github.io/Avatar/", "Package phải trỏ tới landing page");
+assert.equal(packageJson.repository.url, "git+https://github.com/Base27-CVNSS/Avatar.git");
+assert.ok(packageJson.keywords.length >= 15, "Cần bộ topics chuyên nghiệp cho repository");
+for (const keyword of ["cybergirl", "vietnamese-ai", "voice-assistant", "lip-sync", "windows", "preprint"]) {
+  assert.ok(packageJson.keywords.includes(keyword), `Thiếu topic ${keyword}`);
+}
 const escapedManifestVersion = manifest.version.replaceAll(".", "\\.");
 assert.match(guiCore, new RegExp(`PHIEN_BAN = "${escapedManifestVersion}"`), "GUI core phải trùng phiên bản");
 assert.match(companionVersion, new RegExp(`PHIEN_BAN = "${escapedManifestVersion}"`), "Companion phải trùng phiên bản");

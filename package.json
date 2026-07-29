@@ -2,10 +2,38 @@
   "name": "cybergirl-edge-vietnamese-assistant",
   "version": "3.5.0",
   "private": true,
-  "description": "Edge Extension tiếng Việt kết hợp Native Messaging, ChatGPT/Gemini và companion AI cục bộ.",
+  "description": "AI Companion tiếng Việt local-first cho Windows: hội thoại realtime, barge-in, lip-sync và Motion Rig bán thân.",
   "author": "Long Ngo",
   "license": "MIT",
   "scripts": {
     "test": "node tests/validate.mjs && node tests/run-python.mjs"
-  }
+  },
+  "homepage": "https://base27-cvnss.github.io/Avatar/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Base27-CVNSS/Avatar.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Base27-CVNSS/Avatar/issues"
+  },
+  "keywords": [
+    "cybergirl",
+    "ai-avatar",
+    "vietnamese-ai",
+    "voice-assistant",
+    "speech-to-speech",
+    "lip-sync",
+    "real-time-ai",
+    "windows",
+    "microsoft-edge",
+    "llama-cpp",
+    "whisper",
+    "silero-vad",
+    "piper-tts",
+    "canvas-animation",
+    "local-first",
+    "offline-ai",
+    "open-source",
+    "preprint"
+  ]
 }

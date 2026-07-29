@@ -1,4 +1,4 @@
-"""Cybergirl 3.3 — GUI Windows dùng nhân Microsoft Edge.
+"""Cybergirl 3.4 — GUI Windows dùng nhân Microsoft Edge.
 
 Ứng dụng đóng gói thành một tệp EXE bằng PyInstaller. Khi chạy, chương trình:
 

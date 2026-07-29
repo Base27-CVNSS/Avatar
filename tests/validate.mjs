@@ -6,6 +6,13 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const readText = (file) => readFile(path.join(root, file), "utf8");
+const functionBody = (source, name, nextName) => {
+  const start = source.indexOf(`function ${name}`);
+  const end = source.indexOf(`function ${nextName}`, start + 1);
+  assert.notEqual(start, -1, `Không tìm thấy ${name}`);
+  assert.notEqual(end, -1, `Không tìm thấy mốc ${nextName}`);
+  return source.slice(start, end);
+};
 
 const [
   manifestText,
@@ -16,7 +23,11 @@ const [
   workflow,
   installer,
   apiClient,
-  companionEngines
+  companionEngines,
+  nativeHost,
+  realtime,
+  guiCore,
+  companionVersion
 ] = await Promise.all([
   readText("manifest.json"),
   readText("package.json"),
@@ -26,13 +37,26 @@ const [
   readText(".github/workflows/build-windows.yml"),
   readText("installer/Cybergirl.iss"),
   readText("api_client.py"),
-  readText("companion/engines.py")
+  readText("companion/engines.py"),
+  readText("companion/native_host.py"),
+  readText("companion/realtime.py"),
+  readText("cybergirl.py"),
+  readText("companion/__init__.py")
 ]);
 const manifest = JSON.parse(manifestText);
 const packageJson = JSON.parse(packageText);
 
 assert.equal(manifest.manifest_version, 3, "Extension phải dùng Manifest V3");
 assert.equal(manifest.version, packageJson.version, "Version manifest và package.json phải trùng");
+assert.equal(packageJson.homepage, "https://base27-cvnss.github.io/Avatar/", "Package phải trỏ tới landing page");
+assert.equal(packageJson.repository.url, "git+https://github.com/Base27-CVNSS/Avatar.git");
+assert.ok(packageJson.keywords.length >= 15, "Cần bộ topics chuyên nghiệp cho repository");
+for (const keyword of ["cybergirl", "vietnamese-ai", "voice-assistant", "lip-sync", "windows", "preprint"]) {
+  assert.ok(packageJson.keywords.includes(keyword), `Thiếu topic ${keyword}`);
+}
+const escapedManifestVersion = manifest.version.replaceAll(".", "\\.");
+assert.match(guiCore, new RegExp(`PHIEN_BAN = "${escapedManifestVersion}"`), "GUI core phải trùng phiên bản");
+assert.match(companionVersion, new RegExp(`PHIEN_BAN = "${escapedManifestVersion}"`), "Companion phải trùng phiên bản");
 assert.match(html, new RegExp(`Cybergirl v${manifest.version.replaceAll(".", "\\.")}`));
 assert.equal(manifest.name, "Cybergirl — Trợ lý ảo tiếng Việt");
 assert.deepEqual(
@@ -153,7 +177,41 @@ assert.match(app, /assets\/default-avatar\.webp/, "Phải dùng WebP chân dung 
 assert.match(app, /MASTER_WIDTH = 7680/, "Phải xuất ảnh master rộng 7680 px");
 assert.match(app, /MASTER_HEIGHT = 4320/, "Phải xuất ảnh master cao 4320 px");
 assert.match(app, /buildVietnameseVisemeTimeline/, "Phải có lịch viseme tiếng Việt");
+assert.match(app, /drawProceduralHalfBody/, "Phải có Motion Rig bán thân theo vùng ảnh");
+assert.match(app, /drawMotionRegion/, "Phải có renderer vùng tóc, trán, mũi, vai và tay");
+assert.match(app, /gestureStrength/, "Phải cho phép chỉnh cường độ cử chỉ");
+assert.match(app, /playback_started_unix_ms/, "Lip-sync native phải bù trễ vận chuyển sự kiện");
+assert.match(html, /id="motionEnabled"/, "GUI phải có công tắc Motion Rig bán thân");
+assert.match(html, /id="performanceProfile"/, "GUI phải có hồ sơ hiệu năng");
+assert.match(nativeHost, /BoDieuPhoiLuot/, "Companion phải hủy theo turn id");
+assert.match(nativeHost, /llm\.delta/, "Companion phải phát token LLM theo luồng");
+assert.match(nativeHost, /tts\.stream_finished/, "Companion phải phát TTS theo câu");
+assert.match(realtime, /BoTachCauStreaming/, "Phải có bộ tách câu cho streaming TTS");
+assert.match(companionEngines, /_yeu_cau_json_dong/, "Adapter LLM phải đọc SSE\/JSONL");
+assert.match(app, /stripVietnameseToneMarks/, "Phải giữ đúng khẩu hình nguyên âm có dấu thanh");
 assert.match(app, /compoundVisemes/, "Phải xử lý cụm âm tiếng Việt");
+assert.match(app, /updateTimedViseme\(timestamp\)/, "Viseme phải được lấy mẫu theo frame");
+assert.ok(!app.includes("visemeTimers"), "Không được tạo timer riêng cho từng viseme");
+const renderFrameSource = functionBody(app, "renderFrame", "stopTts");
+assert.ok(
+  !renderFrameSource.includes('state.activeSignal === "audio" || state.activeSignal === "mic"'),
+  "Microphone người dùng không được điều khiển miệng avatar"
+);
+const recognitionStart = app.indexOf("recognition.onresult =");
+const recognitionEnd = app.indexOf("recognition.onerror =", recognitionStart);
+assert.notEqual(recognitionStart, -1, "Phải có Speech Recognition");
+assert.ok(
+  !app.slice(recognitionStart, recognitionEnd).includes("setViseme("),
+  "STT người dùng không được ghi đè viseme của nhân vật"
+);
+const schedulerSource = functionBody(app, "scheduleTimedVisemes", "updateTimedViseme");
+assert.doesNotMatch(schedulerSource, /setTimeout|setInterval/, "Scheduler không dùng timer theo viseme");
+const stopAllSource = functionBody(app, "stopAll", "switchTab");
+assert.match(
+  stopAllSource,
+  /nativeRequest\("interrupt"\)/,
+  "Nút Stop phải dừng cả TTS của companion"
+);
 assert.match(app, /mouthAperture/, "Phải có khẩu độ miệng mềm");
 assert.match(app, /mouthLayer/, "Phải tách lớp biến dạng môi");
 assert.match(app, /mouthMask/, "Phải có mặt nạ feathered cho vùng môi");
@@ -219,8 +277,17 @@ const securitySource = [
 assert.ok(!securitySource.includes("sk-or-v1-"), "Không được đưa khóa OpenRouter vào mã nguồn");
 assert.match(workflow, /cache-dependency-path: requirements-build\.txt/, "CI phải cache đúng tệp phụ thuộc");
 assert.match(workflow, /cybergirl_companion\.spec/, "CI phải đóng gói Native Companion");
-assert.match(workflow, /Cybergirl-Edge-v3\.3\.0\.zip/, "CI phải xuất gói Edge Extension");
-assert.match(installer, /#define MyAppVersion "3\.3\.0"/, "Bộ cài phải đúng phiên bản 3.3.0");
+const escapedVersion = manifest.version.replaceAll(".", "\\.");
+assert.match(
+  workflow,
+  new RegExp(`Cybergirl-Edge-v${escapedVersion}\\.zip`),
+  "CI phải xuất gói Edge Extension đúng phiên bản"
+);
+assert.match(
+  installer,
+  new RegExp(`#define MyAppVersion "${escapedVersion}"`),
+  "Bộ cài phải trùng phiên bản manifest"
+);
 assert.match(installer, /register-native-host\.ps1/, "Bộ cài phải đăng ký Native Messaging");
 
 const characters = JSON.parse(await readText("characters.json"));
@@ -230,6 +297,31 @@ for (const [id, character] of Object.entries(characters)) {
   assert.equal(character.voice_language, "vi-VN", `Nhân vật ${id} phải dùng giọng vi-VN`);
   assert.ok(!/[\u3400-\u9fff]/u.test(character.system_prompt), `Prompt ${id} chưa Việt hóa`);
 }
+
+const [landingPage, preprint, pagesWorkflow, readme] = await Promise.all([
+  readText("docs/index.html"),
+  readText("PREPRINT.md"),
+  readText(".github/workflows/pages.yml"),
+  readText("README.md")
+]);
+assert.match(landingPage, /<title>Cybergirl 3\.5 — AI Companion tiếng Việt<\/title>/);
+assert.match(landingPage, /name="description"/, "Landing page phải có mô tả SEO");
+assert.match(landingPage, /application\/ld\+json/, "Landing page phải có structured data");
+assert.match(landingPage, /prefers-reduced-motion/, "Landing page phải tôn trọng reduced motion");
+assert.match(landingPage, /Local-first · Windows · MIT/, "Landing page phải nêu định vị sản phẩm");
+assert.match(landingPage, /Motion Rig là biến dạng Canvas 2D/, "Landing page phải công bố giới hạn Motion Rig");
+assert.ok(!/<script\s+src=/i.test(landingPage), "Landing page phải tự chứa, không tải script ngoài");
+assert.match(preprint, /Technical preprint · Working paper · Chưa phản biện đồng cấp/);
+assert.match(preprint, /not peer reviewed/, "Citation phải công bố trạng thái chưa phản biện");
+assert.match(preprint, /@techreport\{ngo2026cybergirl/, "Preprint phải có BibTeX");
+assert.match(pagesWorkflow, /actions\/checkout@v6/, "Workflow Pages phải dùng checkout hiện hành");
+assert.match(pagesWorkflow, /actions\/upload-pages-artifact@v4/, "Workflow phải đóng gói Pages artifact");
+assert.match(pagesWorkflow, /actions\/deploy-pages@v4/, "Workflow phải deploy GitHub Pages");
+assert.match(pagesWorkflow, /path: docs/, "GitHub Pages phải xuất bản thư mục docs");
+assert.match(readme, /base27-cvnss\.github\.io\/Avatar\//, "README phải liên kết trực tiếp landing page");
+assert.match(readme, /Preprint-Technical_Report/, "README phải có badge Preprint");
+assert.match(readme, /Platform-Windows_10/, "README phải có badge Windows");
+assert.match(readme, /License-MIT/, "README phải có badge MIT License");
 
 console.log(`Cybergirl ${manifest.version}: PASS`);
 console.log(`- ${ids.length} HTML ids; ${selectors.length} JS selectors`);

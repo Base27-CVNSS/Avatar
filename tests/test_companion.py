@@ -15,6 +15,12 @@ from companion.memory import BoNhoDaiHan
 from companion.native_host import NativeHost
 from companion.phonemes import lap_lich_viseme
 from companion.protocol import BoGhiBanTin, LoiGiaoThuc, doc_ban_tin
+from companion.realtime import (
+    BoDieuPhoiLuot,
+    BoTachCauStreaming,
+    LuotDaHuy,
+    chon_cu_chi,
+)
 
 
 class ProtocolTests(unittest.TestCase):
@@ -74,6 +80,13 @@ class CompanionConfigTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             config.cap_nhat({"openrouter_title": "Cybergirl\r\nX-Fake: true"})
 
+    def test_performance_profile_validation(self):
+        config = CauHinhCompanion()
+        config.cap_nhat({"performance_profile": "pro"})
+        self.assertEqual(config.performance_profile, "pro")
+        with self.assertRaises(ValueError):
+            config.cap_nhat({"performance_profile": "turbo-khong-hop-le"})
+
     def test_duplex_and_memory_flags(self):
         config = CauHinhCompanion()
         config.cap_nhat(
@@ -90,6 +103,34 @@ class CompanionConfigTests(unittest.TestCase):
         self.assertEqual(config.character_id, "linh")
 
 
+class RealtimeCoordinatorTests(unittest.TestCase):
+    def test_new_turn_cancels_previous_turn(self):
+        turns = BoDieuPhoiLuot()
+        first = turns.bat_dau("chat")
+        second = turns.bat_dau("voice")
+        self.assertTrue(first.cancel.is_set())
+        self.assertFalse(second.cancel.is_set())
+        with self.assertRaises(LuotDaHuy):
+            first.kiem_tra()
+        self.assertTrue(turns.la_hien_tai(second))
+        turns.ket_thuc(second)
+        self.assertEqual(turns.current_id, 0)
+
+    def test_sentence_chunker_does_not_cut_mid_word(self):
+        chunker = BoTachCauStreaming(min_chars=12, max_chars=36)
+        first = chunker.nap("Xin chào bạn. Đây là câu trả lời ")
+        tail = chunker.nap("được tạo theo luồng!")
+        final = chunker.ket_thuc()
+        output = [*first, *tail, *final]
+        self.assertGreaterEqual(len(output), 2)
+        self.assertEqual(" ".join(output), "Xin chào bạn. Đây là câu trả lời được tạo theo luồng!")
+
+    def test_semantic_gesture_selection(self):
+        self.assertEqual(chon_cu_chi("Hãy nhìn vị trí này."), "point_right")
+        self.assertEqual(chon_cu_chi("Xin chào bạn!"), "welcome")
+        self.assertEqual(chon_cu_chi("Mình đang lắng nghe.", "quan_tâm"), "listen")
+
+
 class EmotionAndLipSyncTests(unittest.TestCase):
     def test_vietnamese_emotion_is_local_and_structured(self):
         emotion = phan_tich_cam_xuc("Tuyệt vời, mình rất vui và chúc mừng bạn!")
@@ -103,6 +144,14 @@ class EmotionAndLipSyncTests(unittest.TestCase):
         end = timeline[-1]["at_ms"] + timeline[-1]["duration_ms"]
         self.assertAlmostEqual(end, 2400, delta=2)
         self.assertTrue(all("release_open" in item for item in timeline))
+
+    def test_tone_marks_keep_vowel_visemes(self):
+        timeline = lap_lich_viseme("má mạ ế ứ ở", 1.5)
+        visemes = [item["viseme"] for item in timeline]
+        self.assertGreaterEqual(visemes.count("wide"), 3)
+        self.assertGreaterEqual(visemes.count("round"), 2)
+        self.assertEqual(visemes[0], "closed")
+        self.assertEqual(visemes[1], "wide")
 
 
 class LongTermMemoryTests(unittest.TestCase):

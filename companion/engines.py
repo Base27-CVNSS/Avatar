@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .config import CauHinhCompanion
+from .realtime import LuotDaHuy
 
 
 class LoiEngine(RuntimeError):
@@ -36,7 +37,7 @@ def _yeu_cau_json(
         headers={
             "Content-Type": "application/json; charset=utf-8",
             "Accept": "application/json",
-            "User-Agent": "Cybergirl-Companion/3.3",
+            "User-Agent": "Cybergirl-Companion/3.5",
             **(headers or {}),
         },
     )
@@ -50,6 +51,113 @@ def _yeu_cau_json(
         raise LoiEngine("Không kết nối được bộ não AI đã chọn.") from exc
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise LoiEngine("Bộ não AI trả về JSON không hợp lệ.") from exc
+
+
+def _yeu_cau_json_dong(
+    url: str,
+    payload: dict[str, Any],
+    headers: dict[str, str] | None,
+    cancel_event: threading.Event,
+    timeout: int = 120,
+):
+    """Đọc SSE/JSONL và đóng socket ngay khi lượt bị hủy."""
+
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={
+            "Content-Type": "application/json; charset=utf-8",
+            "Accept": "text/event-stream, application/x-ndjson, application/json",
+            "User-Agent": "Cybergirl-Companion/3.5",
+            **(headers or {}),
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            watcher_done = threading.Event()
+
+            def close_on_cancel() -> None:
+                while not watcher_done.wait(0.05):
+                    if cancel_event.is_set():
+                        try:
+                            response.close()
+                        except OSError:
+                            pass
+                        return
+
+            threading.Thread(target=close_on_cancel, daemon=True).start()
+            try:
+                while True:
+                    if cancel_event.is_set():
+                        raise LuotDaHuy("Đã đóng luồng LLM của lượt cũ.")
+                    raw = response.readline()
+                    if not raw:
+                        break
+                    line = raw.decode("utf-8", errors="replace").strip()
+                    if not line or line.startswith(("event:", "id:", "retry:")):
+                        continue
+                    if line.startswith("data:"):
+                        line = line[5:].strip()
+                    if line == "[DONE]":
+                        break
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+            finally:
+                watcher_done.set()
+    except LuotDaHuy:
+        raise
+    except urllib.error.HTTPError as exc:
+        detail = exc.read(8_000).decode("utf-8", errors="replace")
+        raise LoiEngine(f"API streaming trả về HTTP {exc.code}: {detail[:500]}") from exc
+    except (urllib.error.URLError, OSError) as exc:
+        if cancel_event.is_set():
+            raise LuotDaHuy("Đã đóng kết nối LLM khi người dùng ngắt lời.") from exc
+        raise LoiEngine("Không kết nối được luồng bộ não AI đã chọn.") from exc
+
+
+def _chay_tien_trinh(
+    args: list[str],
+    *,
+    input_text: str | None = None,
+    timeout: float = 180,
+    creationflags: int = 0,
+    cancel_event: threading.Event | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Popen có thể hủy, thay cho subprocess.run chặn cứng."""
+
+    process = subprocess.Popen(
+        args,
+        stdin=subprocess.PIPE if input_text is not None else None,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        creationflags=creationflags,
+    )
+    if input_text is not None and process.stdin:
+        process.stdin.write(input_text)
+        process.stdin.close()
+        process.stdin = None
+    deadline = time.monotonic() + timeout
+    while process.poll() is None:
+        if cancel_event and cancel_event.is_set():
+            process.terminate()
+            try:
+                process.wait(timeout=1.5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+            raise LuotDaHuy("Đã hủy tiến trình AI của lượt cũ.")
+        if time.monotonic() >= deadline:
+            process.kill()
+            raise subprocess.TimeoutExpired(args, timeout)
+        time.sleep(0.02)
+    stdout, stderr = process.communicate()
+    return subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
 
 
 def _lam_sach(text: str) -> str:
@@ -80,7 +188,7 @@ class LlamaServer:
             raise LoiEngine("Chưa chọn llama-server.exe.")
         if not model.is_file() or model.suffix.lower() != ".gguf":
             raise LoiEngine("Chưa chọn mô hình LLM định dạng GGUF.")
-        signature = f"{executable}|{model}|{config.threads}|{config.base_url}"
+        signature = f"{executable}|{model}|{config.threads}|{config.base_url}|{config.performance_profile}"
         with self.lock:
             if self.signature == signature and self._health(config.base_url):
                 return
@@ -92,22 +200,29 @@ class LlamaServer:
             flags = 0
             if os.name == "nt":
                 flags = subprocess.CREATE_NO_WINDOW  # type: ignore[attr-defined]
+            profile = config.performance_profile
+            command = [
+                str(executable),
+                "-m",
+                str(model),
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(port),
+                "--ctx-size",
+                "8192" if profile == "pro" else "4096",
+                "--threads",
+                str(config.threads),
+                "--jinja",
+                "--no-webui",
+            ]
+            gpu_layers = {"lite": 0, "balanced": 24, "pro": 99}.get(profile, 0)
+            if gpu_layers:
+                command.extend(["-ngl", str(gpu_layers)])
+            if profile == "pro":
+                command.append("--flash-attn")
             self.process = subprocess.Popen(
-                [
-                    str(executable),
-                    "-m",
-                    str(model),
-                    "--host",
-                    "127.0.0.1",
-                    "--port",
-                    str(port),
-                    "--ctx-size",
-                    "4096",
-                    "--threads",
-                    str(config.threads),
-                    "--jinja",
-                    "--no-webui",
-                ],
+                command,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 text=True,
@@ -147,6 +262,8 @@ class BoNao:
         message: str,
         history: list[dict[str, str]],
         system_prompt: str,
+        cancel_event: threading.Event | None = None,
+        on_delta: Callable[[str], None] | None = None,
     ) -> str:
         safe_history = [
             {
@@ -156,11 +273,27 @@ class BoNao:
             for item in history[-12:]
             if item.get("role") in {"user", "assistant"}
         ]
+        if cancel_event and cancel_event.is_set():
+            raise LuotDaHuy("Lượt đã bị hủy trước khi gọi LLM.")
         if config.provider == "gguf":
             self.llama.dam_bao(config)
             provider = "openai-compatible"
         else:
             provider = config.provider
+
+        if on_delta and cancel_event and provider in {
+            "openai", "openrouter", "ollama", "openai-compatible"
+        }:
+            return self._tra_loi_dong(
+                config,
+                api_key,
+                provider,
+                message,
+                safe_history,
+                system_prompt,
+                cancel_event,
+                on_delta,
+            )
 
         if provider == "openai":
             if not api_key:
@@ -282,9 +415,97 @@ class BoNao:
                 if choices
                 else ""
             )
+        if cancel_event and cancel_event.is_set():
+            raise LuotDaHuy("Đã loại kết quả LLM của lượt cũ.")
         answer = _lam_sach(answer)
         if not answer:
             raise LoiEngine("Bộ não AI không trả về nội dung.")
+        if on_delta:
+            on_delta(answer)
+        return answer
+
+    def _tra_loi_dong(
+        self,
+        config: CauHinhCompanion,
+        api_key: str,
+        provider: str,
+        message: str,
+        safe_history: list[dict[str, str]],
+        system_prompt: str,
+        cancel_event: threading.Event,
+        on_delta: Callable[[str], None],
+    ) -> str:
+        headers: dict[str, str] = {}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        if provider == "openrouter":
+            if not api_key:
+                raise LoiEngine("Cần nhập khóa OpenRouter mới cho phiên hiện tại.")
+            headers["X-OpenRouter-Title"] = config.openrouter_title
+            if config.openrouter_referer:
+                headers["HTTP-Referer"] = config.openrouter_referer
+        if provider == "openai":
+            if not api_key:
+                raise LoiEngine("Cần nhập khóa OpenAI API cho phiên hiện tại.")
+            url = config.base_url.rstrip("/") + "/responses"
+            payload: dict[str, Any] = {
+                "model": config.model,
+                "instructions": system_prompt,
+                "input": [*safe_history, {"role": "user", "content": message}],
+                "store": False,
+                "stream": True,
+            }
+        elif provider == "ollama":
+            url = config.base_url.rstrip("/") + "/api/chat"
+            payload = {
+                "model": config.model,
+                "stream": True,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    *safe_history,
+                    {"role": "user", "content": message},
+                ],
+                "options": {"temperature": 0.7, "num_predict": 240},
+            }
+        else:
+            url = config.base_url.rstrip("/") + "/chat/completions"
+            payload = {
+                "model": config.model,
+                "stream": True,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    *safe_history,
+                    {"role": "user", "content": message},
+                ],
+                "temperature": 0.7,
+                "max_tokens": 240,
+            }
+            if provider == "openrouter" and config.openrouter_zdr:
+                payload["provider"] = {"zdr": True}
+
+        parts: list[str] = []
+        for data in _yeu_cau_json_dong(url, payload, headers, cancel_event):
+            delta = ""
+            if provider == "openai":
+                if data.get("type") == "response.output_text.delta":
+                    delta = str(data.get("delta", ""))
+            elif provider == "ollama":
+                delta = str(data.get("message", {}).get("content", ""))
+            else:
+                choices = data.get("choices") or []
+                if choices:
+                    delta = str(choices[0].get("delta", {}).get("content", "") or "")
+            if not delta:
+                continue
+            if cancel_event.is_set():
+                raise LuotDaHuy("Đã hủy luồng token LLM.")
+            parts.append(delta)
+            on_delta(delta)
+        if cancel_event.is_set():
+            raise LuotDaHuy("Đã hủy kết quả LLM streaming.")
+        answer = _lam_sach("".join(parts))
+        if not answer:
+            raise LoiEngine("Bộ não AI không trả về nội dung streaming.")
         return answer
 
     def dong(self) -> None:
@@ -292,7 +513,12 @@ class BoNao:
 
 
 class WhisperCLI:
-    def phien_am(self, config: CauHinhCompanion, wav_path: Path) -> str:
+    def phien_am(
+        self,
+        config: CauHinhCompanion,
+        wav_path: Path,
+        cancel_event: threading.Event | None = None,
+    ) -> str:
         executable = Path(config.whisper_cli_path)
         model = Path(config.whisper_model_path)
         if not executable.is_file():
@@ -304,27 +530,26 @@ class WhisperCLI:
             flags = 0
             if os.name == "nt":
                 flags = subprocess.CREATE_NO_WINDOW  # type: ignore[attr-defined]
-            result = subprocess.run(
-                [
-                    str(executable),
-                    "-m",
-                    str(model),
-                    "-f",
-                    str(wav_path),
-                    "-l",
-                    "vi",
-                    "-t",
-                    str(config.threads),
-                    "-nt",
-                    "-otxt",
-                    "-of",
-                    str(prefix),
-                ],
-                capture_output=True,
-                text=True,
+            command = [
+                str(executable),
+                "-m",
+                str(model),
+                "-f",
+                str(wav_path),
+                "-l",
+                "vi",
+                "-t",
+                str(config.threads),
+                "-nt",
+                "-otxt",
+                "-of",
+                str(prefix),
+            ]
+            result = _chay_tien_trinh(
+                command,
                 timeout=180,
                 creationflags=flags,
-                check=False,
+                cancel_event=cancel_event,
             )
             output = prefix.with_suffix(".txt")
             if result.returncode != 0 or not output.is_file():
@@ -351,7 +576,11 @@ class TiengNoi:
         return self._playing
 
     def tong_hop(
-        self, config: CauHinhCompanion, text: str, output: Path
+        self,
+        config: CauHinhCompanion,
+        text: str,
+        output: Path,
+        cancel_event: threading.Event | None = None,
     ) -> dict[str, Any]:
         started = time.perf_counter()
         if config.tts_engine == "edge":
@@ -367,15 +596,12 @@ class TiengNoi:
                 "$s.SetOutputToWaveFile($args[0]);"
                 "$t=[Console]::In.ReadToEnd();$s.Speak($t);$s.Dispose()"
             )
-            result = subprocess.run(
+            result = _chay_tien_trinh(
                 ["powershell.exe", "-NoProfile", "-Command", script, str(output), config.tts_voice],
-                input=text,
-                text=True,
-                encoding="utf-8",
-                capture_output=True,
+                input_text=text,
                 timeout=120,
                 creationflags=subprocess.CREATE_NO_WINDOW,  # type: ignore[attr-defined]
-                check=False,
+                cancel_event=cancel_event,
             )
         else:
             executable = Path(config.piper_path)
@@ -383,7 +609,7 @@ class TiengNoi:
             if not executable.is_file() or not model.is_file():
                 raise LoiEngine("Chưa chọn piper.exe và mô hình tiếng Việt ONNX.")
             flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0  # type: ignore[attr-defined]
-            result = subprocess.run(
+            result = _chay_tien_trinh(
                 [
                     str(executable),
                     "--model",
@@ -391,13 +617,10 @@ class TiengNoi:
                     "--output_file",
                     str(output),
                 ],
-                input=text,
-                text=True,
-                encoding="utf-8",
-                capture_output=True,
+                input_text=text,
                 timeout=120,
                 creationflags=flags,
-                check=False,
+                cancel_event=cancel_event,
             )
         if result.returncode != 0 or not output.is_file():
             raise LoiEngine(
@@ -430,13 +653,23 @@ class TiengNoi:
         winsound.PlaySound(
             str(wav_path), winsound.SND_FILENAME | winsound.SND_ASYNC
         )
+        metadata["playback_started_unix_ms"] = round(time.time() * 1000, 1)
         callback("tts.started", metadata)
 
         def wait_end() -> None:
-            time.sleep(float(metadata["audio_seconds"]))
-            if token == self._play_token:
-                self._playing = False
-                callback("tts.ended", metadata)
+            try:
+                deadline = time.monotonic() + float(metadata["audio_seconds"])
+                while token == self._play_token and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                if token == self._play_token:
+                    self._playing = False
+                    callback("tts.ended", metadata)
+            finally:
+                try:
+                    wav_path.unlink(missing_ok=True)
+                    wav_path.parent.rmdir()
+                except OSError:
+                    pass
 
         threading.Thread(target=wait_end, daemon=True).start()
 

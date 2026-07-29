@@ -18,6 +18,7 @@ NHA_CUNG_CAP = {
     "openai-compatible",
 }
 TTS_ENGINE = {"windows-sapi", "piper", "edge"}
+HO_SO_HIEU_NANG = {"lite", "balanced", "pro"}
 
 
 def thu_muc_du_lieu() -> Path:
@@ -54,6 +55,7 @@ class CauHinhCompanion:
     emotion_enabled: bool = True
     full_duplex: bool = True
     echo_guard: bool = True
+    performance_profile: str = "balanced"
     vad_threshold: float = 0.55
     silence_ms: int = 650
     threads: int = max(2, min((os.cpu_count() or 4) - 1, 8))
@@ -75,6 +77,7 @@ class CauHinhCompanion:
             "piper_path",
             "piper_model_path",
             "character_id",
+            "performance_profile",
         }
         for field in string_fields:
             if field in payload:
@@ -112,6 +115,8 @@ class CauHinhCompanion:
             raise ValueError("HTTP-Referer OpenRouter phải bắt đầu bằng http:// hoặc https://.")
         if self.tts_engine not in TTS_ENGINE:
             raise ValueError("Bộ đọc tiếng Việt không được hỗ trợ.")
+        if self.performance_profile not in HO_SO_HIEU_NANG:
+            raise ValueError("Hồ sơ hiệu năng phải là lite, balanced hoặc pro.")
 
     def cong_khai(self, api_keys: dict[str, str] | None = None) -> dict[str, Any]:
         result = asdict(self)

@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090712">
+  <meta name="description" content="Cybergirl 3.5 là AI Companion tiếng Việt local-first cho Windows với hội thoại realtime, barge-in, lip-sync và Motion Rig bán thân.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="vi_VN">
+  <meta property="og:title" content="Cybergirl 3.5 — AI Companion tiếng Việt">
+  <meta property="og:description" content="Hội thoại giọng nói realtime, có thể ngắt lời, lip-sync và Motion Rig bán thân trên Windows.">
+  <meta property="og:url" content="https://base27-cvnss.github.io/Avatar/">
+  <meta name="twitter:card" content="summary">
+  <title>Cybergirl 3.5 — AI Companion tiếng Việt</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090712;
+      --surface: rgba(20, 16, 34, .76);
+      --surface-strong: #171124;
+      --text: #f8f4ff;
+      --muted: #b9afc9;
+      --pink: #ff4f9a;
+      --pink-2: #ff79b4;
+      --violet: #9a72ff;
+      --cyan: #62d8ff;
+      --green: #6ee7b7;
+      --line: rgba(255, 255, 255, .12);
+      --shadow: 0 28px 80px rgba(0, 0, 0, .38);
+      --radius: 24px;
+      --max: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 84% 8%, rgba(154, 114, 255, .22), transparent 32rem),
+        radial-gradient(circle at 15% 22%, rgba(255, 79, 154, .18), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+
+    a { color: inherit; }
+    img, svg { display: block; max-width: 100%; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    :focus-visible { outline: 3px solid var(--cyan); outline-offset: 4px; }
+
+    .shell { width: min(calc(100% - 40px), var(--max)); margin-inline: auto; }
+    .skip {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 100;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: white;
+      color: #111;
+      transform: translateY(-160%);
+    }
+    .skip:focus { transform: none; }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid var(--line);
+      background: rgba(9, 7, 18, .78);
+      backdrop-filter: blur(18px);
+    }
+    .nav-inner {
+      min-height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      text-decoration: none;
+      font-weight: 800;
+      letter-spacing: -.02em;
+    }
+    .brand-mark {
+      width: 34px;
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      background: linear-gradient(135deg, var(--pink), var(--violet));
+      box-shadow: 0 0 32px rgba(255, 79, 154, .35);
+    }
+    .brand-mark svg { width: 22px; }
+    .nav-links { display: flex; align-items: center; gap: 22px; }
+    .nav-links a {
+      color: var(--muted);
+      font-size: .94rem;
+      font-weight: 650;
+      text-decoration: none;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    .hero {
+      min-height: calc(100svh - 70px);
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(340px, .92fr);
+      align-items: center;
+      gap: clamp(42px, 7vw, 96px);
+      padding-block: 78px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 12px;
+      border: 1px solid rgba(255, 121, 180, .38);
+      border-radius: 999px;
+      background: rgba(255, 79, 154, .08);
+      color: #ffc0da;
+      font-size: .84rem;
+      font-weight: 750;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+    .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 6px rgba(110, 231, 183, .1);
+    }
+    h1 {
+      max-width: 820px;
+      margin: 24px 0 20px;
+      font-size: clamp(3rem, 7vw, 6.5rem);
+      line-height: .94;
+      letter-spacing: -.065em;
+    }
+    .gradient {
+      color: transparent;
+      background: linear-gradient(100deg, #fff 0 12%, var(--pink-2) 48%, #a98cff 82%);
+      background-clip: text;
+      -webkit-background-clip: text;
+    }
+    .hero-copy > p {
+      max-width: 690px;
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(1.05rem, 2vw, 1.28rem);
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 13px; margin-top: 34px; }
+    .button {
+      min-height: 50px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 0 20px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .04);
+      font-weight: 750;
+      text-decoration: none;
+      transition: transform .2s ease, border-color .2s ease, background .2s ease;
+    }
+    .button:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.3); }
+    .button.primary {
+      border-color: transparent;
+      background: linear-gradient(120deg, var(--pink), #a76fff);
+      box-shadow: 0 16px 40px rgba(255, 79, 154, .22);
+    }
+    .facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px 30px;
+      margin: 34px 0 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: .91rem;
+    }
+    .facts strong { display: block; color: var(--text); font-size: 1.08rem; }
+
+    .portrait {
+      position: relative;
+      min-height: 580px;
+      display: grid;
+      place-items: center;
+      isolation: isolate;
+    }
+    .portrait::before {
+      content: "";
+      position: absolute;
+      inset: 9% 5%;
+      z-index: -2;
+      border-radius: 46% 54% 51% 49%;
+      background: linear-gradient(145deg, rgba(255, 79, 154, .48), rgba(98, 216, 255, .14) 58%, rgba(154, 114, 255, .45));
+      filter: blur(2px);
+      animation: float 7s ease-in-out infinite;
+    }
+    .portrait-card {
+      width: min(100%, 440px);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 38px;
+      background:
+        radial-gradient(circle at 50% 26%, rgba(255,255,255,.14), transparent 26%),
+        linear-gradient(160deg, #24152e, #0d0a18 62%);
+      box-shadow: var(--shadow);
+    }
+    .avatar-stage { position: relative; aspect-ratio: .82; overflow: hidden; }
+    .avatar-stage::before {
+      content: "";
+      position: absolute;
+      inset: 9% 12% auto;
+      height: 55%;
+      border-radius: 50%;
+      background: #321b3f;
+      box-shadow: 0 0 80px rgba(255,79,154,.26);
+    }
+    .hair {
+      position: absolute;
+      top: 13%;
+      left: 21%;
+      width: 58%;
+      height: 55%;
+      border-radius: 48% 52% 43% 57% / 37% 42% 58% 63%;
+      background: linear-gradient(140deg, #1b1228, #4a275a 56%, #170e23);
+      animation: hair 5.8s ease-in-out infinite;
+    }
+    .face {
+      position: absolute;
+      top: 24%;
+      left: 29%;
+      width: 42%;
+      height: 40%;
+      border-radius: 47% 53% 48% 52% / 40% 40% 60% 60%;
+      background: linear-gradient(145deg, #ffd9d4, #d98f9b);
+      box-shadow: inset -18px -10px 30px rgba(117,43,74,.15);
+      animation: breathe 4.2s ease-in-out infinite;
+    }
+    .face::before, .face::after {
+      content: "";
+      position: absolute;
+      top: 40%;
+      width: 18%;
+      height: 5%;
+      border-radius: 999px;
+      background: #39243d;
+      animation: blink 5.2s infinite;
+    }
+    .face::before { left: 20%; }
+    .face::after { right: 20%; }
+    .nose {
+      position: absolute;
+      top: 49%;
+      left: 48%;
+      width: 7%;
+      height: 13%;
+      border-right: 2px solid rgba(93,43,70,.28);
+      border-bottom: 2px solid rgba(93,43,70,.18);
+      border-radius: 50%;
+    }
+    .mouth {
+      position: absolute;
+      top: 70%;
+      left: 37%;
+      width: 26%;
+      height: 4%;
+      border-radius: 0 0 999px 999px;
+      background: #9d365f;
+      box-shadow: 0 3px 0 rgba(78,23,45,.18);
+      animation: talk 2.2s ease-in-out infinite;
+    }
+    .neck {
+      position: absolute;
+      top: 58%;
+      left: 43%;
+      width: 14%;
+      height: 15%;
+      background: #d9959f;
+    }
+    .body {
+      position: absolute;
+      left: 12%;
+      bottom: -7%;
+      width: 76%;
+      height: 40%;
+      border-radius: 48% 48% 10% 10%;
+      background: linear-gradient(140deg, #d9367e, #6f3bd5 60%, #34255f);
+      animation: breathe 4.2s ease-in-out infinite;
+    }
+    .wave {
+      position: absolute;
+      right: 8%;
+      bottom: 20%;
+      width: 18%;
+      height: 28%;
+      border-radius: 999px 999px 30px 30px;
+      background: linear-gradient(#e7a9b3, #c86586);
+      transform-origin: 50% 100%;
+      animation: wave 4.6s ease-in-out infinite;
+    }
+    .status {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 13px 15px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 16px;
+      background: rgba(9,7,18,.74);
+      backdrop-filter: blur(14px);
+      font-size: .88rem;
+    }
+    .waveform { height: 25px; display: flex; align-items: center; gap: 3px; }
+    .waveform i {
+      width: 3px;
+      height: 28%;
+      border-radius: 99px;
+      background: var(--pink-2);
+      animation: equalize .9s ease-in-out infinite alternate;
+    }
+    .waveform i:nth-child(2n) { animation-delay: -.35s; }
+    .waveform i:nth-child(3n) { animation-delay: -.6s; }
+
+    section { padding-block: 96px; }
+    .section-head { max-width: 760px; margin-bottom: 40px; }
+    .kicker { color: var(--pink-2); font-size: .82rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    h2 { margin: 10px 0 14px; font-size: clamp(2rem, 5vw, 3.7rem); line-height: 1.04; letter-spacing: -.045em; }
+    .section-head p { margin: 0; color: var(--muted); font-size: 1.06rem; }
+
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .card {
+      min-height: 228px;
+      padding: 25px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(145deg, rgba(255,255,255,.06), rgba(255,255,255,.018));
+    }
+    .card-icon {
+      width: 43px;
+      height: 43px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 13px;
+      background: rgba(255,79,154,.11);
+      color: var(--pink-2);
+      font-weight: 900;
+    }
+    .card h3 { margin: 20px 0 8px; font-size: 1.16rem; }
+    .card p { margin: 0; color: var(--muted); font-size: .96rem; }
+    .card.wide { grid-column: span 2; }
+
+    .architecture {
+      display: grid;
+      grid-template-columns: .8fr 1.2fr;
+      gap: 28px;
+      align-items: stretch;
+    }
+    .scoreboard {
+      display: grid;
+      gap: 10px;
+      margin-top: 28px;
+    }
+    .score {
+      display: grid;
+      grid-template-columns: 112px 1fr 42px;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+    .bar { height: 8px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.09); }
+    .bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--pink), var(--violet)); }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      counter-reset: step;
+    }
+    .node {
+      position: relative;
+      min-height: 142px;
+      padding: 23px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--surface);
+    }
+    .node::before {
+      counter-increment: step;
+      content: "0" counter(step);
+      display: block;
+      margin-bottom: 16px;
+      color: var(--pink-2);
+      font-size: .8rem;
+      font-weight: 900;
+      letter-spacing: .09em;
+    }
+    .node strong { display: block; font-size: 1.08rem; }
+    .node span { display: block; margin-top: 6px; color: var(--muted); font-size: .9rem; }
+
+    .truth {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .truth article {
+      padding: 28px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .truth h3 { margin-top: 0; }
+    .truth ul { margin: 0; padding-left: 20px; color: var(--muted); }
+    .truth li + li { margin-top: 8px; }
+    .truth .ready { border-color: rgba(110,231,183,.25); }
+    .truth .limit { border-color: rgba(255,121,180,.25); }
+
+    .cta {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(34px, 7vw, 70px);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 34px;
+      background: linear-gradient(135deg, rgba(255,79,154,.2), rgba(77,55,145,.3));
+      box-shadow: var(--shadow);
+    }
+    .cta::after {
+      content: "";
+      position: absolute;
+      right: -8%;
+      bottom: -50%;
+      width: 360px;
+      height: 360px;
+      border-radius: 50%;
+      background: rgba(98,216,255,.12);
+      filter: blur(10px);
+    }
+    .cta p { max-width: 680px; color: #d8cfdf; }
+
+    footer {
+      margin-top: 96px;
+      padding-block: 32px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: .9rem;
+    }
+    .footer-inner { display: flex; justify-content: space-between; gap: 22px; flex-wrap: wrap; }
+    .footer-links { display: flex; gap: 18px; flex-wrap: wrap; }
+    .footer-links a:hover { color: var(--text); }
+
+    @keyframes float { 50% { transform: translateY(-14px) rotate(2deg); } }
+    @keyframes hair { 50% { transform: skewX(1.4deg) translateX(2px); } }
+    @keyframes breathe { 50% { transform: scaleY(1.012) translateY(-2px); } }
+    @keyframes blink { 0%, 44%, 48%, 100% { transform: scaleY(1); } 46% { transform: scaleY(.08); } }
+    @keyframes talk { 0%, 20%, 100% { height: 4%; } 48% { height: 10%; border-radius: 50%; } 70% { height: 6%; } }
+    @keyframes wave { 0%, 20%, 100% { transform: rotate(10deg); } 40% { transform: rotate(-22deg); } 57% { transform: rotate(2deg); } }
+    @keyframes equalize { to { height: 100%; } }
+
+    @media (max-width: 920px) {
+      .hero, .architecture { grid-template-columns: 1fr; }
+      .hero { padding-top: 60px; }
+      .portrait { min-height: 520px; }
+      .feature-grid { grid-template-columns: repeat(2, 1fr); }
+      .card.wide { grid-column: span 2; }
+    }
+    @media (max-width: 640px) {
+      .shell { width: min(calc(100% - 28px), var(--max)); }
+      .nav-links a:not(.github-link) { display: none; }
+      .hero { gap: 28px; padding-block: 50px; }
+      h1 { font-size: clamp(3rem, 15vw, 4.8rem); }
+      .portrait { min-height: 430px; }
+      .portrait-card { width: min(100%, 360px); }
+      .feature-grid, .truth, .pipeline { grid-template-columns: 1fr; }
+      .card.wide { grid-column: auto; }
+      .score { grid-template-columns: 92px 1fr 36px; }
+      section { padding-block: 72px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Cybergirl",
+      "softwareVersion": "3.5.0",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Windows 10, Windows 11",
+      "description": "AI Companion tiếng Việt local-first với hội thoại realtime, barge-in, lip-sync và Motion Rig bán thân.",
+      "codeRepository": "https://github.com/Base27-CVNSS/Avatar",
+      "license": "https://opensource.org/license/mit",
+      "author": {
+        "@type": "Person",
+        "name": "Long Ngo"
+      }
+    }
+  </script>
+</head>
+<body>
+  <a class="skip" href="#noi-dung">Bỏ qua điều hướng</a>
+
+  <header class="nav">
+    <div class="shell nav-inner">
+      <a class="brand" href="#top" aria-label="Cybergirl — về đầu trang">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img">
+            <path fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" d="M6.5 9.4C7.1 5.8 9 4 12 4s4.9 1.8 5.5 5.4M8.2 12.1h.1m7.4 0h.1M9 16c1.7 1.3 4.3 1.3 6 0"/>
+          </svg>
+        </span>
+        Cybergirl <span style="color:var(--pink-2)">3.5</span>
+      </a>
+      <nav class="nav-links" aria-label="Điều hướng chính">
+        <a href="#nang-luc">Năng lực</a>
+        <a href="#kien-truc">Kiến trúc</a>
+        <a href="#minh-bach">Minh bạch</a>
+        <a class="github-link" href="https://github.com/Base27-CVNSS/Avatar">GitHub ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="noi-dung">
+    <section class="shell hero" id="top">
+      <div class="hero-copy">
+        <span class="eyebrow"><span class="pulse"></span> Local-first · Windows · MIT</span>
+        <h1>AI Companion<br><span class="gradient">tiếng Việt.</span></h1>
+        <p>Cybergirl kết hợp hội thoại giọng nói realtime, ngắt lời theo lượt, lip-sync và Motion Rig bán thân trong một trải nghiệm riêng tư trên Microsoft Edge.</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/Base27-CVNSS/Avatar#cài-trên-windows">Cài trên Windows <span aria-hidden="true">→</span></a>
+          <a class="button" href="https://github.com/Base27-CVNSS/Avatar/blob/main/PREPRINT.md">Đọc technical preprint</a>
+        </div>
+        <ul class="facts" aria-label="Thông tin nhanh">
+          <li><strong>3.5.0</strong>Phiên bản hiện tại</li>
+          <li><strong>30 FPS</strong>Motion loop mục tiêu</li>
+          <li><strong>MIT</strong>Mã nguồn mở</li>
+        </ul>
+      </div>
+
+      <div class="portrait" aria-label="Minh họa avatar bán thân Cybergirl đang nói">
+        <div class="portrait-card">
+          <div class="avatar-stage" aria-hidden="true">
+            <div class="hair"></div>
+            <div class="neck"></div>
+            <div class="body"></div>
+            <div class="face">
+              <span class="nose"></span>
+              <span class="mouth"></span>
+            </div>
+            <div class="wave"></div>
+            <div class="status">
+              <span><span class="pulse" style="display:inline-block;margin-right:8px"></span>Đang trả lời</span>
+              <span class="waveform">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="nang-luc">
+      <div class="shell">
+        <div class="section-head">
+          <span class="kicker">Năng lực 3.5</span>
+          <h2>Một pipeline thoại, nhiều lớp phối hợp.</h2>
+          <p>Mỗi khối có nhiệm vụ rõ ràng để giảm độ trễ, kiểm soát tài nguyên và cho phép dừng chính xác khi người dùng nói xen vào.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">01</div>
+            <h3>Hội thoại realtime</h3>
+            <p>Token LLM được đẩy theo luồng, tách thành câu ngắn và đưa sang TTS khi câu trả lời vẫn đang được sinh.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">02</div>
+            <h3>Ngắt lời theo lượt</h3>
+            <p><code>turn_id</code> và cancellation chung giúp dừng STT, LLM, TTS, playback và loại bỏ kết quả đến muộn.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">03</div>
+            <h3>Lip-sync tiếng Việt</h3>
+            <p>Viseme có dấu thanh, coarticulation và mốc bắt đầu phát native giúp giảm lệch giữa môi và tiếng nói.</p>
+          </article>
+          <article class="card wide">
+            <div class="card-icon" aria-hidden="true">04</div>
+            <h3>Motion Rig bán thân</h3>
+            <p>Một vòng render điều phối mắt, gaze, chớp, môi, mũi, trán, tóc, nhịp thở, vai và vùng tay. Cử chỉ được chọn theo ý nghĩa câu trả lời, không để LLM điều khiển trực tiếp tọa độ.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">05</div>
+            <h3>Local-first</h3>
+            <p>Ảnh, landmark và Face Mesh ở trên thiết bị. VAD, Whisper, GGUF và TTS có thể chạy cục bộ; API đám mây là lựa chọn.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="kien-truc">
+      <div class="shell architecture">
+        <div>
+          <div class="section-head">
+            <span class="kicker">Kiến trúc phân tách biên</span>
+            <h2>Tối ưu theo từng khối.</h2>
+            <p>Pipeline không giả định một mô hình duy nhất có thể làm tốt mọi việc. Các engine được nối bằng sự kiện, queue và một bộ điều phối lượt.</p>
+          </div>
+          <div class="scoreboard" aria-label="Mức kiến trúc mục tiêu">
+            <div class="score"><span>Độ trễ</span><span class="bar"><span style="width:80%"></span></span><strong>8/10</strong></div>
+            <div class="score"><span>Ngắt lời</span><span class="bar"><span style="width:80%"></span></span><strong>8/10</strong></div>
+            <div class="score"><span>Lip-sync</span><span class="bar"><span style="width:70%"></span></span><strong>7/10</strong></div>
+            <div class="score"><span>Motion Rig</span><span class="bar"><span style="width:70%"></span></span><strong>7/10</strong></div>
+            <div class="score"><span>Riêng tư</span><span class="bar"><span style="width:90%"></span></span><strong>9/10</strong></div>
+          </div>
+          <p style="color:var(--muted);font-size:.82rem;margin-top:18px">Điểm là mức kiến trúc/mục tiêu nghiệm thu; không phải benchmark dựng sẵn. Dashboard ghi số đo thật trên từng máy.</p>
+        </div>
+        <div class="pipeline" aria-label="Pipeline xử lý">
+          <article class="node"><strong>VAD + STT</strong><span>Silero phát hiện phát ngôn; Whisper chuyển giọng nói tiếng Việt thành văn bản.</span></article>
+          <article class="node"><strong>LLM stream</strong><span>GGUF, Ollama hoặc API sinh token theo luồng với persona tiếng Việt.</span></article>
+          <article class="node"><strong>TTS + clock</strong><span>SAPI/Piper phát WAV theo câu và gửi mốc playback cho timeline viseme.</span></article>
+          <article class="node"><strong>Animation Mixer</strong><span>Canvas phối hợp môi, mặt, tóc, vai và cử chỉ ở cùng một vòng render.</span></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="minh-bach">
+      <div class="shell">
+        <div class="section-head">
+          <span class="kicker">Trạng thái kỹ thuật</span>
+          <h2>Công bố đúng phần đã có.</h2>
+          <p>Cybergirl 3.5 nâng cấp đáng kể luồng realtime nhưng vẫn giữ ranh giới rõ giữa sản phẩm đang chạy và mục tiêu Pro.</p>
+        </div>
+        <div class="truth">
+          <article class="ready">
+            <h3>Đã triển khai</h3>
+            <ul>
+              <li>Streaming token và TTS theo câu.</li>
+              <li>Hủy lượt xuyên STT → LLM → TTS → playback.</li>
+              <li>Timeline viseme frame-sampled và bù trễ native.</li>
+              <li>Motion Rig 2D cho mặt, tóc, thân và vùng tay.</li>
+              <li>Ba hồ sơ hiệu năng Lite, Balanced và Pro.</li>
+            </ul>
+          </article>
+          <article class="limit">
+            <h3>Giới hạn hiện tại</h3>
+            <ul>
+              <li>Motion Rig là biến dạng Canvas 2D, chưa phải skeleton 3D.</li>
+              <li>Tay chỉ chuyển động khi ảnh nguồn có sẵn vùng vai/cánh tay.</li>
+              <li>SAPI/Piper stream theo câu, chưa stream PCM qua AudioWorklet.</li>
+              <li>Mốc playback giảm lệch nhưng chưa phải sample clock tuyệt đối.</li>
+              <li>Điểm 7–9/10 cần benchmark trên phần cứng mục tiêu.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="shell">
+      <div class="cta">
+        <span class="kicker">Open source · MIT</span>
+        <h2>Xem toàn bộ 30 khối nâng cấp.</h2>
+        <p>README ghi chi tiết đối chiếu Cybergirl 3.3 → 3.5, cách cài Windows, kiến trúc, quyền riêng tư, tiêu chí nghiệm thu và các giới hạn còn lại.</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/Base27-CVNSS/Avatar#đối-chiếu-30-khối-bản-33--35">Mở bảng 30 khối</a>
+          <a class="button" href="https://github.com/Base27-CVNSS/Avatar/actions/workflows/build-windows.yml">Xem bản build Windows</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-inner">
+      <span>Cybergirl 3.5 · Phát triển bởi Long Ngo · MIT License</span>
+      <span class="footer-links">
+        <a href="https://github.com/Base27-CVNSS/Avatar">README</a>
+        <a href="https://github.com/Base27-CVNSS/Avatar/blob/main/PREPRINT.md">Preprint</a>
+        <a href="https://github.com/Base27-CVNSS/Avatar/blob/main/LICENSE">License</a>
+        <a href="https://github.com/Base27-CVNSS/Avatar/blob/main/PRIVACY.md">Privacy</a>
+      </span>
+    </div>
+  </footer>
+</body>
+</html>

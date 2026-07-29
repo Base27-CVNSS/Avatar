@@ -2,19 +2,60 @@
 
 ![Cybergirl](icons/logo.svg)
 
-[![Phiên bản](https://img.shields.io/badge/Phiên_bản-3.3.0-ff4f9a)](CHANGELOG.md)
-[![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows)](.github/workflows/build-windows.yml)
+[![Website](https://img.shields.io/badge/Website-Cybergirl_3.5-ff4f9a?logo=githubpages&logoColor=white)](https://base27-cvnss.github.io/Avatar/)
+[![README](https://img.shields.io/badge/Docs-README-6f42c1?logo=readme&logoColor=white)](#cybergirl--trợ-lý-ảo-tiếng-việt-cho-microsoft-edge)
+[![Windows](https://img.shields.io/badge/Platform-Windows_10%20%7C%2011-0078d4?logo=windows&logoColor=white)](.github/workflows/build-windows.yml)
+[![Preprint](https://img.shields.io/badge/Preprint-Technical_Report-00a884?logo=readthedocs&logoColor=white)](PREPRINT.md)
+[![MIT License](https://img.shields.io/badge/License-MIT-a970ff)](LICENSE)
+[![Phiên bản](https://img.shields.io/badge/Version-3.5.0-ff79b4)](CHANGELOG.md)
 [![Microsoft Edge](https://img.shields.io/badge/Microsoft_Edge-110%2B-0aa7f5?logo=microsoftedge)](https://www.microsoft.com/edge)
-[![Giấy phép](https://img.shields.io/badge/Giấy_phép-MIT-a970ff)](LICENSE)
-[![Riêng tư](https://img.shields.io/badge/Ảnh_xử_lý-cục_bộ-ff4f9a)](PRIVACY.md)
+[![Local--first](https://img.shields.io/badge/Privacy-Local--first-252235)](PRIVACY.md)
 
-**Cybergirl biến một ảnh chân dung thành trợ lý ảo có thể nghe, hiểu, trả lời
-và nhép môi bằng tiếng Việt. Người dùng Windows chỉ cài GUI; không phải cài
-Python, Node.js hoặc CUDA.**
+**Cybergirl 3.5 là AI Companion tiếng Việt local-first cho Windows, kết hợp hội
+thoại giọng nói realtime, ngắt lời theo lượt, lip-sync và Motion Rig bán thân
+trong Microsoft Edge.**
 
-Cybergirl 3.3 do **Long Ngo** phát triển. Mouth Engine, Face Mesh, ảnh 4K/8K,
-mắt và vi chuyển động được giữ lại; Edge Extension nay kết nối companion cục bộ
-qua Native Messaging để chạy Silero VAD, Whisper, LLM GGUF và TTS tiếng Việt.
+[Mở trang giới thiệu](https://base27-cvnss.github.io/Avatar/) ·
+[Xem HTML trong repository](docs/index.html) ·
+[Đọc technical preprint](PREPRINT.md) ·
+[Xem bản build Windows](.github/workflows/build-windows.yml)
+
+Cybergirl do **Long Ngo** phát triển. Ảnh và landmark gương mặt được xử lý trên
+thiết bị; người dùng có thể chọn Silero VAD, Whisper, LLM GGUF và TTS cục bộ qua
+Native Messaging hoặc chủ động dùng nhà cung cấp AI từ xa.
+
+## Nâng cấp 3.5 · Realtime Motion
+
+- Mỗi lượt có `turn_id` và `CancellationToken`; lời nói mới hủy Whisper,
+  socket LLM streaming, tiến trình TTS và WAV đang phát của lượt cũ.
+- OpenAI Responses, OpenRouter, Ollama và endpoint OpenAI-compatible phát
+  `llm.delta`; Gemini vẫn dùng batch nhưng kết quả lượt đã hủy bị loại bỏ.
+- Bộ tách câu gửi từng đoạn ngắn sang SAPI/Piper khi LLM còn đang sinh, giảm thời
+  gian chờ so với tạo toàn bộ câu trả lời rồi mới tổng hợp.
+- Mỗi gói TTS mang `turn_id`, `sequence` và mốc
+  `playback_started_unix_ms`; frontend bù độ trễ Native Messaging trước khi
+  lấy mẫu timeline viseme.
+- Motion Rig bán thân theo vùng ảnh tạo nhịp thở, vai, vùng tay, tóc, trán và mũi;
+  cử chỉ `welcome`, `explain`, `point_left/right`, `open_hands` được chọn
+  từ ý nghĩa câu trả lời và chạy trên cùng vòng render 30 FPS.
+- Ba hồ sơ hiệu năng: Lite chạy CPU, Balanced offload 24 lớp và Pro offload tối
+  đa/context 8K. Dashboard hiển thị STT, TTFT, LLM total và first-audio thực đo.
+- Bổ sung test cho turn cancellation, sentence chunker, cử chỉ, motion rig và
+  đồng bộ phiên bản 3.5.0.
+
+## Nâng cấp 3.4 · Audio-safe Lip Sync
+
+- Tách hai bus tín hiệu: microphone người dùng chỉ cấp meter/VAD; chỉ âm thanh
+  đầu ra của Cybergirl hoặc tệp audio chủ động mới được điều khiển miệng.
+- Thay toàn bộ timer viseme rời rạc bằng một timeline lấy mẫu trong vòng render,
+  có attack/release và tái neo theo `SpeechSynthesisUtterance.boundary`.
+- Chuẩn hóa riêng năm dấu thanh tiếng Việt nhưng giữ nguyên `ă/â/ê/ô/ơ/ư`;
+  các tiếng như “má”, “mạ”, “ế”, “ứ”, “ở” không còn rơi nhầm về neutral.
+- Chặn Speech Recognition ghi đè viseme khi nhân vật đang nói.
+- Half-duplex bỏ qua đầu vào trong lúc TTS; full-duplex có thể ngắt ở kết quả
+  interim không trùng nội dung loa, thay vì luôn đợi câu final.
+- Khôi phục đúng trạng thái microphone sau khi Edge TTS hoặc TTS companion kết thúc.
+- Bổ sung test hồi quy cho dấu thanh, một scheduler và phân tách input/output.
 
 ## Điểm nổi bật
 
@@ -81,50 +122,83 @@ flowchart LR
 | Khóa API | RAM của companion | Chỉ gửi tới nhà cung cấp đã chọn |
 | Bộ nhớ dài hạn | SQLite cục bộ, mặc định tắt | Không |
 
-## Đối chiếu 30 khối sau bản 3.3
+## Đối chiếu 30 khối: bản 3.3 → 3.5
 
-| # | Khối | Cybergirl 3.3 | Trạng thái |
-|---:|---|---|---|
-| 1 | Ảnh/Avatar | Face Mesh + Canvas + ảnh 4K/8K | ✅ |
-| 2 | Mắt/miệng | Face Mesh + hiệu chỉnh 5 điểm | ✅ |
-| 3 | Chớp mắt | Chớp đơn/kép, nhịp theo cảm xúc | ✅ Nâng cấp |
-| 4 | Chuyển động đầu | Micro-motion theo emotion/arousal | ✅ Nâng cấp |
-| 5 | Microphone | Edge WebRTC hoặc companion 16 kHz | ✅ |
-| 6 | VAD | Silero VAD ONNX + endpoint detection | ✅ |
-| 7 | STT | whisper.cpp tiếng Việt + Edge fallback | ✅ |
-| 8 | Nhận dạng offline | Whisper cục bộ | ✅ |
-| 9 | LLM | llama.cpp GGUF/Ollama/OpenAI/Gemini/OpenRouter | ✅ |
-| 10 | Hội thoại AI | Conversation Orchestrator VAD→STT→LLM→TTS | ✅ |
-| 11 | System Prompt | Persona riêng trong `characters.json` | ✅ |
-| 12 | Bộ nhớ | 24 lượt RAM + SQLite opt-in có truy hồi liên quan | ✅ Nâng cấp |
-| 13 | TTS | Windows SAPI/Piper cục bộ + Edge | ✅ |
-| 14 | Clone giọng | Chưa đóng gói; cần model và cơ chế đồng ý riêng | 🔬 Kế hoạch |
-| 15 | Lip-sync text | Lịch phoneme/viseme theo thời lượng WAV | ✅ Nâng cấp |
-| 16 | Lip-sync audio | RMS + ba dải phổ tần Web Audio | ✅ Nâng cấp |
-| 17 | Coarticulation | Attack/release nhìn trước phoneme kế tiếp | ✅ Nâng cấp |
-| 18 | Ngắt lời AI | Barge-in + hủy TTS | ✅ |
-| 19 | Full duplex | Mic luôn nghe + WebRTC AEC + Native echo-guard | ✅ Nâng cấp |
-| 20 | Tự động trả lời | STT Final → LLM → TTS | ✅ |
-| 21 | Hot-swap giọng | Edge voice + Windows SAPI + Piper | ✅ |
-| 22 | Hot-swap tính cách | Mai/Linh/An qua `characters.json` | ✅ |
-| 23 | Hot-swap LLM | Model Profile Registry | ✅ Nâng cấp |
-| 24 | Local LLM server | llama-server/Ollama adapter | ✅ |
-| 25 | Offline hoàn toàn | Whisper + GGUF + SAPI/Piper | ✅ Khi đủ model |
-| 26 | Emotion | Bộ phân tích cảm xúc tiếng Việt cục bộ | ✅ Nâng cấp |
-| 27 | Emotion → mặt | Gaze, blink, head energy | ✅ Nâng cấp |
-| 28 | Dashboard nhân vật | Character + model + voice manager | ✅ |
-| 29 | Chẩn đoán pipeline | Health VAD/STT/LLM/TTS/memory/duplex | ✅ Nâng cấp |
-| 30 | Xuất sản phẩm | PNG, ảnh master 8K và WebM | ✅; MP4 kế hoạch |
+Điểm 7–9/10 dưới đây là **mức kiến trúc/mục tiêu nghiệm thu**, không phải số
+benchmark dựng sẵn. Dashboard 3.5 ghi thời gian thật trên máy người dùng.
+
+| # | Khối | Cybergirl 3.3 | Cybergirl 3.5 | Mức hiện tại |
+|---:|---|---|---|---|
+| 1 | VAD và endpoint | Silero cắt câu | Giữ Silero, echo-guard và hủy lượt ngay khi speech-start | 8/10 · đã mã hóa |
+| 2 | STT tiếng Việt | Whisper trên WAV hoàn chỉnh | Whisper hủy được bằng Popen; báo `stt_ms` | 7/10 · còn batch theo phát ngôn |
+| 3 | LLM | Chờ toàn bộ JSON | SSE/JSONL cho OpenAI, OpenRouter, Ollama, compatible | 8/10 · cần benchmark model |
+| 4 | Token đầu tiên | Không hiển thị | `llm.delta` và `llm_ttft_ms` | 8/10 · đã mã hóa |
+| 5 | Điều phối lượt | Trạng thái rời rạc | Một `TurnCoordinator`, ID tăng đơn điệu | 9/10 · đã test |
+| 6 | Ngắt lời hoàn chỉnh | Chủ yếu dừng TTS | Hủy STT, đóng LLM stream, dừng synth/playback, loại kết quả cũ | 8/10 · Gemini batch là best-effort |
+| 7 | TTS | Tạo toàn bộ WAV trả lời | Tách câu streaming, synth/phát tuần tự khi LLM còn chạy | 7/10 · chưa streaming PCM |
+| 8 | First-audio | Không đo | Ghi `first_audio_ms` theo từng turn | 8/10 · đo trên máy thật |
+| 9 | Engine giọng | Edge/SAPI/Piper | Giữ fallback, tiến trình SAPI/Piper hủy được | 8/10 |
+| 10 | Đồng hồ lip-sync | Timer/timeline tương đối | Bù trễ bằng mốc phát native + timeline frame-sampled | 7/10 · chưa sample clock |
+| 11 | Lip-sync text Edge | Ước lượng ký tự | G2P tiếng Việt + boundary re-anchor | 7/10 · giới hạn Web Speech |
+| 12 | Lip-sync WAV/audio | RMS cơ bản | RMS + phổ ba dải + viseme theo thời lượng thật | 8/10 |
+| 13 | Coarticulation | Chuyển khẩu hình cứng | Attack/release và nội suy viseme kế tiếp | 8/10 |
+| 14 | Miệng | Biến dạng mảnh ảnh | Khẩu độ cong, khoang tối thích nghi, mask feathered | 8/10 |
+| 15 | Mắt và gaze | Chớp cơ bản | Gaze theo phase/emotion, dịch mống mắt cục bộ | 8/10 |
+| 16 | Chớp mắt | Chu kỳ đơn | Chớp đơn/kép, tần suất theo cảm xúc | 8/10 |
+| 17 | Mũi | Đứng yên | Vi dịch theo thở và motion strength | 7/10 · procedural |
+| 18 | Trán | Đứng yên | Vùng trán co giãn rất nhẹ theo chu kỳ | 7/10 · procedural |
+| 19 | Tóc | Đi cùng toàn ảnh | Lớp tóc dao động riêng, biên độ thấp | 7/10 · phụ thuộc ảnh |
+| 20 | Thân/ngực | Đi cùng toàn ảnh | Chu kỳ thở và scale dọc vùng thân | 7/10 · procedural |
+| 21 | Vai | Đứng yên | Vai xoay/nghiêng theo nghe, nói và cử chỉ | 7/10 |
+| 22 | Tay/bàn tay | Không có hệ thống tay | Hai vùng tay quay quanh vai nếu tay hiện diện trong ảnh | 7/10 với ảnh bán thân; không sinh tay mới |
+| 23 | Cử chỉ ngữ nghĩa | Không có | welcome, explain, point, open-hands, listen | 8/10 · rule-based |
+| 24 | Emotion → animation | Gaze/blink/head | Thêm gesture, vai, tóc, thân và cường độ | 8/10 |
+| 25 | Full duplex | Mic và TTS dễ tranh chấp | Input/output bus riêng, barge-in theo turn | 8/10 |
+| 26 | Chống vọng | So khớp văn bản đơn giản | VAD threshold động + lọc echo Edge | 7/10 · chưa AEC phần cứng |
+| 27 | Bộ nhớ | RAM | 24 lượt RAM + SQLite opt-in có truy hồi | 8/10 |
+| 28 | Hiệu năng GGUF | CPU mặc định | Lite/Balanced/Pro; `-ngl` 0/24/99, context 4K/8K | 8/10 · tùy binary/GPU |
+| 29 | Chẩn đoán | Health module | Health + STT/TTFT/LLM/first-audio theo turn | 8/10 |
+| 30 | Đóng gói và riêng tư | Windows/Edge local | CI 3.5, EXE/ZIP/installer; ảnh và landmark không ra API | 9/10 · chờ CI mới |
+
 
 Web Speech do Edge/Windows cung cấp; tùy cấu hình hệ điều hành, nhận dạng giọng
 có thể dùng dịch vụ của Microsoft. Xem [chính sách riêng tư](PRIVACY.md).
+
+## Giới hạn kiến trúc được công bố rõ
+
+- Motion Rig 3.5 là biến dạng vùng ảnh có biên độ thấp, không phải skeleton 3D.
+  Tay chỉ chuyển động nếu ảnh nguồn đã chứa vai/cánh tay/bàn tay; hệ thống không
+  dựng phần cơ thể bị che hoặc tạo bàn tay mới.
+- TTS local đã bắt đầu theo từng câu trong lúc LLM streaming nhưng SAPI/Piper vẫn
+  tạo WAV cho từng đoạn. Streaming PCM/AudioWorklet ring buffer là bước Pro tiếp theo.
+- Mốc phát native giúp bù trễ Native Messaging nhưng chưa phải bộ đếm
+  `playedSamples / sampleRate`. Vì vậy chưa cam kết P95 lip-sync dưới 80 ms.
+- Microsoft Hoài My qua Web Speech không trả PCM, phoneme hoặc AudioNode; chế độ
+  Edge vẫn là căn chỉnh gần đúng bằng boundary.
+- OpenAI/OpenRouter/Ollama/compatible có thể đóng stream khi ngắt lời. Gemini
+  Interactions hiện là batch: Cybergirl loại kết quả cũ sau khi request trở về,
+  nhưng không đảm bảo dừng tính toán phía máy chủ.
+- Hồ sơ Pro chỉ có hiệu lực khi `llama-server.exe` được build với CUDA, HIP hoặc
+  Vulkan tương thích. Nếu không, hãy dùng Lite hoặc Balanced.
+
+### Mục tiêu nghiệm thu 7–9/10
+
+| Chỉ số | Ngưỡng mục tiêu |
+|---|---:|
+| Tắt loa sau barge-in | P95 ≤ 150 ms |
+| LLM time-to-first-token local | P95 ≤ 450 ms |
+| First audio sau STT final | P95 ≤ 1.000 ms |
+| Lệch môi native wall-clock | P95 ≤ 120 ms |
+| Frame time Motion Rig ở 30 FPS | P95 ≤ 33 ms |
+| Cử chỉ bám câu khóa | ±200 ms từ lúc đoạn TTS tương ứng bắt đầu |
+
 
 ## Cài trên Windows
 
 ### Cách một — Bộ cài GUI
 
 1. Mở mục **Actions** hoặc **Releases** của repository.
-2. Tải `Cybergirl-Setup-v3.3.0-Windows-x64.exe`.
+2. Tải `Cybergirl-Setup-v3.5.0-Windows-x64.exe`.
 3. Chạy bộ cài và chọn tạo biểu tượng ngoài màn hình.
 4. Bộ cài tự đăng ký `vn.base27.cybergirl` trong Native Messaging của Edge.
 5. Mở `edge://extensions`, bật chế độ nhà phát triển và tải thư mục
@@ -308,8 +382,8 @@ GitHub Actions tự tạo:
 
 - `Cybergirl-Windows-x64.exe` — GUI một tệp.
 - `Cybergirl-Companion.exe` — Native Messaging host.
-- `Cybergirl-Edge-v3.3.0.zip` — extension có ID ổn định.
-- `Cybergirl-Setup-v3.3.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
+- `Cybergirl-Edge-v3.5.0.zip` — extension có ID ổn định.
+- `Cybergirl-Setup-v3.5.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
 
 Tự build trên Windows:
 
@@ -372,7 +446,7 @@ Avatar/
 ├── vendor/face_mesh/
 ├── icons/
 ├── tests/
-└── .github/workflows/build-windows.yml
+├── docs/index.html              # Landing page GitHub Pages\n├── PREPRINT.md                 # Technical preprint/chưa phản biện\n├── .github/workflows/pages.yml # Triển khai trang giới thiệu\n└── .github/workflows/build-windows.yml
 ```
 
 ## Giấy phép

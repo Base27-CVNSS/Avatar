@@ -200,6 +200,19 @@
               <span>Vi chuyển động gương mặt <output id="faceMotionValue">24%</output></span>
               <input id="faceMotion" type="range" min="0" max="100" value="24">
             </label>
+
+            <label class="range-control" for="gestureStrength">
+              <span>Cường độ bán thân và cử chỉ <output id="gestureStrengthValue">55%</output></span>
+              <input id="gestureStrength" type="range" min="0" max="100" value="55">
+            </label>
+
+            <label class="toggle-row compact" for="motionEnabled">
+              <input id="motionEnabled" type="checkbox" checked>
+              <span>
+                <strong>Motion Rig bán thân</strong>
+                <small>Chu kỳ tóc, trán, mũi, vai và vùng tay có sẵn trong ảnh.</small>
+              </span>
+            </label>
           </section>
 
           <section class="control-section voice-section">
@@ -362,6 +375,14 @@
               <label class="field-label" for="ggufPath">Mô hình LLM GGUF</label>
               <input id="ggufPath" type="text" placeholder="C:\Cybergirl\models\qwen3-4b-q4_k_m.gguf" spellcheck="false">
 
+              <label class="field-label" for="performanceProfile">Hồ sơ hiệu năng</label>
+              <select id="performanceProfile">
+                <option value="lite">Lite · CPU, tương thích cao</option>
+                <option value="balanced" selected>Balanced · offload 24 lớp</option>
+                <option value="pro">Pro · offload tối đa, context 8K</option>
+              </select>
+              <small class="privacy-note">Pro cần llama.cpp có GPU backend phù hợp; hãy benchmark trên chính máy.</small>
+
               <label class="field-label" for="ttsEngineSelect">Bộ đọc tiếng Việt</label>
               <select id="ttsEngineSelect">
                 <option value="windows-sapi">Windows SAPI · cục bộ</option>
@@ -463,7 +484,7 @@
     </main>
 
     <footer>
-      <span>Cybergirl v3.3.0</span>
+      <span>Cybergirl v3.5.0</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 

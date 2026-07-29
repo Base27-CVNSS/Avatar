@@ -25,7 +25,9 @@ const [
   apiClient,
   companionEngines,
   nativeHost,
-  realtime
+  realtime,
+  guiCore,
+  companionVersion
 ] = await Promise.all([
   readText("manifest.json"),
   readText("package.json"),
@@ -37,13 +39,18 @@ const [
   readText("api_client.py"),
   readText("companion/engines.py"),
   readText("companion/native_host.py"),
-  readText("companion/realtime.py")
+  readText("companion/realtime.py"),
+  readText("cybergirl.py"),
+  readText("companion/__init__.py")
 ]);
 const manifest = JSON.parse(manifestText);
 const packageJson = JSON.parse(packageText);
 
 assert.equal(manifest.manifest_version, 3, "Extension phải dùng Manifest V3");
 assert.equal(manifest.version, packageJson.version, "Version manifest và package.json phải trùng");
+const escapedManifestVersion = manifest.version.replaceAll(".", "\\.");
+assert.match(guiCore, new RegExp(`PHIEN_BAN = "${escapedManifestVersion}"`), "GUI core phải trùng phiên bản");
+assert.match(companionVersion, new RegExp(`PHIEN_BAN = "${escapedManifestVersion}"`), "Companion phải trùng phiên bản");
 assert.match(html, new RegExp(`Cybergirl v${manifest.version.replaceAll(".", "\\.")}`));
 assert.equal(manifest.name, "Cybergirl — Trợ lý ảo tiếng Việt");
 assert.deepEqual(

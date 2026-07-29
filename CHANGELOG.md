@@ -12,6 +12,7 @@ Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
 - Ngăn STT interim/final ghi đè viseme của nhân vật.
 - Cải thiện barge-in ở kết quả interim và khóa đầu vào đúng chế độ half-duplex.
 - Khôi phục trạng thái microphone sau TTS.
+- Nút Stop dừng cả TTS companion và tệp WAV tạm được dọn sau phát.
 - Thêm kiểm thử hồi quy cho scheduler, phân tách input/output và dấu thanh.
 - Công bố rõ giới hạn talking portrait 2D; chưa quảng bá cử động tay/toàn thân.
 

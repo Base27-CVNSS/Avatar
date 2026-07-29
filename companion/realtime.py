@@ -17,6 +17,7 @@ class LuotHoiThoai:
     turn_id: int
     reason: str
     cancel: threading.Event = field(default_factory=threading.Event)
+    done: threading.Event = field(default_factory=threading.Event)
     started_at: float = field(default_factory=time.perf_counter)
     first_token_at: float | None = None
 
@@ -45,13 +46,20 @@ class BoDieuPhoiLuot:
         del reason
         with self._lock:
             current = self._current
-            if current:
+            if current and not current.done.is_set():
                 current.cancel.set()
-            return current
+                return current
+            return None
+
+    def ket_thuc(self, turn: LuotHoiThoai) -> None:
+        with self._lock:
+            turn.done.set()
+            if self._current is turn:
+                self._current = None
 
     def la_hien_tai(self, turn: LuotHoiThoai) -> bool:
         with self._lock:
-            return self._current is turn and not turn.cancel.is_set()
+            return self._current is turn and not turn.cancel.is_set() and not turn.done.is_set()
 
     @property
     def current_id(self) -> int:

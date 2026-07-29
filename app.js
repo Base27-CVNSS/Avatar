@@ -2911,6 +2911,7 @@
 
   function stopAll() {
     state.resumeMicAfterTts = false;
+    if (state.nativeReady) nativeRequest("interrupt").catch(() => {});
     window.clearTimeout(state.voiceSendTimer);
     stopVoiceRecording();
     stopTts(false);

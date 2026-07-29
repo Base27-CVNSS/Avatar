@@ -314,6 +314,8 @@ assert.ok(!/<script\s+src=/i.test(landingPage), "Landing page phải tự chứa
 assert.match(preprint, /Technical preprint · Working paper · Chưa phản biện đồng cấp/);
 assert.match(preprint, /not peer reviewed/, "Citation phải công bố trạng thái chưa phản biện");
 assert.match(preprint, /@techreport\{ngo2026cybergirl/, "Preprint phải có BibTeX");
+assert.match(pagesWorkflow, /actions\/checkout@v6/, "Workflow Pages phải dùng checkout hiện hành");
+assert.match(pagesWorkflow, /actions\/upload-pages-artifact@v4/, "Workflow phải đóng gói Pages artifact");
 assert.match(pagesWorkflow, /actions\/deploy-pages@v4/, "Workflow phải deploy GitHub Pages");
 assert.match(pagesWorkflow, /path: docs/, "GitHub Pages phải xuất bản thư mục docs");
 assert.match(readme, /base27-cvnss\.github\.io\/Avatar\//, "README phải liên kết trực tiếp landing page");

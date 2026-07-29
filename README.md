@@ -2,19 +2,27 @@
 
 ![Cybergirl](icons/logo.svg)
 
-[![Phiên bản](https://img.shields.io/badge/Phiên_bản-3.5.0-ff4f9a)](CHANGELOG.md)
-[![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows)](.github/workflows/build-windows.yml)
+[![Website](https://img.shields.io/badge/Website-Cybergirl_3.5-ff4f9a?logo=githubpages&logoColor=white)](https://base27-cvnss.github.io/Avatar/)
+[![README](https://img.shields.io/badge/Docs-README-6f42c1?logo=readme&logoColor=white)](#cybergirl--trợ-lý-ảo-tiếng-việt-cho-microsoft-edge)
+[![Windows](https://img.shields.io/badge/Platform-Windows_10%20%7C%2011-0078d4?logo=windows&logoColor=white)](.github/workflows/build-windows.yml)
+[![Preprint](https://img.shields.io/badge/Preprint-Technical_Report-00a884?logo=readthedocs&logoColor=white)](PREPRINT.md)
+[![MIT License](https://img.shields.io/badge/License-MIT-a970ff)](LICENSE)
+[![Phiên bản](https://img.shields.io/badge/Version-3.5.0-ff79b4)](CHANGELOG.md)
 [![Microsoft Edge](https://img.shields.io/badge/Microsoft_Edge-110%2B-0aa7f5?logo=microsoftedge)](https://www.microsoft.com/edge)
-[![Giấy phép](https://img.shields.io/badge/Giấy_phép-MIT-a970ff)](LICENSE)
-[![Riêng tư](https://img.shields.io/badge/Ảnh_xử_lý-cục_bộ-ff4f9a)](PRIVACY.md)
+[![Local--first](https://img.shields.io/badge/Privacy-Local--first-252235)](PRIVACY.md)
 
-**Cybergirl biến một ảnh chân dung thành trợ lý ảo có thể nghe, hiểu, trả lời
-và nhép môi bằng tiếng Việt. Người dùng Windows chỉ cài GUI; không phải cài
-Python, Node.js hoặc CUDA.**
+**Cybergirl 3.5 là AI Companion tiếng Việt local-first cho Windows, kết hợp hội
+thoại giọng nói realtime, ngắt lời theo lượt, lip-sync và Motion Rig bán thân
+trong Microsoft Edge.**
 
-Cybergirl 3.5 do **Long Ngo** phát triển. Mouth Engine, Face Mesh, ảnh 4K/8K,
-mắt và vi chuyển động được giữ lại; Edge Extension nay kết nối companion cục bộ
-qua Native Messaging để chạy Silero VAD, Whisper, LLM GGUF và TTS tiếng Việt.
+[Mở trang giới thiệu](https://base27-cvnss.github.io/Avatar/) ·
+[Xem HTML trong repository](docs/index.html) ·
+[Đọc technical preprint](PREPRINT.md) ·
+[Xem bản build Windows](.github/workflows/build-windows.yml)
+
+Cybergirl do **Long Ngo** phát triển. Ảnh và landmark gương mặt được xử lý trên
+thiết bị; người dùng có thể chọn Silero VAD, Whisper, LLM GGUF và TTS cục bộ qua
+Native Messaging hoặc chủ động dùng nhà cung cấp AI từ xa.
 
 ## Nâng cấp 3.5 · Realtime Motion
 
@@ -438,7 +446,7 @@ Avatar/
 ├── vendor/face_mesh/
 ├── icons/
 ├── tests/
-└── .github/workflows/build-windows.yml
+├── docs/index.html              # Landing page GitHub Pages\n├── PREPRINT.md                 # Technical preprint/chưa phản biện\n├── .github/workflows/pages.yml # Triển khai trang giới thiệu\n└── .github/workflows/build-windows.yml
 ```
 
 ## Giấy phép

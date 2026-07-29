@@ -2158,7 +2158,7 @@
   }
 
   function gestureFromText(text) {
-    const value = stripVietnameseToneMarks(text);
+    const value = normalizedSpeech(text);
     if (/ben phai|phia phai|vi tri nay/u.test(value)) return "point_right";
     if (/ben trai|phia trai/u.test(value)) return "point_left";
     if (/xin chao|chao ban|chuc mung|rat vui/u.test(value)) return "welcome";
@@ -2546,13 +2546,14 @@
     if (!normalized.length) return;
     const now = performance.now();
     const last = normalized[normalized.length - 1];
-    const offset = clamp(Number(playedOffsetMs || 0), 0, state.lipSync.totalDurationMs || 650);
+    const totalDurationMs = last.at_ms + last.duration_ms;
+    const offset = clamp(Number(playedOffsetMs || 0), 0, totalDurationMs);
     state.lipSync.mode = mode;
     state.lipSync.timeline = normalized;
     state.lipSync.startedAt = now - offset;
     state.lipSync.anchorAt = now;
     state.lipSync.anchorTimelineMs = offset;
-    state.lipSync.totalDurationMs = last.at_ms + last.duration_ms;
+    state.lipSync.totalDurationMs = totalDurationMs;
   }
 
   function updateTimedViseme(timestamp) {

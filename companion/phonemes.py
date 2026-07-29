@@ -16,10 +16,19 @@ NHOM = {
     "tongue": {"l", "n", "t", "th", "đ", "r"},
 }
 DIGRAPHS = ("ngh", "ch", "gh", "gi", "kh", "ng", "nh", "ph", "qu", "th", "tr")
+DAU_THANH = {"\u0300", "\u0301", "\u0303", "\u0309", "\u0323"}
+
+
+def _bo_dau_thanh(text: str) -> str:
+    """Bỏ năm dấu thanh nhưng giữ ă/â/ê/ô/ơ/ư để không làm sai khẩu hình."""
+
+    decomposed = unicodedata.normalize("NFD", text.casefold())
+    without_tones = "".join(char for char in decomposed if char not in DAU_THANH)
+    return unicodedata.normalize("NFC", without_tones)
 
 
 def _viseme(unit: str) -> tuple[str, float, float, float]:
-    base = unicodedata.normalize("NFC", unit.casefold())
+    base = _bo_dau_thanh(unit)
     for name, values in NHOM.items():
         if base in values:
             opening = {
@@ -39,7 +48,7 @@ def _viseme(unit: str) -> tuple[str, float, float, float]:
 
 
 def _tach(text: str) -> list[str]:
-    normalized = unicodedata.normalize("NFC", text.casefold())
+    normalized = _bo_dau_thanh(text)
     units: list[str] = []
     index = 0
     while index < len(normalized):

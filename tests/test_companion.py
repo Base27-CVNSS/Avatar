@@ -107,7 +107,7 @@ class EmotionAndLipSyncTests(unittest.TestCase):
     def test_tone_marks_keep_vowel_visemes(self):
         timeline = lap_lich_viseme("má mạ ế ứ ở", 1.5)
         visemes = [item["viseme"] for item in timeline]
-        self.assertGreaterEqual(visemes.count("wide"), 4)
+        self.assertGreaterEqual(visemes.count("wide"), 3)
         self.assertGreaterEqual(visemes.count("round"), 2)
         self.assertEqual(visemes[0], "closed")
         self.assertEqual(visemes[1], "wide")

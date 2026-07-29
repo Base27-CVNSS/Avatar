@@ -491,14 +491,12 @@ class BoNao:
                     delta = str(choices[0].get("delta", {}).get("content", "") or "")
             if not delta:
                 continue
-            cancel_event.is_set() and (_ for _ in ()).throw(
-                LuotDaHuy("Đã hủy luồng token LLM.")
-            )
+            if cancel_event.is_set():
+                raise LuotDaHuy("Đã hủy luồng token LLM.")
             parts.append(delta)
             on_delta(delta)
-        cancel_event.is_set() and (_ for _ in ()).throw(
-            LuotDaHuy("Đã hủy kết quả LLM streaming.")
-        )
+        if cancel_event.is_set():
+            raise LuotDaHuy("Đã hủy kết quả LLM streaming.")
         answer = _lam_sach("".join(parts))
         if not answer:
             raise LoiEngine("Bộ não AI không trả về nội dung streaming.")

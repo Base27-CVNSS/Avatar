@@ -2,7 +2,7 @@
 
 ![Cybergirl](icons/logo.svg)
 
-[![Phiên bản](https://img.shields.io/badge/Phiên_bản-3.3.0-ff4f9a)](CHANGELOG.md)
+[![Phiên bản](https://img.shields.io/badge/Phiên_bản-3.4.0-ff4f9a)](CHANGELOG.md)
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows)](.github/workflows/build-windows.yml)
 [![Microsoft Edge](https://img.shields.io/badge/Microsoft_Edge-110%2B-0aa7f5?logo=microsoftedge)](https://www.microsoft.com/edge)
 [![Giấy phép](https://img.shields.io/badge/Giấy_phép-MIT-a970ff)](LICENSE)
@@ -12,9 +12,23 @@
 và nhép môi bằng tiếng Việt. Người dùng Windows chỉ cài GUI; không phải cài
 Python, Node.js hoặc CUDA.**
 
-Cybergirl 3.3 do **Long Ngo** phát triển. Mouth Engine, Face Mesh, ảnh 4K/8K,
+Cybergirl 3.4 do **Long Ngo** phát triển. Mouth Engine, Face Mesh, ảnh 4K/8K,
 mắt và vi chuyển động được giữ lại; Edge Extension nay kết nối companion cục bộ
 qua Native Messaging để chạy Silero VAD, Whisper, LLM GGUF và TTS tiếng Việt.
+
+## Nâng cấp 3.4 · Audio-safe Lip Sync
+
+- Tách hai bus tín hiệu: microphone người dùng chỉ cấp meter/VAD; chỉ âm thanh
+  đầu ra của Cybergirl hoặc tệp audio chủ động mới được điều khiển miệng.
+- Thay toàn bộ timer viseme rời rạc bằng một timeline lấy mẫu trong vòng render,
+  có attack/release và tái neo theo `SpeechSynthesisUtterance.boundary`.
+- Chuẩn hóa riêng năm dấu thanh tiếng Việt nhưng giữ nguyên `ă/â/ê/ô/ơ/ư`;
+  các tiếng như “má”, “mạ”, “ế”, “ứ”, “ở” không còn rơi nhầm về neutral.
+- Chặn Speech Recognition ghi đè viseme khi nhân vật đang nói.
+- Half-duplex bỏ qua đầu vào trong lúc TTS; full-duplex có thể ngắt ở kết quả
+  interim không trùng nội dung loa, thay vì luôn đợi câu final.
+- Khôi phục đúng trạng thái microphone sau khi Edge TTS hoặc TTS companion kết thúc.
+- Bổ sung test hồi quy cho dấu thanh, một scheduler và phân tách input/output.
 
 ## Điểm nổi bật
 
@@ -81,7 +95,7 @@ flowchart LR
 | Khóa API | RAM của companion | Chỉ gửi tới nhà cung cấp đã chọn |
 | Bộ nhớ dài hạn | SQLite cục bộ, mặc định tắt | Không |
 
-## Đối chiếu 30 khối sau bản 3.3
+## Đối chiếu 30 khối sau bản 3.4
 
 | # | Khối | Cybergirl 3.3 | Trạng thái |
 |---:|---|---|---|
@@ -99,11 +113,11 @@ flowchart LR
 | 12 | Bộ nhớ | 24 lượt RAM + SQLite opt-in có truy hồi liên quan | ✅ Nâng cấp |
 | 13 | TTS | Windows SAPI/Piper cục bộ + Edge | ✅ |
 | 14 | Clone giọng | Chưa đóng gói; cần model và cơ chế đồng ý riêng | 🔬 Kế hoạch |
-| 15 | Lip-sync text | Lịch phoneme/viseme theo thời lượng WAV | ✅ Nâng cấp |
+| 15 | Lip-sync text | G2P quy tắc + timeline theo thời lượng WAV | ✅ Căn chỉnh gần đúng |
 | 16 | Lip-sync audio | RMS + ba dải phổ tần Web Audio | ✅ Nâng cấp |
 | 17 | Coarticulation | Attack/release nhìn trước phoneme kế tiếp | ✅ Nâng cấp |
 | 18 | Ngắt lời AI | Barge-in + hủy TTS | ✅ |
-| 19 | Full duplex | Mic luôn nghe + WebRTC AEC + Native echo-guard | ✅ Nâng cấp |
+| 19 | Full duplex | Native VAD + echo-guard; Edge dùng lọc văn bản | ✅ Theo từng chế độ |
 | 20 | Tự động trả lời | STT Final → LLM → TTS | ✅ |
 | 21 | Hot-swap giọng | Edge voice + Windows SAPI + Piper | ✅ |
 | 22 | Hot-swap tính cách | Mai/Linh/An qua `characters.json` | ✅ |
@@ -119,12 +133,25 @@ flowchart LR
 Web Speech do Edge/Windows cung cấp; tùy cấu hình hệ điều hành, nhận dạng giọng
 có thể dùng dịch vụ của Microsoft. Xem [chính sách riêng tư](PRIVACY.md).
 
+## Giới hạn kiến trúc được công bố rõ
+
+- Avatar hiện dùng một ảnh raster, Face Mesh một lần và Canvas 2D. Đây là talking
+  portrait; chưa có skeleton vai–khuỷu–cổ tay, motion clip hoặc cử động bàn tay.
+- Microsoft Hoài My qua Web Speech không trả PCM/phoneme/AudioNode. Timeline được
+  tái neo theo ranh giới từ nhưng không thể cam kết đồng bộ sample-accurate.
+- Windows SAPI/Piper cung cấp WAV và tổng thời lượng thật; lịch viseme hiện phân
+  bổ theo G2P quy tắc, chưa phải forced alignment theo từng phoneme.
+- Chuyển động đầu vẫn biến đổi ảnh tổng thể. Muốn người ảo toàn thân cần thêm
+  Live2D/VRM rig hoặc renderer half-body cùng asset chuyển động riêng.
+- Mục tiêu lệch P95 dưới 80 ms chỉ áp dụng cho pipeline tương lai có PCM làm
+  Audio Master Clock; bản Edge Web Speech được xem là chế độ nhẹ gần đúng.
+
 ## Cài trên Windows
 
 ### Cách một — Bộ cài GUI
 
 1. Mở mục **Actions** hoặc **Releases** của repository.
-2. Tải `Cybergirl-Setup-v3.3.0-Windows-x64.exe`.
+2. Tải `Cybergirl-Setup-v3.4.0-Windows-x64.exe`.
 3. Chạy bộ cài và chọn tạo biểu tượng ngoài màn hình.
 4. Bộ cài tự đăng ký `vn.base27.cybergirl` trong Native Messaging của Edge.
 5. Mở `edge://extensions`, bật chế độ nhà phát triển và tải thư mục
@@ -308,8 +335,8 @@ GitHub Actions tự tạo:
 
 - `Cybergirl-Windows-x64.exe` — GUI một tệp.
 - `Cybergirl-Companion.exe` — Native Messaging host.
-- `Cybergirl-Edge-v3.3.0.zip` — extension có ID ổn định.
-- `Cybergirl-Setup-v3.3.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
+- `Cybergirl-Edge-v3.4.0.zip` — extension có ID ổn định.
+- `Cybergirl-Setup-v3.4.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
 
 Tự build trên Windows:
 

@@ -51,7 +51,7 @@ jobs:
             "manifest.json", "index.html", "styles.css", "app.js",
             "background.js", "characters.json", "assets", "icons", "vendor"
           )
-          Compress-Archive -Path $items -DestinationPath "dist\Cybergirl-Edge-v3.3.0.zip" -CompressionLevel Optimal
+          Compress-Archive -Path $items -DestinationPath "dist\Cybergirl-Edge-v3.4.0.zip" -CompressionLevel Optimal
 
       - name: Tạo bộ cài tiếng Việt
         shell: pwsh
@@ -69,6 +69,6 @@ jobs:
           path: |
             dist/Cybergirl-Windows-x64.exe
             dist/Cybergirl-Companion.exe
-            dist/Cybergirl-Edge-v3.3.0.zip
-            dist/installer/Cybergirl-Setup-v3.3.0-Windows-x64.exe
+            dist/Cybergirl-Edge-v3.4.0.zip
+            dist/installer/Cybergirl-Setup-v3.4.0-Windows-x64.exe
           if-no-files-found: error

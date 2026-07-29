@@ -2,6 +2,19 @@
 
 Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
 
+## 3.4.0 — 29/07/2026
+
+- Tách microphone người dùng khỏi bus điều khiển miệng của avatar.
+- Thay timer viseme rời rạc bằng timeline duy nhất lấy mẫu theo frame.
+- Dùng boundary elapsed time để tái neo timeline Edge Web Speech.
+- Chuẩn hóa năm dấu thanh tiếng Việt trong cả frontend và companion, đồng thời
+  giữ đúng các nguyên âm ă, â, ê, ô, ơ và ư.
+- Ngăn STT interim/final ghi đè viseme của nhân vật.
+- Cải thiện barge-in ở kết quả interim và khóa đầu vào đúng chế độ half-duplex.
+- Khôi phục trạng thái microphone sau TTS.
+- Thêm kiểm thử hồi quy cho scheduler, phân tách input/output và dấu thanh.
+- Công bố rõ giới hạn talking portrait 2D; chưa quảng bá cử động tay/toàn thân.
+
 ## 3.3.0 — 28/07/2026
 
 - Thiết kế lại GUI theo luồng Avatar ở trên, dock hội thoại trực tiếp ngay bên dưới.

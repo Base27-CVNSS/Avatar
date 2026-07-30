@@ -6,6 +6,8 @@
 [![PCM](https://img.shields.io/badge/PCM16-16_kHz_mono-00b7c3)](docs/PCM-CONTRACT.md)
 [![Microsoft Edge](https://img.shields.io/badge/Edge-Web_Speech-0aa7f5?logo=microsoftedge)](https://learn.microsoft.com/en-us/microsoft-edge/web-platform/speech-recognition-api)
 [![Windows](https://img.shields.io/badge/Windows-10_%7C_11-0078d4?logo=windows)](.github/workflows/build-windows.yml)
+[![Build](https://img.shields.io/badge/GitHub_Actions-run_%2344_success-2ea44f?logo=githubactions)](https://github.com/Base27-CVNSS/Avatar/actions/runs/30524159731)
+[![Tải v5.3.0](https://img.shields.io/badge/Tải-Cybergirl_v5.3.0-ef67a4?logo=github)](https://github.com/Base27-CVNSS/Avatar/actions/runs/30524159731)
 [![Giấy phép](https://img.shields.io/badge/Giấy_phép-MIT-a970ff)](LICENSE)
 
 **Một mã nguồn giao diện, một engine microphone và một hợp đồng PCM cho cả
@@ -18,25 +20,58 @@ Realtek/Windows System Voice cấp AudioWorklet PCM16; Edge
 `SpeechRecognition` ưu tiên cùng track và tự fallback sang System Voice mà
 không đóng PCM.
 
-## Chạy ngay
+## ⬇️ Tải Cybergirl v5.3.0
+
+> **Nguồn tải chính thức:** [GitHub Actions run #44 — Cybergirl
+> v5.3.0](https://github.com/Base27-CVNSS/Avatar/actions/runs/30524159731)
+> đã build thành công từ commit của dự án. Mở trang, kéo xuống **Artifacts** và
+> chọn **Cybergirl-Windows-x64** để tải gói đầy đủ.
+
+Artifact có dung lượng khoảng **116 MB** và chứa cả bốn hạng mục:
+
+| Hạng mục | Tệp trong artifact | Cách sử dụng |
+|---|---|---|
+| **Windows portable EXE** | `Cybergirl-Windows-x64.exe` | Mở trực tiếp, không cần cài Python, Node.js hay CUDA |
+| **Bộ cài Windows v5.3.0** | `installer/Cybergirl-Setup-v5.3.0-Windows-x64.exe` | Cài giao diện tiếng Việt và tạo shortcut |
+| **Edge Extension v5.3.0** | `Cybergirl-Edge-v5.3.0.zip` | Giải nén rồi nạp tại `edge://extensions` |
+| **Toàn bộ Windows + Edge** | Artifact `Cybergirl-Windows-x64` | Một gói gồm portable EXE, installer, Extension và Native Companion |
+
+**[→ Tải Windows portable, bộ cài, Edge Extension và gói tổng hợp tại
+Actions run #44](https://github.com/Base27-CVNSS/Avatar/actions/runs/30524159731)**
+
+Thông tin xác minh artifact:
+
+- Trạng thái workflow: **Success**.
+- Artifact ID: `8752032528`.
+- Kích thước GitHub ghi nhận: `121.251.458 byte`.
+- SHA-256 artifact:
+  `e04c44aedd05f75fd6d7bad73b78f4c47b2205dbc8804b6c5e49455fca2eb63a`.
+
+## Chạy ngay sau khi tải
 
 ### Edge Extension
 
-1. Tải `Cybergirl-Edge-v5.3.0.zip` trong **Actions** hoặc **Releases**.
-2. Giải nén; mở `edge://extensions`.
-3. Bật **Chế độ nhà phát triển** → **Tải tiện ích đã giải nén**.
-4. Chọn thư mục có `manifest.json`, sau đó bấm biểu tượng Cybergirl.
-5. Cho phép microphone và bấm **Bắt đầu Chat live**.
+1. Tải artifact tại [Actions run
+   #44](https://github.com/Base27-CVNSS/Avatar/actions/runs/30524159731).
+2. Mở artifact và lấy `Cybergirl-Edge-v5.3.0.zip`.
+3. Giải nén tệp Extension; mở `edge://extensions`.
+4. Bật **Chế độ nhà phát triển** → **Tải tiện ích đã giải nén**.
+5. Chọn thư mục có `manifest.json`, sau đó bấm biểu tượng Cybergirl.
+6. Cho phép microphone và bấm **Nhấn để nói**.
 
 Chế độ **Demo cục bộ** hoạt động ngay, không cần model, API key hoặc companion.
 Ảnh, PCM, lip-sync và phản hồi mẫu đều chạy trong Edge.
 
 ### Windows chạy ngay
 
-Tải một trong hai tệp:
+Từ [Actions run
+#44](https://github.com/Base27-CVNSS/Avatar/actions/runs/30524159731), tải
+artifact **Cybergirl-Windows-x64**, giải nén rồi chọn:
 
-- `Cybergirl-Windows-x64.exe`: một tệp EXE, mở trực tiếp.
-- `Cybergirl-Setup-v5.3.0-Windows-x64.exe`: bộ cài tiếng Việt, có shortcut.
+- **Portable:** mở `Cybergirl-Windows-x64.exe` để chạy ngay.
+- **Cài đặt:** mở
+  `installer/Cybergirl-Setup-v5.3.0-Windows-x64.exe` để tạo shortcut và mục gỡ
+  cài đặt trên Windows.
 
 Ứng dụng tự mở Microsoft Edge ở chế độ cửa sổ app. Người dùng không cần cài
 Python, Node.js, CUDA hoặc model để chạy Demo. Khi cần LLM thật, chọn Ollama,
@@ -119,14 +154,18 @@ Tham chiếu:
 [Microsoft Edge SpeechRecognition](https://learn.microsoft.com/en-us/microsoft-edge/web-platform/speech-recognition-api) và
 [`SpeechRecognition.start(audioTrack)`](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/start).
 
-## Điểm nổi bật 5.3.0
+## Những thay đổi quan trọng trong 5.3.0
 
-- Extension và Windows dùng một frontend, không copy thuật toán.
-- GUI studio hai vùng: avatar bên trái, hội thoại bên phải, responsive trên màn nhỏ.
-- Ba tab Trò chuyện/Nhân vật/Chẩn đoán giữ đầy đủ control nhưng giảm nhiễu thị giác.
-- Saymee quản lý interim/final theo segment ID, thống kê đoạn/từ và chống transcript lặp.
-- PCM16 mono 16 kHz cố định qua AudioWorklet.
-- PCM ưu tiên microphone Realtek của Windows; Web Speech lỗi không làm đóng mic.
+- **Một codebase:** Extension và Windows dùng chung frontend và engine, không
+  sao chép thuật toán.
+- **GUI Studio mới:** avatar toàn chiều cao bên trái, hội thoại thời gian thực
+  bên phải và responsive trên màn hình nhỏ.
+- **Ba không gian rõ ràng:** Trò chuyện, Nhân vật và Chẩn đoán giữ đầy đủ
+  control nhưng giảm nhiễu thị giác.
+- **Saymee STT thời gian thực:** quản lý interim/final theo segment ID, thống kê
+  đoạn/từ và chống transcript lặp sau khi Web Speech reconnect.
+- **Realtek Windows Voice:** AudioWorklet luôn tạo PCM16 mono 16 kHz; Web Speech
+  lỗi hoặc chuyển sang System Voice không làm đóng microphone PCM.
 - Chọn thiết bị đầu vào Windows và lưu lựa chọn an toàn.
 - Tự nối lại Web Speech khi Edge kết thúc phiên.
 - Nút **Làm mới đầu vào PCM** đổi sang profile tương thích.
@@ -193,12 +232,16 @@ quyền sử dụng OpenAI API.
 ## Đóng gói
 
 Workflow [build-windows.yml](.github/workflows/build-windows.yml) chạy trên PR,
-`main` và tag `v*`, tạo:
+`main` và tag `v*`. Bản v5.3.0 đã được kiểm thử và đóng gói thành công tại
+[GitHub Actions run
+#44](https://github.com/Base27-CVNSS/Avatar/actions/runs/30524159731):
 
-- `Cybergirl-Windows-x64.exe`
-- `Cybergirl-Companion.exe`
-- `Cybergirl-Edge-v5.3.0.zip`
-- `Cybergirl-Setup-v5.3.0-Windows-x64.exe`
+| Đầu ra workflow | Trạng thái |
+|---|---:|
+| `Cybergirl-Windows-x64.exe` | ✅ Thành công |
+| `Cybergirl-Companion.exe` | ✅ Thành công |
+| `Cybergirl-Edge-v5.3.0.zip` | ✅ Thành công |
+| `installer/Cybergirl-Setup-v5.3.0-Windows-x64.exe` | ✅ Thành công |
 
 Khi push tag, workflow tự tạo GitHub Release và đính kèm bốn tệp.
 
@@ -223,18 +266,23 @@ npm test
 Hiện có:
 
 - kiểm tra cấu trúc Manifest, UI, asset, WASM và bảo mật;
-- unit test hợp đồng PCM, constraints và lỗi Web Speech;
+- **10 kiểm thử JavaScript**: PCM/Realtek/Web Speech và transcript Saymee;
+- **24 kiểm thử Python**: backend, companion, registry, memory và đóng gói;
 - mô phỏng AudioWorklet resample 48 kHz → PCM16 16 kHz;
 - kiểm thử backend/API, Native Messaging, memory, emotion và viseme;
 - self-test tài nguyên đóng gói Windows.
+
+Kết quả chính thức: [Actions run
+#44 — Success](https://github.com/Base27-CVNSS/Avatar/actions/runs/30524159731).
 
 ## Cấu trúc
 
 ```text
 Avatar/
 ├── audio/
-│   ├── pcm-web-speech.js       # Engine dùng chung
-│   └── pcm16-processor.js      # AudioWorklet resample + PCM16
+│   ├── pcm-web-speech.js       # Realtek/Windows Voice + Edge Web Speech
+│   ├── pcm16-processor.js      # AudioWorklet resample + PCM16
+│   └── saymee-transcript.js    # Interim/final, thống kê và chống lặp
 ├── app.js                      # Avatar, chat, orchestration
 ├── index.html                  # UI dùng chung
 ├── manifest.json               # Edge Extension MV3

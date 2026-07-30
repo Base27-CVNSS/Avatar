@@ -18,7 +18,8 @@ const [
   apiClient,
   companionEngines,
   pcmEngine,
-  pcmWorklet
+  pcmWorklet,
+  saymeeTranscript
 ] = await Promise.all([
   readText("manifest.json"),
   readText("package.json"),
@@ -30,7 +31,8 @@ const [
   readText("api_client.py"),
   readText("companion/engines.py"),
   readText("audio/pcm-web-speech.js"),
-  readText("audio/pcm16-processor.js")
+  readText("audio/pcm16-processor.js"),
+  readText("audio/saymee-transcript.js")
 ]);
 const manifest = JSON.parse(manifestText);
 const packageJson = JSON.parse(packageText);
@@ -64,6 +66,14 @@ assert.equal(new Set(ids).size, ids.length, "HTML không được trùng id");
 const selectors = [...app.matchAll(/\$\("#([A-Za-z][\w:-]*)"\)/g)].map((match) => match[1]);
 const missingSelectors = [...new Set(selectors.filter((id) => !ids.includes(id)))];
 assert.deepEqual(missingSelectors, [], `Thiếu phần tử HTML: ${missingSelectors.join(", ")}`);
+assert.match(html, /data-studio-tab="conversation"/, "UI phải có tab Trò chuyện");
+assert.match(html, /data-studio-tab="character"/, "UI phải có tab Nhân vật");
+assert.match(html, /data-studio-tab="diagnostics"/, "UI phải có tab Chẩn đoán");
+assert.match(html, /id="transcriptStats"/, "UI phải có thống kê transcript Saymee");
+assert.match(html, /audio\/saymee-transcript\.js/, "UI phải nạp lõi transcript Saymee");
+assert.match(app, /configureStudioPanels\(\)/, "App phải dùng cùng control trong GUI hai vùng");
+assert.match(app, /CybergirlSaymee\?\.TranscriptSession/, "App phải nối Web Speech vào Saymee");
+assert.match(saymeeTranscript, /class TranscriptSession/, "Thiếu phiên transcript Saymee");
 
 const scripts = [...html.matchAll(/<script\s+src="([^"]+)"/g)].map((match) => match[1]);
 for (const script of scripts) {
@@ -97,6 +107,7 @@ const desktopFiles = [
   "installer/Cybergirl.iss",
   "installer/Vietnamese.isl",
   ".github/workflows/build-windows.yml",
+  "audio/saymee-transcript.js",
   "audio/pcm-web-speech.js",
   "audio/pcm16-processor.js"
 ];
@@ -189,7 +200,15 @@ assert.ok(
     .includes('nativeRequest("start_listening")'),
   "Đường microphone chính không được đổi sang Silero/Whisper companion"
 );
-assert.match(pcmEngine, /recognition\.start\(this\.track\)/, "Web Speech phải nhận cùng MediaStreamTrack");
+assert.match(pcmEngine, /recognition\.start\(this\.track\)/, "Web Speech phải thử nhận cùng MediaStreamTrack");
+assert.match(pcmEngine, /factory\(root\)/, "Engine UMD phải nhận đúng browser root");
+assert.match(pcmEngine, /windows-system-voice/, "Web Speech phải fallback sang Windows System Voice");
+assert.match(pcmEngine, /selectWindowsVoiceInput/, "Đường Windows Voice phải ưu tiên microphone Realtek");
+assert.match(
+  pcmEngine,
+  /this\.startRecognition\(\)\.catch/,
+  "Lỗi Web Speech không được đóng pipeline PCM"
+);
 assert.match(pcmEngine, /TARGET_SAMPLE_RATE = 16000/, "PCM phải chuẩn hóa đúng 16 kHz");
 assert.match(pcmEngine, /TARGET_CHANNELS = 1/, "PCM phải chuẩn hóa mono");
 assert.match(pcmEngine, /processLocally = false/, "vi-VN phải dùng dịch vụ Edge/Windows hiện hành");

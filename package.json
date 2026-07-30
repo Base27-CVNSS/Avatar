@@ -1,11 +1,11 @@
 {
   "name": "cybergirl-edge-vietnamese-assistant",
-  "version": "5.2.0",
+  "version": "5.3.0",
   "private": true,
-  "description": "Cybergirl hợp nhất Edge Extension và Windows trên một lõi PCM16 + Web Speech.",
+  "description": "Cybergirl Studio hợp nhất Edge Extension và Windows trên PCM16, Web Speech và transcript Saymee.",
   "author": "Long Ngo",
   "license": "MIT",
   "scripts": {
-    "test": "node tests/validate.mjs && node --test tests/test_pcm_web_speech.mjs && node tests/run-python.mjs"
+    "test": "node tests/validate.mjs && node --test tests/test_pcm_web_speech.mjs tests/test_saymee_transcript.mjs && node tests/run-python.mjs"
   }
 }

@@ -2,6 +2,42 @@
 
 Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
 
+## 5.3.0 — 30/07/2026
+
+### Cybergirl Studio và Saymee STT
+
+- Thiết kế lại GUI tối theo bố cục studio hai vùng: avatar toàn chiều cao bên
+  trái, hội thoại thời gian thực và composer ở bên phải.
+- Thêm ba không gian **Trò chuyện**, **Nhân vật**, **Chẩn đoán**; tái sử dụng
+  nguyên control hiện có nên Extension và Windows không phát sinh hai frontend.
+- Thêm lớp phiên transcript lấy từ mô hình dữ liệu Saymee: ID ổn định theo lần
+  nhận dạng, cập nhật interim tại chỗ, chỉ commit final một lần và chặn bản lặp
+  khi Web Speech tự nối lại.
+- Hiển thị trực tiếp số đoạn/số từ và chỉ tự gửi những đoạn final mới.
+- Canvas tự thích ứng theo tỉ lệ cửa sổ, giữ phép cover ảnh và tọa độ Face Mesh
+  thống nhất ở màn hình desktop lẫn responsive.
+- Giữ Realtek PCM16 mono 16 kHz chạy độc lập; Edge Web Speech có thể fallback
+  sang Windows System Voice mà không đóng PCM.
+- Bổ sung unit test transcript Saymee và kiểm tra hồi quy UI studio.
+- Workflow Windows đóng gói cùng thư mục `audio/` vào Extension ZIP lẫn EXE để
+  hai bản luôn nhận đúng cùng một engine và cùng lõi transcript.
+
+## 5.2.1 — 30/07/2026
+
+### Windows System Voice và Realtek
+
+- Sửa lỗi UMD không truyền `root` vào factory khiến lần gọi microphone đầu tiên
+  có thể dừng tại `ReferenceError: root is not defined`.
+- Tự động ưu tiên `Microphone Array/Microphone (Realtek Audio)` và loại
+  `Stereo Mix`/loopback khỏi đường Voice.
+- Công nhận microphone đã mở ngay khi MediaStreamTrack/PCM hoạt động, không chờ
+  Web Speech phát `audiostart`.
+- Web Speech thử cùng track Realtek trước; nếu Edge không nhận, tự chuyển sang
+  Windows System Voice mặc định.
+- Lỗi Web Speech, Azure, mạng hoặc policy không còn đóng PCM và không còn bị báo
+  nhầm thành “Chưa mở được microphone”.
+- Bổ sung kiểm thử hồi quy mở PCM khi Web Speech chưa sẵn sàng.
+
 ## 5.2.0 — 30/07/2026
 
 ### Một lõi Edge/Windows

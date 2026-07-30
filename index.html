@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#07111f">
-    <meta name="description" content="Cybergirl là trợ lý ảo tiếng Việt dùng chung lõi PCM16 và Edge Web Speech cho Extension lẫn Windows.">
+    <meta name="theme-color" content="#0b080d">
+    <meta name="description" content="Cybergirl Studio dùng Realtek Windows Voice, PCM16 và Saymee Web Speech thời gian thực cho Extension lẫn Windows.">
     <meta name="cybergirl-token" content="">
     <title>Cybergirl — Trợ lý ảo tiếng Việt</title>
     <link rel="icon" href="icons/logo.svg" type="image/svg+xml">
@@ -19,14 +19,14 @@
         <img src="icons/logo.svg" alt="" width="46" height="46">
         <span>
           <strong>Cybergirl</strong>
-          <small>Trợ lý ảo Microsoft Edge</small>
+          <small>CPU Edge Studio · v5.3.0</small>
         </span>
       </a>
 
       <div class="status-row" aria-label="Trạng thái công nghệ">
-        <span class="status-pill"><i class="status-dot"></i> GUI Windows</span>
-        <span id="runtimeMode" class="status-pill">Edge + Face Mesh</span>
-        <span class="status-pill status-private">Ảnh luôn ở trên máy</span>
+        <span class="status-pill"><i class="status-dot status-dot-warn"></i> Edge STT · Web Speech</span>
+        <span id="runtimeMode" class="status-pill"><i class="status-dot"></i> Localhost đang kiểm tra</span>
+        <button id="openDiagnosticsButton" class="header-icon-button" type="button" aria-label="Mở chẩn đoán" title="Chẩn đoán">⚙</button>
       </div>
     </header>
 
@@ -77,6 +77,10 @@
 
           <div id="canvasShell" class="canvas-shell">
             <canvas id="avatarCanvas" width="1280" height="720" aria-label="Avatar Cybergirl thời gian thực 16:9"></canvas>
+            <div class="avatar-identity">
+              <div><span class="identity-dot"></span><strong id="avatarName">Mai</strong></div>
+              <small id="avatarSubtitle">Người bạn đồng hành AI · vi-VN</small>
+            </div>
             <div id="calibrationHint" class="calibration-hint" hidden>
               <span>＋</span>
               <strong id="calibrationText">Bấm tâm mắt trái</strong>
@@ -96,65 +100,81 @@
           </div>
 
           <section id="conversationDock" class="conversation-dock" aria-labelledby="conversationTitle">
-            <div class="conversation-heading">
-              <div>
-                <p class="eyebrow">Live Conversation</p>
-                <h2 id="conversationTitle">Trò chuyện trực tiếp với Cybergirl</h2>
+            <nav class="studio-tabs" role="tablist" aria-label="Không gian Cybergirl">
+              <button class="studio-tab active" type="button" role="tab" aria-selected="true" aria-controls="conversationStudioPanel" data-studio-tab="conversation">Trò chuyện</button>
+              <button class="studio-tab" type="button" role="tab" aria-selected="false" aria-controls="characterStudioPanel" data-studio-tab="character">Nhân vật</button>
+              <button class="studio-tab" type="button" role="tab" aria-selected="false" aria-controls="diagnosticsStudioPanel" data-studio-tab="diagnostics">Chẩn đoán</button>
+            </nav>
+
+            <div id="conversationStudioPanel" class="studio-tab-panel active" role="tabpanel">
+              <div class="conversation-heading">
+                <div>
+                  <p class="eyebrow">Speech → Intelligence → Speech</p>
+                  <h2 id="conversationTitle">Hội thoại thời gian thực</h2>
+                </div>
+                <button id="clearChatButton" class="text-button" type="button">Xóa</button>
               </div>
+
               <output id="liveModeStatus" class="live-mode-status">Đang chờ người dùng</output>
+
+              <div class="conversation-grid">
+                <div class="conversation-history">
+                  <div id="chatMessages" class="chat-messages" aria-live="polite" aria-label="Lịch sử hội thoại">
+                    <article class="chat-message assistant">
+                      <span>Mai · Vừa xong</span>
+                      <p>Chào anh, em đã sẵn sàng. PCM Realtek và Web Speech đang chạy trên cùng một luồng điều phối.</p>
+                    </article>
+                  </div>
+
+                  <div class="transcript-card">
+                    <div class="transcript-heading">
+                      <span>Saymee · Web Speech thời gian thực</span>
+                      <div class="transcript-actions">
+                        <output id="transcriptStats">0 đoạn · 0 từ</output>
+                        <button id="copyTranscript" class="text-button" type="button">Sao chép</button>
+                      </div>
+                    </div>
+                    <p id="transcriptText">Bản chép lời sẽ xuất hiện ở đây khi bật microphone.</p>
+                  </div>
+                </div>
+
+                <div class="conversation-composer">
+                  <div id="recordingPreview" class="recording-preview" hidden>
+                    <div>
+                      <strong>Bản ghi gần nhất</strong>
+                      <small>Chỉ nằm trong bộ nhớ trình duyệt cho đến khi xóa hoặc đóng ứng dụng.</small>
+                    </div>
+                    <audio id="recordedVoicePlayer" controls preload="metadata"></audio>
+                    <button id="deleteVoiceButton" class="text-button" type="button">Xóa bản ghi</button>
+                  </div>
+
+                  <label class="field-label visually-hidden" for="chatInput">Tin nhắn tiếng Việt</label>
+                  <div class="composer-input">
+                    <textarea id="chatInput" rows="2" placeholder="Nhập lời muốn nói…"></textarea>
+                    <button id="sendChatButton" class="send-button" type="button" aria-label="Gửi và trả lời">➤</button>
+                  </div>
+                  <div class="composer-actions">
+                    <div class="live-control-row">
+                      <button id="recordVoiceButton" class="button icon-button record-toggle" type="button" aria-pressed="false" title="Ghi âm" aria-label="Ghi âm">
+                        <span aria-hidden="true">■</span>
+                      </button>
+                      <button id="liveTalkButton" class="button live-button" type="button" aria-pressed="false">
+                        <span class="mic-glyph" aria-hidden="true">♩</span>
+                        <span><strong>Nhấn để nói</strong><small>Realtek · Edge STT</small></span>
+                      </button>
+                      <output id="recordingTimer" class="recording-timer" aria-live="polite">00:00</output>
+                    </div>
+                    <button id="clearMemoryButton" class="text-button memory-button" type="button">Xóa bộ nhớ dài hạn</button>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="conversation-grid">
-              <div class="conversation-history">
-                <div id="chatMessages" class="chat-messages" aria-live="polite" aria-label="Lịch sử hội thoại">
-                  <article class="chat-message assistant">
-                    <span>Cybergirl</span>
-                    <p>Xin chào! Hãy bấm Chat live để nói hoặc nhập câu hỏi tiếng Việt ở bên cạnh.</p>
-                  </article>
-                </div>
-
-                <div class="transcript-card">
-                  <div class="transcript-heading">
-                    <span>Nhận dạng giọng Việt theo thời gian thực</span>
-                    <button id="copyTranscript" class="text-button" type="button">Sao chép</button>
-                  </div>
-                  <p id="transcriptText">Bản chép lời sẽ xuất hiện ở đây khi bật microphone.</p>
-                </div>
-              </div>
-
-              <div class="conversation-composer">
-                <div class="live-control-row">
-                  <button id="liveTalkButton" class="button live-button" type="button" aria-pressed="false">
-                    <span class="button-dot" aria-hidden="true"></span>
-                    Bắt đầu Chat live
-                  </button>
-                  <button id="recordVoiceButton" class="button secondary" type="button" aria-pressed="false">
-                    <span aria-hidden="true">●</span>
-                    Ghi âm
-                  </button>
-                  <output id="recordingTimer" class="recording-timer" aria-live="polite">00:00</output>
-                </div>
-
-                <div id="recordingPreview" class="recording-preview" hidden>
-                  <div>
-                    <strong>Bản ghi gần nhất</strong>
-                    <small>Chỉ nằm trong bộ nhớ trình duyệt cho đến khi xóa hoặc đóng ứng dụng.</small>
-                  </div>
-                  <audio id="recordedVoicePlayer" controls preload="metadata"></audio>
-                  <button id="deleteVoiceButton" class="text-button" type="button">Xóa bản ghi</button>
-                </div>
-
-                <label class="field-label" for="chatInput">Tin nhắn tiếng Việt</label>
-                <textarea id="chatInput" rows="4" placeholder="Nhập câu hỏi hoặc bấm Chat live để nói…"></textarea>
-                <div class="composer-actions">
-                  <small>Enter để gửi · Shift+Enter để xuống dòng</small>
-                  <div class="button-row">
-                    <button id="sendChatButton" class="button primary" type="button">Gửi và trả lời</button>
-                    <button id="clearChatButton" class="button icon-button" type="button" title="Xóa hội thoại" aria-label="Xóa hội thoại">⌫</button>
-                    <button id="clearMemoryButton" class="button secondary" type="button">Xóa bộ nhớ</button>
-                  </div>
-                </div>
-              </div>
+            <div id="characterStudioPanel" class="studio-tab-panel settings-studio-panel" role="tabpanel" hidden>
+              <div class="panel-placeholder">Đang nạp thiết lập nhân vật…</div>
+            </div>
+            <div id="diagnosticsStudioPanel" class="studio-tab-panel settings-studio-panel" role="tabpanel" hidden>
+              <div class="panel-placeholder">Đang nạp chẩn đoán thiết bị…</div>
             </div>
           </section>
         </section>
@@ -261,12 +281,12 @@
                 <span id="micOrb" class="mic-orb" aria-hidden="true">●</span>
                 <div>
                   <strong id="micTitle">Microphone đang tắt</strong>
-                  <small id="micHint">Edge sẽ hỏi quyền và tạo PCM16 mono 16 kHz khi bạn bắt đầu.</small>
+                  <small id="micHint">Windows Voice sẽ ưu tiên microphone Realtek và tạo PCM16 mono 16 kHz.</small>
                 </div>
               </div>
               <label class="field-label" for="microphoneDeviceSelect">Thiết bị đầu vào Windows</label>
               <select id="microphoneDeviceSelect">
-                <option value="">Microphone mặc định của Windows</option>
+                <option value="">Tự động · Windows Voice ưu tiên Realtek</option>
               </select>
               <div class="pcm-health" aria-label="Trạng thái PCM và Web Speech">
                 <span id="pcmFormatStatus">PCM16 · 16 kHz · mono</span>
@@ -275,7 +295,7 @@
               </div>
               <button id="micButton" class="button primary full-width" type="button">Bắt đầu nhận giọng Việt</button>
               <button id="recoverMicButton" class="button secondary full-width" type="button">Làm mới đầu vào PCM</button>
-              <p class="micro-copy">Cùng một MediaStreamTrack cấp dữ liệu cho AudioWorklet PCM16 và Edge Web Speech; Extension và Windows dùng đúng một engine.</p>
+              <p class="micro-copy">Realtek/Windows Voice cấp PCM16 cho cả hai bản. Edge Web Speech thử cùng track trước, rồi tự dùng System Voice mà không đóng PCM nếu cần tương thích.</p>
             </div>
           </section>
 
@@ -474,12 +494,13 @@
     </main>
 
     <footer>
-      <span>Cybergirl v5.2.0 · Unified PCM</span>
+      <span>Cybergirl v5.3.0 · Saymee Real-time STT</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="vendor/face_mesh/face_mesh.js"></script>
+    <script src="audio/saymee-transcript.js"></script>
     <script src="audio/pcm-web-speech.js"></script>
     <script src="app.js"></script>
   </body>

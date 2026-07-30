@@ -50,6 +50,8 @@ sequenceDiagram
     UI->>UI: getUserMedia
     UI->>W: MediaStreamTrack
     UI->>E: recognition.start(track)
+    E-->>UI: Không nhận track trực tiếp
+    UI->>E: recognition.start() qua System Voice
     W-->>UI: PCM16 20 ms + RMS/peak
     E-->>UI: Interim/final vi-VN
     UI->>B: Final text
@@ -57,7 +59,9 @@ sequenceDiagram
     UI->>UI: TTS + viseme + mouth
 ```
 
-`AudioWorklet` và `SpeechRecognition` cùng đọc một track. Điều này giải quyết
+`AudioWorklet` và `SpeechRecognition` ưu tiên cùng đọc track Realtek. Nếu Edge
+không hỗ trợ đầu vào track trực tiếp, Web Speech chuyển sang Windows System
+Voice trong khi PCM vẫn giữ nguyên. Điều này giải quyết
 lỗi phổ biến: meter báo có âm thanh nhưng STT nghe micro khác, hoặc STT có text
 nhưng lip-sync nhận digital silence.
 
@@ -69,6 +73,10 @@ stateDiagram-v2
     idle --> requesting: Bắt đầu
     requesting --> track_live: Được cấp quyền
     track_live --> armed: Web Speech audio-start
+    track_live --> speech_fallback: Edge không nhận track
+    speech_fallback --> armed: Windows System Voice
+    track_live --> speech_error: Policy/mạng/dịch vụ
+    speech_error --> track_live: PCM vẫn hoạt động
     armed --> recognizing: Có lời nói
     recognizing --> armed: Speech end
     armed --> reconnecting: Edge kết thúc phiên
@@ -76,7 +84,7 @@ stateDiagram-v2
     track_live --> recovering: PCM digital silence
     recovering --> armed: Profile tương thích
     armed --> idle: Dừng
-    requesting --> error: Quyền/thiết bị/policy
+    requesting --> error: Quyền/thiết bị/AudioWorklet
 ```
 
 ## Bảo mật

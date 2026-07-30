@@ -1,4 +1,4 @@
-"""Cybergirl 3.3 — GUI Windows dùng nhân Microsoft Edge.
+"""Cybergirl 5.2 — GUI Windows dùng nhân Microsoft Edge.
 
 Ứng dụng đóng gói thành một tệp EXE bằng PyInstaller. Khi chạy, chương trình:
 
@@ -32,7 +32,7 @@ from api_client import APIClient, CauHinhAPI, LoiAPI
 from voice_registry import LoiCauHinhNhanVat, VoiceRegistry
 
 
-PHIEN_BAN = "3.3.0"
+PHIEN_BAN = "5.2.0"
 CONG_MAC_DINH = 27827
 GIOI_HAN_JSON = 1_000_000
 
@@ -61,9 +61,9 @@ class KhoCauHinh:
 
     def load(self) -> dict[str, Any]:
         defaults = {
-            "provider": "gguf",
-            "base_url": "http://127.0.0.1:27829/v1",
-            "model": "qwen3-4b-vi",
+            "provider": "demo",
+            "base_url": "http://127.0.0.1:27827",
+            "model": "cybergirl-demo-vi",
             "active_character": "mai",
             "openrouter_referer": "https://github.com/Base27-CVNSS/Avatar",
             "openrouter_title": "Cybergirl",
@@ -457,7 +457,7 @@ def chay_gui(service: DichVu) -> None:
 
     info = (
         "• Không cần cài Python, Node hoặc CUDA sau khi đóng gói.\n"
-        "• Face Mesh, ảnh, microphone và khẩu hình chạy trong Edge.\n"
+        "• Face Mesh, PCM16 16 kHz, Web Speech và khẩu hình chạy trong Edge.\n"
         "• Ollama/API chỉ nhận văn bản hội thoại, không nhận ảnh.\n"
         "• Khóa API chỉ giữ trong bộ nhớ và bị xóa khi thoát."
     )
@@ -519,6 +519,8 @@ def self_test(assets: Path) -> int:
         "index.html",
         "styles.css",
         "app.js",
+        "audio/pcm-web-speech.js",
+        "audio/pcm16-processor.js",
         "characters.json",
         "assets/default-avatar.webp",
         "vendor/face_mesh/face_mesh.js",

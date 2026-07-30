@@ -8,6 +8,7 @@ datas = [
     (str(root / "index.html"), "."),
     (str(root / "styles.css"), "."),
     (str(root / "app.js"), "."),
+    (str(root / "audio"), "audio"),
     (str(root / "characters.json"), "."),
     (str(root / "assets"), "assets"),
     (str(root / "icons"), "icons"),

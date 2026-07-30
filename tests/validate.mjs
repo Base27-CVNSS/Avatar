@@ -16,7 +16,9 @@ const [
   workflow,
   installer,
   apiClient,
-  companionEngines
+  companionEngines,
+  pcmEngine,
+  pcmWorklet
 ] = await Promise.all([
   readText("manifest.json"),
   readText("package.json"),
@@ -26,7 +28,9 @@ const [
   readText(".github/workflows/build-windows.yml"),
   readText("installer/Cybergirl.iss"),
   readText("api_client.py"),
-  readText("companion/engines.py")
+  readText("companion/engines.py"),
+  readText("audio/pcm-web-speech.js"),
+  readText("audio/pcm16-processor.js")
 ]);
 const manifest = JSON.parse(manifestText);
 const packageJson = JSON.parse(packageText);
@@ -92,7 +96,9 @@ const desktopFiles = [
   "icons/cybergirl.ico",
   "installer/Cybergirl.iss",
   "installer/Vietnamese.isl",
-  ".github/workflows/build-windows.yml"
+  ".github/workflows/build-windows.yml",
+  "audio/pcm-web-speech.js",
+  "audio/pcm16-processor.js"
 ];
 for (const file of desktopFiles) {
   assert.ok((await stat(path.join(root, file))).size > 0, `Thiếu thành phần GUI Windows ${file}`);
@@ -176,6 +182,19 @@ assert.match(html, /id="liveTalkButton"/, "Phải có nút Chat live");
 assert.match(html, /id="recordVoiceButton"/, "Phải có nút ghi âm trực tiếp");
 assert.match(html, /id="recordedVoicePlayer"/, "Phải nghe lại được bản ghi cục bộ");
 assert.match(app, /function toggleLiveTalk/, "Chat live phải bật/tắt microphone");
+assert.match(app, /ensureUnifiedSpeechEngine/, "Hai bản phải dùng chung engine PCM Web Speech");
+assert.match(app, /audio\/pcm16-processor\.js/, "GUI phải nạp AudioWorklet PCM16");
+assert.ok(
+  !app.slice(app.indexOf("async function startMic"), app.indexOf("async function stopMic"))
+    .includes('nativeRequest("start_listening")'),
+  "Đường microphone chính không được đổi sang Silero/Whisper companion"
+);
+assert.match(pcmEngine, /recognition\.start\(this\.track\)/, "Web Speech phải nhận cùng MediaStreamTrack");
+assert.match(pcmEngine, /TARGET_SAMPLE_RATE = 16000/, "PCM phải chuẩn hóa đúng 16 kHz");
+assert.match(pcmEngine, /TARGET_CHANNELS = 1/, "PCM phải chuẩn hóa mono");
+assert.match(pcmEngine, /processLocally = false/, "vi-VN phải dùng dịch vụ Edge/Windows hiện hành");
+assert.match(pcmWorklet, /Int16Array/, "AudioWorklet phải phát signed PCM16");
+assert.match(pcmWorklet, /format: "s16le"/, "PCM phải khai báo little-endian nhất quán");
 assert.match(app, /function startVoiceRecording/, "Phải có bộ ghi âm người dùng");
 assert.match(app, /voiceRecorder = new MediaRecorder/, "Ghi âm phải dùng MediaRecorder của Edge");
 assert.match(app, /seconds >= 300/, "Bản ghi phải có giới hạn thời lượng an toàn");
@@ -191,8 +210,11 @@ assert.match(app, /scheduleTimedVisemes/, "TTS cục bộ phải cấp timing vi
 assert.match(app, /isLikelySpeakerEcho/, "Full-duplex phải có echo-guard");
 assert.match(app, /applyEmotion/, "Cảm xúc phải điều khiển trạng thái gương mặt");
 assert.match(app, /MediaRecorder/, "Phải hỗ trợ xuất video WebM");
-assert.match(html, /id="nativeVadStatus"/, "Phải hiển thị trạng thái Silero VAD");
-assert.match(html, /id="nativeSttStatus"/, "Phải hiển thị trạng thái Whisper");
+assert.match(html, /id="nativeVadStatus"/, "Phải hiển thị trạng thái PCM VAD");
+assert.match(html, /id="nativeSttStatus"/, "Phải hiển thị trạng thái Web Speech");
+assert.match(html, /id="pcmFormatStatus"/, "Phải hiển thị định dạng PCM");
+assert.match(html, /id="microphoneDeviceSelect"/, "Phải cho chọn microphone Windows");
+assert.match(html, /id="recoverMicButton"/, "Phải có nút làm mới PCM");
 assert.match(html, /id="nativeLlmStatus"/, "Phải hiển thị trạng thái GGUF");
 assert.match(html, /id="nativeTtsStatus"/, "Phải hiển thị trạng thái TTS");
 assert.match(html, /id="memoryEnabled"/, "Phải có đồng ý bật bộ nhớ dài hạn");
@@ -219,8 +241,18 @@ const securitySource = [
 assert.ok(!securitySource.includes("sk-or-v1-"), "Không được đưa khóa OpenRouter vào mã nguồn");
 assert.match(workflow, /cache-dependency-path: requirements-build\.txt/, "CI phải cache đúng tệp phụ thuộc");
 assert.match(workflow, /cybergirl_companion\.spec/, "CI phải đóng gói Native Companion");
-assert.match(workflow, /Cybergirl-Edge-v3\.3\.0\.zip/, "CI phải xuất gói Edge Extension");
-assert.match(installer, /#define MyAppVersion "3\.3\.0"/, "Bộ cài phải đúng phiên bản 3.3.0");
+assert.match(
+  workflow,
+  new RegExp(`Cybergirl-Edge-v${manifest.version.replaceAll(".", "\\.")}\\.zip`),
+  "CI phải xuất gói Edge Extension đúng phiên bản"
+);
+assert.match(
+  installer,
+  new RegExp(`#define MyAppVersion "${manifest.version.replaceAll(".", "\\.")}"`),
+  "Bộ cài phải đồng bộ phiên bản"
+);
+assert.match(workflow, /pull_request:/, "PR phải tự build thử gói Windows");
+assert.match(workflow, /gh release create/, "Tag phải tạo GitHub Release tải trực tiếp");
 assert.match(installer, /register-native-host\.ps1/, "Bộ cài phải đăng ký Native Messaging");
 
 const characters = JSON.parse(await readText("characters.json"));
@@ -235,4 +267,4 @@ console.log(`Cybergirl ${manifest.version}: PASS`);
 console.log(`- ${ids.length} HTML ids; ${selectors.length} JS selectors`);
 console.log(`- Runtime WebP 3840x2160; xuất master 7680x4320 cục bộ`);
 console.log(`- ${faceMeshAssets.length} Face Mesh assets; ${wasmFiles.length} WASM modules hợp lệ`);
-console.log("- Manifest V3 + Native Messaging; GUI Windows và khóa API chỉ ở RAM");
+console.log("- Một lõi PCM16/Web Speech cho Manifest V3 và GUI Windows");

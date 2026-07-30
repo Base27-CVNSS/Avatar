@@ -87,6 +87,18 @@ class APIClientTests(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
 
+    def test_demo_runs_without_network_or_key(self):
+        client = APIClient(
+            CauHinhAPI(
+                "demo",
+                "http://127.0.0.1:27827",
+                "cybergirl-demo-vi",
+            )
+        )
+        answer = client.chat("Đầu vào PCM hoạt động thế nào?", [], "Tiếng Việt.")
+        self.assertIn("PCM", answer)
+        self.assertIn("16 kHz", answer)
+
     def test_ollama(self):
         client = APIClient(CauHinhAPI("ollama", self.base, "qwen3:4b"))
         self.assertEqual(

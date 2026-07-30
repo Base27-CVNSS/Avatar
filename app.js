@@ -29,6 +29,11 @@
     micOrb: $("#micOrb"),
     micTitle: $("#micTitle"),
     micHint: $("#micHint"),
+    microphoneDeviceSelect: $("#microphoneDeviceSelect"),
+    recoverMicButton: $("#recoverMicButton"),
+    pcmFormatStatus: $("#pcmFormatStatus"),
+    pcmLevelStatus: $("#pcmLevelStatus"),
+    speechTrackStatus: $("#speechTrackStatus"),
     canvas: $("#avatarCanvas"),
     canvasShell: $("#canvasShell"),
     calibrationHint: $("#calibrationHint"),
@@ -193,6 +198,11 @@
     mediaElementSource: null,
     recordedMediaSource: null,
     micStream: null,
+    pcmSpeech: null,
+    pcmLevel: 0,
+    pcmTelemetry: null,
+    preferredInputDeviceId: "",
+    standaloneMode: false,
     recognition: null,
     recognitionShouldRun: false,
     finalTranscript: "",
@@ -311,7 +321,8 @@
         voiceAutoSend: ui.voiceAutoSend.checked,
         fullDuplex: ui.fullDuplex.checked,
         echoGuard: ui.echoGuard.checked,
-        emotionEnabled: ui.emotionEnabled.checked
+        emotionEnabled: ui.emotionEnabled.checked,
+        microphoneDeviceId: ui.microphoneDeviceSelect.value || ""
       });
     } catch (error) {
       console.warn("Không thể lưu tùy chọn:", error);
@@ -331,6 +342,9 @@
       if (saved.fullDuplex !== undefined) ui.fullDuplex.checked = Boolean(saved.fullDuplex);
       if (saved.echoGuard !== undefined) ui.echoGuard.checked = Boolean(saved.echoGuard);
       if (saved.emotionEnabled !== undefined) ui.emotionEnabled.checked = Boolean(saved.emotionEnabled);
+      if (typeof saved.microphoneDeviceId === "string") {
+        state.preferredInputDeviceId = saved.microphoneDeviceId;
+      }
       updateRangeLabels();
     } catch (error) {
       console.warn("Không thể đọc tùy chọn:", error);
@@ -449,21 +463,21 @@
   function setNativeComponents(components = {}, conversation = {}, config = {}) {
     state.nativeComponents = components;
     const localLlmReady = components.llama_server && components.gguf_model;
-    const remoteOrAdapterReady = ["ollama", "openai-compatible"].includes(config.provider)
+    const remoteOrAdapterReady = ["demo", "ollama", "openai-compatible"].includes(config.provider)
       || (["openai", "gemini", "openrouter"].includes(config.provider) && config.api_key_present);
     const llmReady = config.provider === "gguf" ? localLlmReady : remoteOrAdapterReady;
     [
-      [ui.nativeVadStatus, components.silero_vad, "VAD"],
-      [ui.nativeSttStatus, components.whisper_cli && components.whisper_model, "Whisper"],
+      [ui.nativeVadStatus, Boolean(state.pcmTelemetry?.signalVerified), "PCM VAD"],
+      [ui.nativeSttStatus, Boolean(SpeechRecognition), "Web Speech"],
       [ui.nativeLlmStatus, llmReady, config.provider === "gguf" ? "GGUF" : "LLM/API"],
       [ui.nativeTtsStatus, components.tts_local, "TTS"]
     ].forEach(([element, ready, label]) => {
       element.classList.toggle("ready", Boolean(ready));
-      element.textContent = `${label} · ${ready ? "sẵn sàng" : "thiếu model"}`;
+      element.textContent = `${label} · ${ready ? "sẵn sàng" : "đang chờ"}`;
     });
     const readyCount = [
-      components.silero_vad,
-      components.whisper_cli && components.whisper_model,
+      Boolean(state.pcmTelemetry?.signalVerified),
+      Boolean(SpeechRecognition),
       llmReady,
       components.tts_local
     ].filter(Boolean).length;
@@ -530,8 +544,11 @@
     if (name === "native.disconnected") {
       state.nativeReady = false;
       state.nativeListening = false;
-      syncMicrophoneControls(false);
-      setConversationPhase("idle", "Companion đã ngắt kết nối");
+      syncMicrophoneControls(Boolean(state.pcmSpeech?.listening));
+      setConversationPhase(
+        state.pcmSpeech?.listening ? "listening" : "idle",
+        state.pcmSpeech?.listening ? "PCM + Web Speech vẫn đang nghe" : "Companion đã ngắt kết nối"
+      );
       setCompanionStatus("Companion đã ngắt kết nối", data.error || "Hãy cài hoặc đăng ký lại Native Host.", "error");
       return;
     }
@@ -601,7 +618,7 @@
     if (name === "tts.ended" || name === "conversation.interrupted") {
       stopTts(false);
       setConversationPhase(
-        name === "tts.ended" ? (state.nativeListening ? "listening" : "idle") : "interrupted"
+        name === "tts.ended" ? (state.pcmSpeech?.listening ? "listening" : "idle") : "interrupted"
       );
       setStage(name === "tts.ended" ? "Hoàn tất" : "Đã ngắt lời", "Companion tiếp tục lắng nghe");
       return;
@@ -640,6 +657,11 @@
   function applyProviderDefaults(force = false) {
     const provider = ui.providerSelect.value;
     const defaults = {
+      demo: {
+        base: "http://127.0.0.1:27827",
+        model: "cybergirl-demo-vi",
+        needsKey: false
+      },
       gguf: {
         base: "http://127.0.0.1:27829/v1",
         model: "qwen3-4b-vi",
@@ -693,6 +715,7 @@
     if (nativeMessagingAvailable()) {
       try {
         const status = await nativeRequest("status");
+        state.standaloneMode = false;
         state.companionReady = true;
         state.nativeReady = true;
         const config = status.config || {};
@@ -724,11 +747,14 @@
     }
 
     if (!CYBERGIRL_TOKEN) {
-      state.companionReady = false;
+      state.standaloneMode = true;
+      state.companionReady = true;
+      ui.providerSelect.value = "demo";
+      applyProviderDefaults(true);
       setCompanionStatus(
-        "Chưa chạy lõi Cybergirl Windows",
-        "Ảnh và giọng Edge vẫn dùng được; hội thoại AI cần mở bằng ứng dụng Windows.",
-        "error"
+        "Extension độc lập đã sẵn sàng",
+        "Demo cục bộ + PCM16 + Edge Web Speech chạy ngay; cài companion khi cần LLM/API.",
+        "success"
       );
       try {
         const response = await fetch("characters.json");
@@ -744,6 +770,7 @@
 
     try {
       const config = await companionFetch("/api/cau-hinh");
+      state.standaloneMode = false;
       state.companionReady = true;
       ui.providerSelect.value = config.provider;
       ui.apiBaseUrl.value = config.base_url;
@@ -797,8 +824,18 @@
 
   async function saveCompanionConfig(showSuccess = true) {
     try {
+      if (state.standaloneMode) {
+        state.companionReady = true;
+        setCompanionStatus(
+          "Extension độc lập đã sẵn sàng",
+          "Demo cục bộ không cần khóa API; Web Speech và PCM chạy trong Edge.",
+          "success"
+        );
+        if (showSuccess) showToast("Đã dùng cấu hình demo chạy ngay.");
+        return true;
+      }
       let config;
-      if (nativeMessagingAvailable()) {
+      if (nativeMessagingAvailable() && state.nativeReady) {
         const status = await nativeRequest("configure", currentApiPayload());
         config = status.config;
         state.nativeReady = true;
@@ -829,8 +866,18 @@
     ui.testApiButton.disabled = true;
     ui.testApiButton.textContent = "Đang kiểm tra…";
     try {
+      if (state.standaloneMode || ui.providerSelect.value === "demo") {
+        state.companionReady = true;
+        setCompanionStatus(
+          "Demo cục bộ hoạt động",
+          "Không cần mạng, model hoặc khóa API.",
+          "success"
+        );
+        showToast("Chế độ demo đã sẵn sàng.");
+        return;
+      }
       await saveCompanionConfig(false);
-      const result = nativeMessagingAvailable()
+      const result = nativeMessagingAvailable() && state.nativeReady
         ? await nativeRequest("chat", {
           message: "Chỉ trả lời đúng một câu: Kết nối thành công.",
           history: [],
@@ -867,6 +914,23 @@
     return article;
   }
 
+  function buildDemoReply(message) {
+    const normalized = String(message || "").toLocaleLowerCase("vi-VN");
+    if (/(xin chào|chào em|hello|hi)\b/u.test(normalized)) {
+      return "Xin chào! Em đang chạy bằng lõi demo cục bộ. Microphone đã được chuẩn hóa PCM16 và lời nói được Edge Web Speech nhận dạng.";
+    }
+    if (/(tên gì|là ai|cybergirl)/u.test(normalized)) {
+      return "Em là Cybergirl, trợ lý avatar tiếng Việt dùng chung một mã nguồn cho Edge Extension và ứng dụng Windows.";
+    }
+    if (/(pcm|âm thanh|micro|giọng nói)/u.test(normalized)) {
+      return "Đầu vào hiện dùng một MediaStreamTrack, AudioWorklet chuyển thành PCM signed 16-bit mono 16 kHz, rồi cùng track đó được chuyển cho Edge Web Speech.";
+    }
+    if (/(cảm ơn|thank)/u.test(normalized)) {
+      return "Em rất vui được hỗ trợ. Khi cấu hình thêm LLM hoặc API, em có thể trả lời sâu hơn nhưng đường giọng PCM vẫn giữ nguyên.";
+    }
+    return "Em đã nghe rõ câu của bạn. Đây là phản hồi demo chạy ngay; hãy chọn GGUF, Ollama hoặc API trong bảng điều khiển nếu muốn hội thoại AI đầy đủ.";
+  }
+
   async function sendChat(messageOverride = "") {
     if (state.sendingChat) return;
     const message = (messageOverride || ui.chatInput.value).trim();
@@ -875,7 +939,7 @@
       ui.chatInput.focus();
       return;
     }
-    if (!state.companionReady && !(await saveCompanionConfig(false))) return;
+    if (!state.companionReady && !state.standaloneMode && !(await saveCompanionConfig(false))) return;
     state.sendingChat = true;
     ui.sendChatButton.disabled = true;
     ui.sendChatButton.textContent = "Đang suy nghĩ…";
@@ -888,7 +952,13 @@
     const pending = appendChatMessage("assistant pending", "Đang tạo câu trả lời tiếng Việt…");
 
     try {
-      const result = nativeMessagingAvailable()
+      const useDemo = state.standaloneMode || ui.providerSelect.value === "demo";
+      const result = useDemo
+        ? {
+          text: buildDemoReply(message),
+          nhan_vat: ui.characterSelect.selectedOptions[0]?.textContent || "Cybergirl"
+        }
+        : nativeMessagingAvailable() && state.nativeReady
         ? await nativeRequest("chat", {
           message,
           history: previousHistory,
@@ -904,14 +974,14 @@
         });
       pending.remove();
       const answer = result.tra_loi || result.text;
-      if (!nativeMessagingAvailable()) {
+      if (useDemo || !state.nativeReady) {
         appendChatMessage("assistant", answer, result.nhan_vat || "Cybergirl");
         state.chatHistory.push({ role: "assistant", content: answer });
       }
       ui.speechText.value = answer;
       setConversationPhase(ui.autoSpeak.checked ? "speaking" : "idle");
       setStage("Đã trả lời", result.nhan_vat || "Cybergirl");
-      if (ui.autoSpeak.checked && (!nativeMessagingAvailable() || ui.ttsEngineSelect.value === "edge")) {
+      if (ui.autoSpeak.checked && (useDemo || !state.nativeReady || ui.ttsEngineSelect.value === "edge")) {
         speakText();
       }
     } catch (error) {
@@ -1600,6 +1670,10 @@
   }
 
   function calculateAudioLevel() {
+    if (state.activeSignal === "mic" && state.pcmSpeech?.listening) {
+      state.spectralViseme = "neutral";
+      return state.pcmLevel;
+    }
     if (!state.analyser || !state.timeData || !["audio", "mic"].includes(state.activeSignal)) {
       return 0;
     }
@@ -2167,7 +2241,9 @@
   function stopTts(updateStatus = true) {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     state.speechActive = false;
-    state.activeSignal = state.activeSignal === "tts" ? "idle" : state.activeSignal;
+    state.activeSignal = state.activeSignal === "tts"
+      ? (state.pcmSpeech?.listening ? "mic" : "idle")
+      : state.activeSignal;
     state.mouthTarget = 0;
     setViseme("idle");
     window.clearInterval(state.ttsTimer);
@@ -2378,141 +2454,155 @@
     showToast("Đã nạp âm thanh cục bộ.");
   }
 
-  async function startMic() {
-    if (state.nativeReady
-      && state.nativeComponents.silero_vad
-      && state.nativeComponents.whisper_cli
-      && state.nativeComponents.whisper_model) {
-      try {
-        await saveCompanionConfig(false);
-        await nativeRequest("start_listening");
-        state.nativeListening = true;
-        state.activeSignal = "mic";
-        state.finalTranscript = "";
-        ui.micOrb.classList.add("active");
-        ui.micTitle.textContent = "Companion đang nghe";
-        ui.micHint.textContent = "Silero VAD 16 kHz → Whisper tiếng Việt cục bộ.";
-        syncMicrophoneControls(true);
-        setConversationPhase("listening");
-        setStage("Đang nghe", "Silero VAD + Whisper CPU", true);
-        return true;
-      } catch (error) {
+  function handleUnifiedSpeechResult({ finalText = "", interimText = "" }) {
+    let completed = finalText.trim();
+    if (completed && state.speechActive && isLikelySpeakerEcho(completed)) {
+      ui.pipelineHealth.textContent = "Echo-guard đã loại câu TTS bị microphone thu lại.";
+      completed = "";
+    }
+    if (completed) state.finalTranscript += `${completed} `;
+    const visibleText = `${state.finalTranscript}${interimText}`.trim();
+    ui.transcriptText.textContent = visibleText || "Đang nghe…";
+    setConversationPhase(interimText ? "transcribing" : "listening");
+    if (visibleText) {
+      state.liveViseme = visemeFromText(visibleText.slice(-2));
+      state.liveVisemeUntil = performance.now() + 190;
+      setViseme(state.liveViseme);
+    }
+    if (completed && ui.voiceAutoSend.checked && state.companionReady) {
+      window.clearTimeout(state.voiceSendTimer);
+      state.voiceSendTimer = window.setTimeout(() => sendChat(completed), 620);
+    }
+  }
+
+  function updateUnifiedSpeechState(detail) {
+    const stateName = detail.state;
+    ui.speechTrackStatus.classList.toggle(
+      "ready",
+      ["armed", "recognizing", "signal-verified"].includes(stateName)
+    );
+    ui.speechTrackStatus.classList.toggle("error", stateName === "error");
+    if (stateName === "armed" || stateName === "recognizing") {
+      ui.speechTrackStatus.textContent = `Web Speech · ${detail.trackMode || "track dùng chung"}`;
+    } else if (stateName === "reconnecting") {
+      ui.speechTrackStatus.textContent = `Web Speech · nối lại lần ${detail.attempt || 1}`;
+    } else if (stateName === "error") {
+      ui.speechTrackStatus.textContent = "Web Speech · lỗi";
+    }
+    if (stateName === "recovering") {
+      ui.micHint.textContent = `Đang mở lại PCM bằng profile ${detail.profile}…`;
+    }
+  }
+
+  function ensureUnifiedSpeechEngine() {
+    if (state.pcmSpeech) return state.pcmSpeech;
+    const Engine = globalThis.CybergirlAudio?.PcmWebSpeechEngine;
+    if (!Engine) throw new Error("Thiếu engine PCM Web Speech dùng chung.");
+    state.pcmSpeech = new Engine({
+      workletUrl: new URL("audio/pcm16-processor.js", window.location.href).href,
+      language: "vi-VN",
+      onPcm: (telemetry) => {
+        state.pcmTelemetry = telemetry;
+        state.pcmLevel = clamp((Number(telemetry.rms || 0) - 0.002) * 9.2, 0, 1);
+        if (!state.speechActive) state.activeSignal = "mic";
+        ui.pcmFormatStatus.textContent = `PCM16 · ${telemetry.sampleRate} Hz · mono`;
+        ui.pcmFormatStatus.classList.add("ready");
+        ui.pcmLevelStatus.textContent = telemetry.signalVerified
+          ? `RMS ${telemetry.rms.toFixed(4)} · tín hiệu thật`
+          : `RMS ${telemetry.rms.toFixed(4)} · đang hiệu chuẩn`;
+        ui.pcmLevelStatus.classList.toggle("ready", telemetry.signalVerified);
+        ui.nativeVadStatus.classList.toggle("ready", telemetry.signalVerified);
+        ui.nativeVadStatus.textContent = `PCM VAD · ${telemetry.signalVerified ? "sẵn sàng" : "hiệu chuẩn"}`;
+      },
+      onResult: handleUnifiedSpeechResult,
+      onSpeechStart: () => {
+        if (state.speechActive && ui.fullDuplex.checked) {
+          stopTts(false);
+          if (state.nativeReady) nativeRequest("interrupt").catch(() => {});
+          setConversationPhase("interrupted");
+          setStage("Bạn đã ngắt lời", "Cybergirl dừng nói và tiếp tục lắng nghe", true);
+        }
+      },
+      onState: updateUnifiedSpeechState,
+      onError: (error) => {
+        console.error(error);
+        ui.pcmLevelStatus.classList.add("error");
         showToast(error.message, true);
-        setConversationPhase("idle", "Không mở được microphone");
-        setStage("Không mở được companion", "Kiểm tra model VAD, Whisper và microphone");
-        return false;
+      },
+      onLog: (message) => {
+        ui.pipelineHealth.textContent = message;
       }
-    }
+    });
+    return state.pcmSpeech;
+  }
 
-    if (!SpeechRecognition) {
-      showToast("Microsoft Edge trên thiết bị này không cung cấp Speech Recognition.", true);
-      return false;
+  async function refreshMicrophoneList() {
+    let devices = [];
+    try {
+      devices = await ensureUnifiedSpeechEngine().enumerateInputs();
+    } catch {
+      return;
     }
-    if (!navigator.mediaDevices?.getUserMedia) {
-      showToast("Không thể mở microphone. Hãy chạy dưới dạng Edge Extension hoặc HTTPS.", true);
-      return false;
+    const selected = ui.microphoneDeviceSelect.value
+      || state.preferredInputDeviceId
+      || "";
+    ui.microphoneDeviceSelect.replaceChildren();
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "Microphone mặc định của Windows";
+    ui.microphoneDeviceSelect.append(defaultOption);
+    for (const device of devices) {
+      const option = document.createElement("option");
+      option.value = device.deviceId;
+      option.textContent = device.label;
+      ui.microphoneDeviceSelect.append(option);
     }
+    if ([...ui.microphoneDeviceSelect.options].some((option) => option.value === selected)) {
+      ui.microphoneDeviceSelect.value = selected;
+    }
+  }
 
+  async function startMic() {
     stopTts(false);
     ui.audioPlayer.pause();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1
-        }
+      const engine = ensureUnifiedSpeechEngine();
+      state.finalTranscript = "";
+      state.pcmLevel = 0;
+      state.pcmTelemetry = null;
+      state.recognitionShouldRun = true;
+      const result = await engine.start({
+        language: "vi-VN",
+        deviceId: ui.microphoneDeviceSelect.value || state.preferredInputDeviceId
       });
+      state.micStream = engine.stream;
+      state.recognition = engine.recognition;
       const audioContext = await ensureAudioContext();
       disconnectActiveSource();
-      state.micStream = stream;
-      state.activeSource = audioContext.createMediaStreamSource(stream);
-      state.activeSource.connect(state.analyser);
+      state.activeSource = audioContext.createMediaStreamSource(state.micStream);
       state.activeSource.connect(state.captureDestination);
       state.activeSignal = "mic";
-      state.recognitionShouldRun = true;
-      state.finalTranscript = "";
-
-      const recognition = new SpeechRecognition();
-      recognition.lang = "vi-VN";
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-      state.recognition = recognition;
-
-      recognition.onresult = (event) => {
-        let interim = "";
-        let completed = "";
-        for (let i = event.resultIndex; i < event.results.length; i += 1) {
-          const text = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            const cleaned = text.trim();
-            if (state.speechActive && isLikelySpeakerEcho(cleaned)) {
-              ui.pipelineHealth.textContent = "Echo-guard đã loại câu TTS bị microphone thu lại.";
-              continue;
-            }
-            if (state.speechActive && ui.fullDuplex.checked) {
-              stopTts(false);
-              if (state.nativeReady) nativeRequest("interrupt").catch(() => {});
-              setConversationPhase("interrupted");
-              setStage("Bạn đã ngắt lời", "Cybergirl dừng nói và tiếp tục lắng nghe", true);
-            }
-            state.finalTranscript += `${cleaned} `;
-            completed += `${cleaned} `;
-          }
-          else interim += text;
-        }
-        const visibleText = `${state.finalTranscript}${interim}`.trim();
-        ui.transcriptText.textContent = visibleText || "Đang nghe…";
-        setConversationPhase(interim ? "transcribing" : "listening");
-        if (visibleText) {
-          state.liveViseme = visemeFromText(visibleText.slice(-2));
-          state.liveVisemeUntil = performance.now() + 190;
-          setViseme(state.liveViseme);
-        }
-        if (completed.trim() && ui.voiceAutoSend.checked && state.companionReady) {
-          window.clearTimeout(state.voiceSendTimer);
-          state.voiceSendTimer = window.setTimeout(
-            () => sendChat(completed.trim()),
-            620
-          );
-        }
-      };
-      recognition.onerror = (event) => {
-        if (event.error === "no-speech" || event.error === "aborted") return;
-        showToast(`Nhận dạng giọng nói: ${event.error}.`, true);
-        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-          state.recognitionShouldRun = false;
-          stopMic();
-        }
-      };
-      recognition.onend = () => {
-        if (state.recognitionShouldRun) {
-          window.setTimeout(() => {
-            try {
-              recognition.start();
-            } catch {
-              // A restart may race with Edge's internal state.
-            }
-          }, 220);
-        }
-      };
-
-      recognition.start();
+      await refreshMicrophoneList();
       ui.micOrb.classList.add("active");
       ui.micTitle.textContent = "Đang nghe tiếng Việt";
-      ui.micHint.textContent = "Nói tự nhiên; lời tạm thời xuất hiện ngay.";
+      ui.micHint.textContent = "Một track → PCM16 16 kHz + Edge Web Speech vi-VN.";
+      ui.speechTrackStatus.textContent = `Web Speech · ${result.recognitionTrackMode}`;
+      ui.speechTrackStatus.classList.add("ready");
+      ui.nativeSttStatus.textContent = "Web Speech · sẵn sàng";
+      ui.nativeSttStatus.classList.add("ready");
       syncMicrophoneControls(true);
       setConversationPhase("listening");
-      setStage("Đang nghe", "Microphone + nhận dạng vi-VN", true);
+      setStage("Đang nghe", "PCM16 16 kHz + Edge Web Speech", true);
       return true;
     } catch (error) {
       console.error(error);
-      showToast("Edge chưa được cấp quyền microphone. Kiểm tra biểu tượng ổ khóa/quyền của extension.", true);
+      state.recognitionShouldRun = false;
+      state.micStream = null;
+      ui.micTitle.textContent = "Không mở được microphone";
+      ui.micHint.textContent = error.message;
       syncMicrophoneControls(false);
-      setConversationPhase("idle", "Chưa được cấp quyền microphone");
-      setStage("Thiếu quyền microphone", "Cấp quyền rồi thử lại");
+      setConversationPhase("idle", "Chưa mở được microphone");
+      setStage("Lỗi đầu vào giọng nói", "Kiểm tra quyền Edge và thiết bị Windows");
       return false;
     }
   }
@@ -2521,47 +2611,39 @@
     if (state.voiceRecorder?.state === "recording" && !state.voiceRecordingOwnsStream) {
       stopVoiceRecording();
     }
-    if (state.nativeListening) {
-      try {
-        await nativeRequest("stop_listening");
-      } catch (error) {
-        console.warn("Không dừng được microphone companion:", error);
-      }
-      state.nativeListening = false;
-    }
+    state.nativeListening = false;
     state.recognitionShouldRun = false;
-    if (state.recognition) {
-      state.recognition.onend = null;
-      try {
-        state.recognition.stop();
-      } catch {
-        // Recognition may not have started.
-      }
-      state.recognition = null;
+    try {
+      await state.pcmSpeech?.stop();
+    } catch (error) {
+      console.warn("Không dừng sạch được engine PCM:", error);
     }
-    if (state.micStream) {
-      state.micStream.getTracks().forEach((track) => track.stop());
-      state.micStream = null;
-    }
+    state.recognition = null;
+    state.micStream = null;
+    state.pcmLevel = 0;
     if (state.activeSignal === "mic") {
       disconnectActiveSource();
       state.activeSignal = "idle";
     }
     ui.micOrb.classList.remove("active");
     ui.micTitle.textContent = "Microphone đang tắt";
-    ui.micHint.textContent = "Edge sẽ hỏi quyền truy cập khi bạn bắt đầu.";
+    ui.micHint.textContent = "Edge sẽ hỏi quyền và tạo PCM16 mono 16 kHz khi bạn bắt đầu.";
+    ui.pcmLevelStatus.textContent = "RMS · chờ tín hiệu";
+    ui.pcmLevelStatus.classList.remove("ready", "error");
+    ui.speechTrackStatus.textContent = "Web Speech · chờ track";
+    ui.speechTrackStatus.classList.remove("ready", "error");
     syncMicrophoneControls(false);
     setConversationPhase("idle");
-    if (updateStatus) setStage("Đã dừng", "Microphone đã được đóng");
+    if (updateStatus) setStage("Đã dừng", "Microphone và AudioWorklet đã được đóng");
   }
 
   async function toggleLiveTalk() {
-    const active = state.nativeListening || state.recognitionShouldRun || Boolean(state.micStream);
+    const active = Boolean(state.pcmSpeech?.listening || state.micStream);
     if (active) {
       await stopMic();
       return;
     }
-    if (!state.companionReady && !(await saveCompanionConfig(false))) {
+    if (!state.companionReady && !state.standaloneMode && !(await saveCompanionConfig(false))) {
       setConversationPhase("idle", "Cần cấu hình bộ não AI");
       return;
     }
@@ -2928,8 +3010,31 @@
     ui.speakButton.addEventListener("click", speakText);
     ui.stopButton.addEventListener("click", stopAll);
     ui.micButton.addEventListener("click", () => {
-      if (state.nativeListening || state.recognitionShouldRun || state.micStream) stopMic();
+      if (state.pcmSpeech?.listening || state.micStream) stopMic();
       else startMic();
+    });
+    ui.recoverMicButton.addEventListener("click", async () => {
+      try {
+        const engine = ensureUnifiedSpeechEngine();
+        if (!engine.listening) {
+          await startMic();
+          return;
+        }
+        await engine.recoverInput({ manual: true });
+        state.micStream = engine.stream;
+        ui.micHint.textContent = "Đã mở lại đầu vào PCM bằng profile tương thích.";
+        showToast("Đã làm mới PCM và nối lại Edge Web Speech.");
+      } catch (error) {
+        showToast(error.message, true);
+      }
+    });
+    ui.microphoneDeviceSelect.addEventListener("change", async () => {
+      state.preferredInputDeviceId = ui.microphoneDeviceSelect.value;
+      await savePreferences();
+      if (state.pcmSpeech?.listening) {
+        await stopMic(false);
+        await startMic();
+      }
     });
     ui.liveTalkButton.addEventListener("click", toggleLiveTalk);
     ui.recordVoiceButton.addEventListener("click", toggleVoiceRecording);
@@ -3068,6 +3173,7 @@
     detectCapabilities();
     bindEvents();
     await restorePreferences();
+    await refreshMicrophoneList();
     await loadCompanionConfig();
     updateRangeLabels();
     applyEmotion(state.emotion);

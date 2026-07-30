@@ -1,382 +1,244 @@
-# Cybergirl — Trợ lý ảo tiếng Việt cho Microsoft Edge
+# Cybergirl 5.2 — Avatar AI tiếng Việt cho Edge và Windows
 
 ![Cybergirl](icons/logo.svg)
 
-[![Phiên bản](https://img.shields.io/badge/Phiên_bản-3.3.0-ff4f9a)](CHANGELOG.md)
-[![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?logo=windows)](.github/workflows/build-windows.yml)
-[![Microsoft Edge](https://img.shields.io/badge/Microsoft_Edge-110%2B-0aa7f5?logo=microsoftedge)](https://www.microsoft.com/edge)
+[![Phiên bản](https://img.shields.io/badge/Phiên_bản-5.2.0-ff4f9a)](CHANGELOG.md)
+[![PCM](https://img.shields.io/badge/PCM16-16_kHz_mono-00b7c3)](docs/PCM-CONTRACT.md)
+[![Microsoft Edge](https://img.shields.io/badge/Edge-Web_Speech-0aa7f5?logo=microsoftedge)](https://learn.microsoft.com/en-us/microsoft-edge/web-platform/speech-recognition-api)
+[![Windows](https://img.shields.io/badge/Windows-10_%7C_11-0078d4?logo=windows)](.github/workflows/build-windows.yml)
 [![Giấy phép](https://img.shields.io/badge/Giấy_phép-MIT-a970ff)](LICENSE)
-[![Riêng tư](https://img.shields.io/badge/Ảnh_xử_lý-cục_bộ-ff4f9a)](PRIVACY.md)
 
-**Cybergirl biến một ảnh chân dung thành trợ lý ảo có thể nghe, hiểu, trả lời
-và nhép môi bằng tiếng Việt. Người dùng Windows chỉ cài GUI; không phải cài
-Python, Node.js hoặc CUDA.**
+**Một mã nguồn giao diện, một engine microphone và một hợp đồng PCM cho cả
+Microsoft Edge Extension lẫn ứng dụng Windows.**
 
-Cybergirl 3.3 do **Long Ngo** phát triển. Mouth Engine, Face Mesh, ảnh 4K/8K,
-mắt và vi chuyển động được giữ lại; Edge Extension nay kết nối companion cục bộ
-qua Native Messaging để chạy Silero VAD, Whisper, LLM GGUF và TTS tiếng Việt.
+Cybergirl biến ảnh chân dung thành avatar có thể nghe tiếng Việt, chép lời,
+trò chuyện, phát giọng và nhép môi. Bản 5.2 hợp nhất đường âm thanh của hai bản:
+một `MediaStreamTrack` được dùng đồng thời bởi AudioWorklet PCM16 và Edge
+`SpeechRecognition`.
 
-## Điểm nổi bật
+## Chạy ngay
 
-- Một bộ cài GUI cho Windows 10/11.
-- Bố cục tập trung: Avatar ở trên, chat và microphone ngay bên dưới.
-- Chat live tiếng Việt: nghe liên tục, tự gửi câu hoàn chỉnh và cho phép ngắt lời.
-- Ghi âm trực tiếp tối đa 5 phút, nghe lại và xóa ngay trong bộ nhớ cục bộ.
-- Tự mở Microsoft Edge ở chế độ cửa sổ ứng dụng, không hiện cửa sổ lệnh.
-- Toàn bộ giao diện, thông báo lỗi và hướng dẫn bằng tiếng Việt.
-- Hai đường giọng: Web Speech của Edge hoặc Silero VAD + Whisper cục bộ.
-- MediaPipe Face Mesh và hai module WASM chạy cục bộ.
-- Mouth Engine 1.4 giữ môi/răng thật, khẩu độ cong và mặt nạ feathered.
-- Chọn ảnh, âm thanh, microphone hoặc trò chuyện AI.
-- Ba nhân vật tiếng Việt có thể chuyển nóng: Mai, Linh và An.
-- Hỗ trợ GGUF/llama.cpp, Ollama, ChatGPT qua OpenAI Responses API, Gemini
-  Interactions API, OpenRouter và endpoint tương thích OpenAI.
-- OpenRouter dùng Chat Completions, header nhận diện ứng dụng chuẩn
-  `X-OpenRouter-Title`, `HTTP-Referer` và tùy chọn Zero Data Retention.
-- Benchmark TTS ngay trên máy: thời gian tổng hợp, RTF và ký tự/giây.
-- Full-duplex có echo-guard và barge-in; microphone không còn phải đóng khi AI nói.
-- Bộ nhớ dài hạn SQLite cục bộ, chỉ hoạt động khi người dùng chủ động bật.
-- Emotion Engine tiếng Việt điều khiển gaze, chớp mắt và chuyển động đầu.
-- TTS cục bộ trả lịch viseme có timing; text dùng lịch căn chỉnh hữu hạn, audio
-  dùng phổ tần thay vì chỉ RMS.
-- Registry hồ sơ model/voice và health từng module ngay trên dashboard.
-- Quay và xuất WebM trực tiếp từ Canvas; audio Web Audio được ghép khi khả dụng.
-- Ảnh, landmark và dữ liệu Face Mesh không được gửi tới API.
-- Khóa API chỉ giữ trong RAM và bị xóa khi thoát.
-- Tạo ảnh master 7680×4320 ngay trên thiết bị.
-- Mã nguồn MIT; icon hồng giúp nhận diện Cybergirl.
+### Edge Extension
 
-## Kiến trúc
+1. Tải `Cybergirl-Edge-v5.2.0.zip` trong **Actions** hoặc **Releases**.
+2. Giải nén; mở `edge://extensions`.
+3. Bật **Chế độ nhà phát triển** → **Tải tiện ích đã giải nén**.
+4. Chọn thư mục có `manifest.json`, sau đó bấm biểu tượng Cybergirl.
+5. Cho phép microphone và bấm **Bắt đầu Chat live**.
+
+Chế độ **Demo cục bộ** hoạt động ngay, không cần model, API key hoặc companion.
+Ảnh, PCM, lip-sync và phản hồi mẫu đều chạy trong Edge.
+
+### Windows chạy ngay
+
+Tải một trong hai tệp:
+
+- `Cybergirl-Windows-x64.exe`: một tệp EXE, mở trực tiếp.
+- `Cybergirl-Setup-v5.2.0-Windows-x64.exe`: bộ cài tiếng Việt, có shortcut.
+
+Ứng dụng tự mở Microsoft Edge ở chế độ cửa sổ app. Người dùng không cần cài
+Python, Node.js, CUDA hoặc model để chạy Demo. Khi cần LLM thật, chọn Ollama,
+GGUF, OpenAI, Gemini, OpenRouter hoặc endpoint tương thích OpenAI.
+
+## Kiến trúc hợp nhất
 
 ```mermaid
-flowchart LR
-    U["Người dùng Windows"] --> E["Microsoft Edge Extension"]
-    E --> F["Face Mesh + WASM"]
-    E --> M["Mouth Engine + mắt + gương mặt"]
-    E <-->|"Native Messaging"| C["Cybergirl Companion.exe"]
-    C --> V["Silero VAD ONNX"]
-    V --> W["whisper.cpp · vi"]
-    W --> B{"Bộ não"}
-    B --> G["llama.cpp · GGUF"]
-    B --> O["OpenAI Responses API"]
-    B --> A["Gemini Interactions API"]
-    B --> K["OpenRouter / Ollama / compatible"]
-    B --> T["Windows SAPI / Piper TTS"]
-    C --> R["Memory SQLite · opt-in"]
-    C --> X["Emotion + phoneme timing"]
-    T --> M
-    X --> M
-    F --> M
+flowchart TD
+    H{"Host"} --> E["Edge Extension"]
+    H --> W["Windows EXE · localhost"]
+    E --> UI["Cùng index.html · app.js"]
+    W --> UI
+    UI --> M["Một MediaStreamTrack"]
+    M --> P["AudioWorklet · PCM16 16 kHz mono"]
+    M --> S["Edge Web Speech · vi-VN"]
+    P --> V["PCM VAD · meter · lip-sync · chẩn đoán"]
+    S --> T["Interim + final transcript"]
+    T --> B{"Bộ não"}
+    B --> D["Demo cục bộ"]
+    B --> L["GGUF / Ollama"]
+    B --> A["OpenAI / Gemini / OpenRouter"]
+    B --> O["Edge / Windows TTS"]
+    O --> V
 ```
 
-### Dòng dữ liệu riêng tư
+Không có hai bản sao của frontend:
 
-| Dữ liệu | Xử lý ở đâu | Có gửi tới API AI không? |
-|---|---|---|
-| Ảnh chân dung | Edge + Canvas + Face Mesh | Không |
-| Landmark môi/mắt/mặt | Bộ nhớ trình duyệt | Không |
-| Microphone | Edge hoặc companion cục bộ | Không, nếu chọn Whisper cục bộ |
-| Văn bản câu hỏi | Companion | Có, chỉ khi chọn OpenAI/Gemini/OpenRouter/API từ xa |
-| Câu trả lời | Companion → Edge/TTS cục bộ | Có ở nhà cung cấp đã chọn |
-| Khóa API | RAM của companion | Chỉ gửi tới nhà cung cấp đã chọn |
-| Bộ nhớ dài hạn | SQLite cục bộ, mặc định tắt | Không |
+| Thành phần dùng chung | Extension | Windows EXE |
+|---|---:|---:|
+| `index.html`, `styles.css`, `app.js` | ✅ | ✅ |
+| `audio/pcm-web-speech.js` | ✅ | ✅ |
+| `audio/pcm16-processor.js` | ✅ | ✅ |
+| Face Mesh, Mouth Engine, avatar 4K/8K | ✅ | ✅ |
+| Demo tiếng Việt | ✅ | ✅ |
+| Edge Web Speech `vi-VN` | ✅ | ✅ |
+| Backend LLM/API cục bộ | Companion tùy chọn | Có sẵn trong EXE |
 
-## Đối chiếu 30 khối sau bản 3.3
+Chi tiết: [Kiến trúc 5.2](docs/ARCHITECTURE-5.2.md) và
+[Hợp đồng PCM](docs/PCM-CONTRACT.md).
 
-| # | Khối | Cybergirl 3.3 | Trạng thái |
-|---:|---|---|---|
-| 1 | Ảnh/Avatar | Face Mesh + Canvas + ảnh 4K/8K | ✅ |
-| 2 | Mắt/miệng | Face Mesh + hiệu chỉnh 5 điểm | ✅ |
-| 3 | Chớp mắt | Chớp đơn/kép, nhịp theo cảm xúc | ✅ Nâng cấp |
-| 4 | Chuyển động đầu | Micro-motion theo emotion/arousal | ✅ Nâng cấp |
-| 5 | Microphone | Edge WebRTC hoặc companion 16 kHz | ✅ |
-| 6 | VAD | Silero VAD ONNX + endpoint detection | ✅ |
-| 7 | STT | whisper.cpp tiếng Việt + Edge fallback | ✅ |
-| 8 | Nhận dạng offline | Whisper cục bộ | ✅ |
-| 9 | LLM | llama.cpp GGUF/Ollama/OpenAI/Gemini/OpenRouter | ✅ |
-| 10 | Hội thoại AI | Conversation Orchestrator VAD→STT→LLM→TTS | ✅ |
-| 11 | System Prompt | Persona riêng trong `characters.json` | ✅ |
-| 12 | Bộ nhớ | 24 lượt RAM + SQLite opt-in có truy hồi liên quan | ✅ Nâng cấp |
-| 13 | TTS | Windows SAPI/Piper cục bộ + Edge | ✅ |
-| 14 | Clone giọng | Chưa đóng gói; cần model và cơ chế đồng ý riêng | 🔬 Kế hoạch |
-| 15 | Lip-sync text | Lịch phoneme/viseme theo thời lượng WAV | ✅ Nâng cấp |
-| 16 | Lip-sync audio | RMS + ba dải phổ tần Web Audio | ✅ Nâng cấp |
-| 17 | Coarticulation | Attack/release nhìn trước phoneme kế tiếp | ✅ Nâng cấp |
-| 18 | Ngắt lời AI | Barge-in + hủy TTS | ✅ |
-| 19 | Full duplex | Mic luôn nghe + WebRTC AEC + Native echo-guard | ✅ Nâng cấp |
-| 20 | Tự động trả lời | STT Final → LLM → TTS | ✅ |
-| 21 | Hot-swap giọng | Edge voice + Windows SAPI + Piper | ✅ |
-| 22 | Hot-swap tính cách | Mai/Linh/An qua `characters.json` | ✅ |
-| 23 | Hot-swap LLM | Model Profile Registry | ✅ Nâng cấp |
-| 24 | Local LLM server | llama-server/Ollama adapter | ✅ |
-| 25 | Offline hoàn toàn | Whisper + GGUF + SAPI/Piper | ✅ Khi đủ model |
-| 26 | Emotion | Bộ phân tích cảm xúc tiếng Việt cục bộ | ✅ Nâng cấp |
-| 27 | Emotion → mặt | Gaze, blink, head energy | ✅ Nâng cấp |
-| 28 | Dashboard nhân vật | Character + model + voice manager | ✅ |
-| 29 | Chẩn đoán pipeline | Health VAD/STT/LLM/TTS/memory/duplex | ✅ Nâng cấp |
-| 30 | Xuất sản phẩm | PNG, ảnh master 8K và WebM | ✅; MP4 kế hoạch |
+## Hợp đồng âm thanh duy nhất
 
-Web Speech do Edge/Windows cung cấp; tùy cấu hình hệ điều hành, nhận dạng giọng
-có thể dùng dịch vụ của Microsoft. Xem [chính sách riêng tư](PRIVACY.md).
+| Trường | Giá trị bắt buộc |
+|---|---|
+| Track nguồn | `MediaStreamTrack`, `kind=audio`, `readyState=live` |
+| Đầu vào hệ điều hành | Thường 44,1 hoặc 48 kHz Float32 |
+| PCM chuẩn hóa | signed PCM16 little-endian (`s16le`) |
+| Tần số | 16.000 Hz |
+| Kênh | mono |
+| Gói | 20 ms, 320 mẫu, 640 byte |
+| STT | Edge `SpeechRecognition`, ngôn ngữ `vi-VN` |
+| Liên kết STT | `recognition.start(audioTrack)`; fallback micro mặc định trên Edge cũ |
 
-## Cài trên Windows
+AudioWorklet trộn kênh, resample và lượng tử hóa ngoài main thread. Ba gói tín
+hiệu liên tiếp vượt noise floor mới được đánh dấu là PCM thật. Nếu track vẫn
+`live` nhưng chỉ có digital silence, engine thử lại bằng profile tương thích.
 
-### Cách một — Bộ cài GUI
+> PCM16 không phải là một phần của Web Speech API. Cybergirl tự tạo PCM16 từ
+> đúng track được chuyển cho Web Speech, nhờ đó telemetry, VAD và lip-sync không
+> đọc nhầm một nguồn khác.
 
-1. Mở mục **Actions** hoặc **Releases** của repository.
-2. Tải `Cybergirl-Setup-v3.3.0-Windows-x64.exe`.
-3. Chạy bộ cài và chọn tạo biểu tượng ngoài màn hình.
-4. Bộ cài tự đăng ký `vn.base27.cybergirl` trong Native Messaging của Edge.
-5. Mở `edge://extensions`, bật chế độ nhà phát triển và tải thư mục
-   `Extension` nằm trong thư mục cài đặt Cybergirl nếu extension chưa được cài.
-6. Cho phép microphone khi Cybergirl hỏi.
+## Web Speech tiếng Việt và quyền riêng tư
 
-Người dùng cuối không cần cài Python, Node.js, CUDA hoặc Face Mesh riêng.
+Cybergirl đặt `recognition.lang = "vi-VN"` và để
+`recognition.processLocally = false`. Theo tài liệu Microsoft tháng 6/2026,
+model nhận dạng **on-device** thử nghiệm của Edge 150 chưa liệt kê tiếng Việt.
+Vì vậy `processLocally=true` có thể làm `vi-VN` thất bại.
 
-### Cách hai — Extension dành cho phát triển
+- PCM, ảnh, landmark và dữ liệu avatar do Cybergirl xử lý vẫn ở trong Edge.
+- Edge Web Speech có thể dùng dịch vụ nền tảng/đám mây của Microsoft, tùy phiên
+  bản Edge, Windows, policy và vùng.
+- Nếu tổ chức chặn `SpeechRecognitionEnabled`, ứng dụng sẽ báo đúng nguyên nhân.
+- Không gửi PCM tới backend LLM; backend chỉ nhận văn bản sau nhận dạng.
 
-1. Tải repository và giải nén.
-2. Mở `edge://extensions`.
-3. Bật **Chế độ nhà phát triển**.
-4. Chọn **Tải tiện ích đã giải nén**.
-5. Chọn thư mục chứa `manifest.json`.
+Tham chiếu:
+[Microsoft Edge SpeechRecognition](https://learn.microsoft.com/en-us/microsoft-edge/web-platform/speech-recognition-api) và
+[`SpeechRecognition.start(audioTrack)`](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/start).
 
-Extension độc lập vẫn dùng ảnh, Face Mesh, Web Speech và nhép môi. Silero,
-Whisper, GGUF và TTS cục bộ cần `Cybergirl-Companion.exe` cùng Native Host đã
-được đăng ký.
+## Điểm nổi bật 5.2
 
-## Chọn bộ não AI
+- Extension và Windows dùng một frontend, không copy thuật toán.
+- PCM16 mono 16 kHz cố định qua AudioWorklet.
+- Edge Web Speech nhận cùng track microphone với pipeline PCM.
+- Chọn thiết bị đầu vào Windows và lưu lựa chọn an toàn.
+- Tự nối lại Web Speech khi Edge kết thúc phiên.
+- Nút **Làm mới đầu vào PCM** đổi sang profile tương thích.
+- Telemetry trực tiếp: định dạng, sample rate, RMS, track mode và trạng thái STT.
+- Demo cục bộ chạy ngay, không mạng và không khóa.
+- Avatar trên, chat dưới; ghi âm, phát lại, chụp PNG, ảnh 8K và WebM.
+- Mouth Engine giữ môi/răng thật, feather mask và viseme tiếng Việt.
+- Mắt, chớp mắt, gaze, chuyển động đầu và cảm xúc theo ngữ cảnh.
+- Barge-in và echo-guard khi người dùng ngắt lời TTS.
+- GGUF/llama.cpp, Ollama, OpenAI Responses, Gemini, OpenRouter và API compatible.
+- API key chỉ giữ trong RAM; không ghi vào `localStorage`, SQLite hoặc tệp cấu hình.
+- Windows EXE lắng nghe trên `127.0.0.1` và dùng token phiên cho POST API.
 
-### GGUF cục bộ — mặc định
+## Đối chiếu 30 khối
 
-Phù hợp máy Windows RAM 16 GB: chọn một mô hình hướng dẫn 3–4B lượng tử Q4,
-`llama-server.exe` và tệp `.gguf`. Companion tự khởi động server chỉ trên
-`127.0.0.1:27829`.
+| # | Khối | Cybergirl 5.2 |
+|---:|---|---|
+| 1 | Ảnh/Avatar | Face Mesh + Canvas + ảnh 4K/8K |
+| 2 | Mắt/miệng | Hiệu chỉnh 5 điểm + mouth patch thật |
+| 3 | Chớp mắt | Đơn/kép, nhịp theo cảm xúc |
+| 4 | Chuyển động đầu | Micro-motion theo activity |
+| 5 | Microphone | Một track Edge/Windows dùng chung |
+| 6 | PCM | s16le, 16 kHz, mono, gói 20 ms |
+| 7 | VAD | Noise floor + xác minh tín hiệu thật |
+| 8 | STT | Edge Web Speech `vi-VN` |
+| 9 | Chọn thiết bị | Danh sách input Windows |
+| 10 | Phục hồi input | Processed ↔ compatibility |
+| 11 | Hội thoại | Interim/final → brain → TTS |
+| 12 | Demo | Chạy ngay không model/API |
+| 13 | LLM | GGUF/Ollama/OpenAI/Gemini/OpenRouter |
+| 14 | System prompt | Registry Mai/Linh/An |
+| 15 | Bộ nhớ | RAM + SQLite opt-in |
+| 16 | TTS | Edge/Windows SAPI/Piper |
+| 17 | Lip-sync text | Viseme tiếng Việt theo timeline |
+| 18 | Lip-sync audio | PCM envelope + phổ tần |
+| 19 | Coarticulation | Attack/release liên âm |
+| 20 | Ngắt lời | VAD barge-in + hủy TTS |
+| 21 | Full-duplex | Mic tiếp tục mở + echo-guard |
+| 22 | Emotion | Phân tích tiếng Việt cục bộ |
+| 23 | Emotion → mặt | Gaze, blink, head energy |
+| 24 | Hot-swap | Nhân vật, model, voice |
+| 25 | Chẩn đoán | PCM/RMS/track/Web Speech/LLM/TTS |
+| 26 | Ghi âm | MediaRecorder cục bộ tối đa 5 phút |
+| 27 | Xuất ảnh | PNG và master 7680×4320 |
+| 28 | Xuất video | Canvas + audio → WebM |
+| 29 | Extension | Manifest V3, click là mở |
+| 30 | Windows | EXE một tệp + installer + Release |
 
-### ChatGPT qua OpenAI API
+## Bộ não AI
 
-```text
-Nhà cung cấp: ChatGPT · OpenAI Responses API
-Địa chỉ API: https://api.openai.com/v1
-Mô hình mặc định: gpt-5.6-sol
-```
+| Chế độ | Cần cài thêm | Cần khóa | Gợi ý |
+|---|---:|---:|---|
+| Demo cục bộ | Không | Không | Kiểm tra toàn bộ pipeline |
+| Ollama | Ollama + model | Không | `qwen3:4b` cho RAM 16 GB |
+| GGUF | `llama-server.exe` + GGUF | Không | Model 3–4B Q4 |
+| OpenAI | Không | Có | Responses API |
+| Gemini | Không | Có | Gemini API |
+| OpenRouter | Không | Có | Nhiều model qua một endpoint |
+| Compatible | Server tương thích | Tùy | LM Studio, vLLM, llama.cpp |
 
-Cybergirl dùng Responses API ở chế độ `store: false`. Khóa API nhập trong
-dashboard chỉ giữ trong RAM. Người dùng vẫn có thể thay model theo quyền của tài
-khoản.
+Khóa API không được lưu xuống đĩa. Gói thuê bao ChatGPT không đồng nghĩa với
+quyền sử dụng OpenAI API.
 
-Gói thuê bao ChatGPT và khóa OpenAI API là hai dịch vụ riêng. Chế độ này cần
-khóa của OpenAI Platform; Cybergirl không đọc phiên đăng nhập ChatGPT trong Edge.
+## Đóng gói
 
-### Ollama cục bộ
+Workflow [build-windows.yml](.github/workflows/build-windows.yml) chạy trên PR,
+`main` và tag `v*`, tạo:
 
-Phù hợp máy Windows RAM 16 GB, không cần khóa API:
+- `Cybergirl-Windows-x64.exe`
+- `Cybergirl-Companion.exe`
+- `Cybergirl-Edge-v5.2.0.zip`
+- `Cybergirl-Setup-v5.2.0-Windows-x64.exe`
 
-```powershell
-ollama pull qwen3:4b
-```
+Khi push tag, workflow tự tạo GitHub Release và đính kèm bốn tệp.
 
-Trong Cybergirl chọn:
-
-```text
-Nhà cung cấp: Ollama cục bộ
-Địa chỉ API: http://127.0.0.1:11434
-Mô hình: qwen3:4b
-```
-
-Cybergirl không tự cài Ollama. Nếu không muốn cài thêm mô hình, hãy dùng Gemini
-hoặc một API tương thích OpenAI.
-
-### Google Gemini
-
-```text
-Nhà cung cấp: Google Gemini API
-Địa chỉ API: https://generativelanguage.googleapis.com/v1
-Mô hình mặc định: gemini-3.6-flash
-Khóa API: nhập cho phiên hiện tại
-```
-
-### OpenRouter
-
-OpenRouter cho phép dùng nhiều mô hình qua một endpoint tương thích OpenAI.
-Thiết lập mặc định của Cybergirl:
-
-```text
-Nhà cung cấp: OpenRouter · nhiều mô hình AI
-Địa chỉ API: https://openrouter.ai/api/v1
-Mô hình: openai/gpt-4o
-HTTP-Referer: https://github.com/Base27-CVNSS/Avatar
-Tên ứng dụng: Cybergirl
-Khóa API: nhập một khóa mới cho phiên hiện tại
-```
-
-Cybergirl gửi yêu cầu tới `/chat/completions` qua companion cục bộ, không để
-khóa trong mã JavaScript của extension. Khóa chỉ nằm trong RAM và bị xóa khi
-thoát. `X-OpenRouter-Title` là header tên ứng dụng hiện hành; `X-Title` cũ không
-được gửi. Có thể bật **Chỉ định tuyến Zero Data Retention** nếu tài khoản và nhà
-cung cấp model hỗ trợ. Không commit, chụp màn hình hoặc dán khóa thật vào issue.
-
-### API tương thích OpenAI
-
-Áp dụng cho llama.cpp, vLLM, LM Studio, Ollama `/v1` hoặc nhà cung cấp khác:
-
-```text
-Địa chỉ API: http://127.0.0.1:11434/v1
-Mô hình: qwen3:4b
-Khóa API: để trống nếu máy chủ cục bộ không yêu cầu
-```
-
-Cybergirl không khóa cứng tên mô hình. Hãy nhập tên mà endpoint của bạn cung cấp.
-
-## Hội thoại giọng nói
-
-1. Chọn ảnh và chờ Face Mesh nhận diện; Avatar luôn nằm ở sân khấu phía trên.
-2. Chọn nhân vật và cấu hình API trong bảng thiết lập phía dưới.
-3. Bấm **Kiểm tra API**.
-4. Trong dock dưới Avatar, bấm **Bắt đầu Chat live**. Cybergirl tự bật chế độ
-   hội thoại liên tục, nhận câu tiếng Việt hoàn chỉnh và gửi tới bộ não AI.
-5. Có thể bấm **Ghi âm** để lưu một bản ghi cục bộ tối đa 5 phút. Bản ghi không
-   được upload; khi nghe lại, phổ âm thanh thật điều khiển khẩu hình.
-6. Trong **Thiết lập companion cục bộ**, chọn Silero ONNX,
-   `whisper-cli.exe` và model Whisper đa ngôn ngữ.
-7. Silero cắt câu, Whisper phiên âm cục bộ, bộ não trả lời và TTS phát giọng;
-   Mouth Engine nhận sự kiện để đồng bộ môi, mắt và gương mặt.
-8. Có thể bật **Bộ nhớ dài hạn cục bộ**; dữ liệu chỉ nằm trong SQLite trên PC
-   và có nút xóa riêng.
-
-Bạn cũng có thể nhập câu hỏi rồi bấm **Gửi và trả lời** hoặc `Ctrl+Enter`.
-
-Silero và model Whisper mẫu có thể tải chủ động bằng
-[`models/tai-model-giong-noi.ps1`](models/tai-model-giong-noi.ps1). Binary
-whisper.cpp, llama.cpp, LLM GGUF và voice Piper không được tự tải/cài ngầm.
-
-## Nhân vật
-
-`characters.json` kế thừa ý tưởng registry trong mã nguồn người dùng:
-
-```json
-{
-  "mai": {
-    "label": "Mai · Dịu dàng",
-    "llm_model": "qwen3:4b",
-    "voice_language": "vi-VN",
-    "system_prompt": "Prompt tiếng Việt..."
-  }
-}
-```
-
-`voice_registry.py` kiểm tra JSON, giới hạn prompt, chuyển nhân vật an toàn luồng
-và không gửi system prompt xuống giao diện.
-
-## TTS tiếng Việt có benchmark
-
-Dashboard có nút **Benchmark TTS**. Cùng một câu được tổng hợp bằng Windows SAPI
-và Piper/VITS nếu khả dụng. Báo cáo gồm:
-
-- thời gian tạo WAV;
-- thời lượng âm thanh;
-- RTF — nhỏ hơn một nghĩa là tổng hợp nhanh hơn thời gian phát;
-- số ký tự xử lý mỗi giây.
-
-Kết quả được đo trên chính máy người dùng, không dùng số liệu dựng sẵn. Xem
-[`benchmarks`](benchmarks) và [`companion`](companion).
-
-### Qwen3-TTS thử nghiệm
-
-Mã thử nghiệm của người dùng đã được cập nhật trong
-[`tuy-chon-qwen3`](tuy-chon-qwen3). Thành phần này không nằm trong EXE mặc định:
-
-- Qwen3-TTS/PyTorch làm gói nặng và không phù hợp yêu cầu chỉ cài GUI.
-- Máy AMD không hưởng lợi từ đường CUDA của mã cũ.
-- Tiếng Việt chưa nằm trong danh sách hỗ trợ chính thức của Qwen3-TTS.
-
-Bản ổn định ưu tiên giọng Việt sẵn có trong Microsoft Edge/Windows.
-
-## Bảo mật cổng API
-
-- Chỉ lắng nghe trên `127.0.0.1`.
-- Tự chọn cổng từ 27827 đến 27838 nếu cổng mặc định đang bận.
-- Mỗi phiên tạo một token ngẫu nhiên 256 bit.
-- Mọi POST API phải có `X-Cybergirl-Token`.
-- Kiểm tra `Origin`, giới hạn JSON một MB và không bật CORS.
-- Chính sách CSP chặn script, frame và object từ ngoài.
-- Không ghi khóa API vào `localStorage`, `chrome.storage` hoặc tệp cấu hình.
-
-## Đóng gói Windows
-
-GitHub Actions tự tạo:
-
-- `Cybergirl-Windows-x64.exe` — GUI một tệp.
-- `Cybergirl-Companion.exe` — Native Messaging host.
-- `Cybergirl-Edge-v3.3.0.zip` — extension có ID ổn định.
-- `Cybergirl-Setup-v3.3.0-Windows-x64.exe` — bộ cài Inno Setup tiếng Việt.
-
-Tự build trên Windows:
+Build thủ công trên Windows:
 
 ```powershell
 python -m pip install -r requirements-build.txt
 npm test
+python cybergirl.py --tu-kiem-tra
 pyinstaller --noconfirm --clean cybergirl.spec
 pyinstaller --noconfirm --clean cybergirl_companion.spec
 ```
 
-Sau đó dùng Inno Setup 6 biên dịch `installer/Cybergirl.iss`.
+Biên dịch tiếp `installer/Cybergirl.iss` bằng Inno Setup 6.
 
 ## Kiểm thử
 
 ```powershell
 npm test
-python cybergirl.py --tu-kiem-tra
 ```
 
-Bộ kiểm thử xác thực:
+Hiện có:
 
-- Manifest V3 chỉ dùng `storage`, `nativeMessaging`, không có host permission.
-- Ảnh runtime 3840×2160 và xuất master 7680×4320.
-- Face Mesh, model data và hai WASM hợp lệ.
-- Mouth Engine không tái xuất hiện dải màu khoang miệng cố định.
-- Registry nhân vật tiếng Việt.
-- Native protocol, Silero/Whisper/GGUF/TTS component matrix.
-- Memory SQLite opt-in, Emotion Engine và phoneme timing.
-- Full-duplex echo-guard, model registry và xuất WebM.
-- GUI Avatar-trên/chat-dưới, Chat live và ghi âm MediaRecorder cục bộ.
-- Text-aligned viseme, trạng thái hội thoại và motion theo ngữ cảnh.
-- Adapter GGUF, Ollama, OpenAI Responses, Gemini Interactions, OpenRouter và compatible.
-- OpenRouter attribution, ZDR routing và kiểm tra chống rò rỉ khóa.
-- Token bảo vệ cổng vòng lặp.
-- Khóa API không bị ghi xuống ổ đĩa.
-- Thành phần bộ cài GUI Windows.
+- kiểm tra cấu trúc Manifest, UI, asset, WASM và bảo mật;
+- unit test hợp đồng PCM, constraints và lỗi Web Speech;
+- mô phỏng AudioWorklet resample 48 kHz → PCM16 16 kHz;
+- kiểm thử backend/API, Native Messaging, memory, emotion và viseme;
+- self-test tài nguyên đóng gói Windows.
 
 ## Cấu trúc
 
 ```text
 Avatar/
-├── cybergirl.py                 # GUI, máy chủ vòng lặp và bộ mở Edge
-├── api_client.py                # GGUF/Ollama/OpenAI/Gemini/OpenRouter/compatible
-├── cybergirl_native_host.py     # Điểm vào companion EXE
-├── companion/                   # VAD, Whisper, LLM, TTS, benchmark
-├── native-host/                 # Manifest và đăng ký Edge HKCU
-├── models/                      # Hướng dẫn model; không lưu binary vào Git
-├── benchmarks/                  # Phương pháp benchmark có thể kiểm chứng
-├── voice_registry.py            # Registry nhân vật
-├── characters.json              # Nhân vật tiếng Việt
-├── index.html
-├── styles.css
-├── app.js                       # Face Mesh, mouth engine, giọng và chat
-├── manifest.json                # Extension Edge MV3
-├── cybergirl.spec               # Đóng gói PyInstaller
-├── cybergirl_companion.spec     # Đóng gói Native Messaging host
-├── installer/Cybergirl.iss      # Bộ cài tiếng Việt
-├── tuy-chon-qwen3/              # Tích hợp TTS thử nghiệm, không đóng gói
-├── assets/
-├── vendor/face_mesh/
-├── icons/
-├── tests/
-└── .github/workflows/build-windows.yml
+├── audio/
+│   ├── pcm-web-speech.js       # Engine dùng chung
+│   └── pcm16-processor.js      # AudioWorklet resample + PCM16
+├── app.js                      # Avatar, chat, orchestration
+├── index.html                  # UI dùng chung
+├── manifest.json               # Edge Extension MV3
+├── cybergirl.py                # Windows GUI + localhost backend
+├── companion/                  # LLM/TTS/memory tùy chọn
+├── vendor/face_mesh/           # Face Mesh/WASM cục bộ
+├── installer/                  # Inno Setup
+├── tests/                      # Node + Python tests
+└── .github/workflows/          # Build Extension/EXE/Release
 ```
 
 ## Giấy phép
 
-Mã Cybergirl phát hành theo [MIT License](LICENSE). Phát triển bởi **Long Ngo**.
-MediaPipe Face Mesh và các thành phần đóng gói có giấy phép riêng được ghi trong
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT License. Phát triển bởi **Long Ngo**. Giấy phép thành phần bên thứ ba được
+ghi trong [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

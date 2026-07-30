@@ -1,6 +1,6 @@
 # Benchmark tiếng Việt
 
-Cybergirl 3.3 benchmark tại runtime thay vì chép số liệu từ máy khác.
+Cybergirl 5.2 benchmark tại runtime thay vì chép số liệu từ máy khác.
 
 ## TTS
 

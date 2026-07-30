@@ -1,28 +1,24 @@
-# Cybergirl Companion 3.3
+# Cybergirl Companion 5.2
 
-Companion là Native Messaging host chạy cục bộ trên Windows. Microsoft Edge
-giao tiếp bằng JSON có tiền tố độ dài; không mở cổng mạng công khai và không
-nhận ảnh chân dung.
+Companion là Native Messaging host tùy chọn chạy cục bộ trên Windows. Microsoft
+Edge giao tiếp bằng JSON có tiền tố độ dài; không mở cổng mạng công khai và
+không nhận ảnh chân dung.
 
 ## Chuỗi xử lý
 
 ```text
-Microphone 16 kHz
-  → Silero VAD ONNX (CPU)
-  → WAV của một câu nói
-  → whisper.cpp đa ngôn ngữ, ép ngôn ngữ vi
-  → GGUF qua llama-server hoặc OpenAI/Gemini/OpenRouter API
+Microphone
+  → PCM16 + Edge Web Speech trong frontend dùng chung
+  → văn bản qua Native Messaging
+  → Demo/GGUF qua llama-server hoặc OpenAI/Gemini/OpenRouter API
   → Windows SAPI hoặc Piper/VITS tiếng Việt
   → phoneme timing + Emotion Engine
   → Mouth Engine, gaze, blink và head motion trong Edge
 ```
 
-Silero VAD dùng cửa sổ 512 mẫu ở 16 kHz. Hai cửa sổ liên tiếp vượt ngưỡng mới
-mở câu; khoảng lặng mặc định 650 ms đóng câu. Khi người dùng bắt đầu nói,
-companion phát sự kiện ngắt để dừng TTS hiện tại.
-Khi TTS đang phát, echo-guard nâng ngưỡng VAD và yêu cầu nhiều cửa sổ liên tiếp
-hơn; lời nói thật đủ rõ vẫn tạo barge-in. Đây là lớp chống vọng nhẹ, không tuyên
-bố thay thế WebRTC Acoustic Echo Cancellation ở cấp hệ điều hành.
+Các adapter Silero/Whisper 3.x vẫn còn để đọc cấu hình cũ, nhưng nút Chat live
+5.2 không gọi `start_listening`. PCM VAD, lựa chọn thiết bị và phục hồi digital
+silence nằm trong `audio/pcm-web-speech.js`.
 
 ## Lệnh Native Messaging
 

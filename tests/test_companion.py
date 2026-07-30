@@ -34,6 +34,19 @@ class ProtocolTests(unittest.TestCase):
 
 
 class CompanionConfigTests(unittest.TestCase):
+    def test_demo_is_default_and_requires_no_key(self):
+        config = CauHinhCompanion()
+        self.assertEqual(config.provider, "demo")
+        answer = BoNao().tra_loi(
+            config,
+            "",
+            "Microphone PCM hoạt động thế nào?",
+            [],
+            "Trả lời tiếng Việt.",
+        )
+        self.assertIn("PCM16", answer)
+        self.assertIn("16 kHz", answer)
+
     def test_api_key_never_persisted(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.json"

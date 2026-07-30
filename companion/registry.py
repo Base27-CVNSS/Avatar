@@ -7,6 +7,14 @@ from typing import Any
 
 MODEL_PROFILES: list[dict[str, Any]] = [
     {
+        "id": "demo",
+        "label": "Demo cục bộ · chạy ngay",
+        "provider": "demo",
+        "base_url": "http://127.0.0.1:27827",
+        "model": "cybergirl-demo-vi",
+        "offline": True,
+    },
+    {
         "id": "gguf-cpu",
         "label": "GGUF cục bộ · CPU 16 GB",
         "provider": "gguf",

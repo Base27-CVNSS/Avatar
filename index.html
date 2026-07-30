@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#07111f">
-    <meta name="description" content="Cybergirl là trợ lý ảo tiếng Việt có khuôn mặt, giọng nói và hội thoại AI chạy trong Microsoft Edge trên Windows.">
+    <meta name="description" content="Cybergirl là trợ lý ảo tiếng Việt dùng chung lõi PCM16 và Edge Web Speech cho Extension lẫn Windows.">
     <meta name="cybergirl-token" content="">
     <title>Cybergirl — Trợ lý ảo tiếng Việt</title>
     <link rel="icon" href="icons/logo.svg" type="image/svg+xml">
@@ -261,11 +261,21 @@
                 <span id="micOrb" class="mic-orb" aria-hidden="true">●</span>
                 <div>
                   <strong id="micTitle">Microphone đang tắt</strong>
-                  <small id="micHint">Edge sẽ hỏi quyền truy cập khi bạn bắt đầu.</small>
+                  <small id="micHint">Edge sẽ hỏi quyền và tạo PCM16 mono 16 kHz khi bạn bắt đầu.</small>
                 </div>
               </div>
+              <label class="field-label" for="microphoneDeviceSelect">Thiết bị đầu vào Windows</label>
+              <select id="microphoneDeviceSelect">
+                <option value="">Microphone mặc định của Windows</option>
+              </select>
+              <div class="pcm-health" aria-label="Trạng thái PCM và Web Speech">
+                <span id="pcmFormatStatus">PCM16 · 16 kHz · mono</span>
+                <span id="pcmLevelStatus">RMS · chờ tín hiệu</span>
+                <span id="speechTrackStatus">Web Speech · chờ track</span>
+              </div>
               <button id="micButton" class="button primary full-width" type="button">Bắt đầu nhận giọng Việt</button>
-              <p class="micro-copy">Lời nói tạm thời được hiển thị ngay và chuyển động môi bám theo âm lượng thật.</p>
+              <button id="recoverMicButton" class="button secondary full-width" type="button">Làm mới đầu vào PCM</button>
+              <p class="micro-copy">Cùng một MediaStreamTrack cấp dữ liệu cho AudioWorklet PCM16 và Edge Web Speech; Extension và Windows dùng đúng một engine.</p>
             </div>
           </section>
 
@@ -287,8 +297,8 @@
             </div>
 
             <div class="native-stack" aria-label="Trạng thái companion cục bộ">
-              <span id="nativeVadStatus">VAD · chờ</span>
-              <span id="nativeSttStatus">Whisper · chờ</span>
+              <span id="nativeVadStatus">PCM VAD · chờ</span>
+              <span id="nativeSttStatus">Web Speech · chờ</span>
               <span id="nativeLlmStatus">GGUF · chờ</span>
               <span id="nativeTtsStatus">TTS · chờ</span>
             </div>
@@ -307,6 +317,7 @@
 
               <label class="field-label" for="providerSelect">Nhà cung cấp AI</label>
               <select id="providerSelect">
+                <option value="demo">Demo cục bộ · chạy ngay</option>
                 <option value="gguf">GGUF cục bộ · llama.cpp</option>
                 <option value="openai">ChatGPT · OpenAI Responses API</option>
                 <option value="gemini">Google Gemini API</option>
@@ -344,8 +355,8 @@
             </div>
 
             <details class="local-settings">
-              <summary>Thiết lập companion cục bộ</summary>
-              <p>Chọn binary/model trên Windows. Đường dẫn chỉ lưu trong companion; ảnh không được chuyển qua kênh này.</p>
+              <summary>Thiết lập LLM/TTS companion · tùy chọn</summary>
+              <p>Microphone và STT luôn do engine PCM16 + Edge Web Speech dùng chung quản lý. Các đường dẫn Whisper/Silero dưới đây chỉ được giữ để tương thích cấu hình cũ, không còn là đường giọng mặc định.</p>
 
               <label class="field-label" for="sileroPath">Silero VAD ONNX</label>
               <input id="sileroPath" type="text" placeholder="C:\Cybergirl\models\silero_vad.onnx" spellcheck="false">
@@ -463,12 +474,13 @@
     </main>
 
     <footer>
-      <span>Cybergirl v3.3.0</span>
+      <span>Cybergirl v5.2.0 · Unified PCM</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="vendor/face_mesh/face_mesh.js"></script>
+    <script src="audio/pcm-web-speech.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

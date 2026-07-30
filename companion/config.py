@@ -10,6 +10,7 @@ from typing import Any
 
 
 NHA_CUNG_CAP = {
+    "demo",
     "gguf",
     "openai",
     "openrouter",
@@ -32,9 +33,9 @@ def thu_muc_du_lieu() -> Path:
 
 @dataclass(slots=True)
 class CauHinhCompanion:
-    provider: str = "gguf"
-    base_url: str = "http://127.0.0.1:27829/v1"
-    model: str = "qwen3-4b-vi"
+    provider: str = "demo"
+    base_url: str = "http://127.0.0.1:27827"
+    model: str = "cybergirl-demo-vi"
     openrouter_referer: str = "https://github.com/Base27-CVNSS/Avatar"
     openrouter_title: str = "Cybergirl"
     openrouter_zdr: bool = False

@@ -28,6 +28,7 @@ class CauHinhAPI:
 
     def validated(self) -> "CauHinhAPI":
         if self.provider not in {
+            "demo",
             "gguf",
             "ollama",
             "openai",
@@ -66,6 +67,29 @@ def _clean_text(value: str) -> str:
     return value[:4_000]
 
 
+def _demo_reply(message: str) -> str:
+    normalized = message.casefold()
+    if any(word in normalized for word in ("xin chào", "chào em", "hello")):
+        return (
+            "Xin chào! Em đang chạy bằng lõi demo cục bộ. Microphone đã được "
+            "chuẩn hóa PCM16 và lời nói được Edge Web Speech nhận dạng."
+        )
+    if any(word in normalized for word in ("tên gì", "là ai", "cybergirl")):
+        return (
+            "Em là Cybergirl, trợ lý avatar tiếng Việt dùng chung một mã nguồn "
+            "cho Edge Extension và ứng dụng Windows."
+        )
+    if any(word in normalized for word in ("pcm", "âm thanh", "micro", "giọng nói")):
+        return (
+            "Đầu vào dùng một MediaStreamTrack, AudioWorklet chuyển thành PCM "
+            "signed 16-bit mono 16 kHz và cùng track được chuyển cho Edge Web Speech."
+        )
+    return (
+        "Em đã nghe rõ câu của bạn. Đây là phản hồi demo chạy ngay; hãy chọn "
+        "GGUF, Ollama hoặc API nếu muốn hội thoại AI đầy đủ."
+    )
+
+
 class APIClient:
     def __init__(self, config: CauHinhAPI):
         self.config = config.validated()
@@ -77,7 +101,7 @@ class APIClient:
         request_headers = {
             "Content-Type": "application/json; charset=utf-8",
             "Accept": "application/json",
-            "User-Agent": "Cybergirl/3.3",
+            "User-Agent": "Cybergirl/5.2",
             **(headers or {}),
         }
         request = urllib.request.Request(
@@ -117,6 +141,8 @@ class APIClient:
             and str(item.get("content", "")).strip()
         ]
 
+        if self.config.provider == "demo":
+            return _demo_reply(message)
         if self.config.provider == "ollama":
             data = self._request(
                 f"{self.config.base_url}/api/chat",

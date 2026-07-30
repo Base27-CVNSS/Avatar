@@ -2,6 +2,32 @@
 
 Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
 
+## 5.2.0 — 30/07/2026
+
+### Một lõi Edge/Windows
+
+- Extension và Windows dùng cùng `index.html`, `app.js` và thư mục `audio/`.
+- Thêm `PcmWebSpeechEngine`; đường Chat live không còn đổi sang microphone
+  Silero/Whisper khi companion sẵn sàng.
+- Edge Web Speech nhận đúng `MediaStreamTrack` đang được PCM engine phân tích.
+- Thêm Demo cục bộ để Extension và EXE chạy ngay không cần model/API.
+
+### PCM và khả năng phục hồi
+
+- AudioWorklet resample đầu vào về signed PCM16 little-endian, 16 kHz, mono.
+- Gói cố định 20 ms/320 mẫu; telemetry gồm sequence, RMS, peak và byte length.
+- Xác minh tín hiệu thật sau ba frame; phát hiện digital silence.
+- Thêm profile `processed`/`compatibility`, tự phục hồi một lần và nút làm mới.
+- Thêm chọn input Windows, lưu `deviceId` và không fallback sai track.
+- Web Speech tự nối lại với backoff khi Edge kết thúc phiên.
+
+### Phát hành và kiểm thử
+
+- PR tự build Windows; tag `v*` tự tạo GitHub Release.
+- Đồng bộ phiên bản 5.2.0 cho package, manifest, installer, EXE và Extension ZIP.
+- Thêm unit test PCM, constraints, lỗi Edge và mô phỏng 48 kHz → 16 kHz.
+- Tài liệu mới: kiến trúc hợp nhất và hợp đồng `CG-PCM/1`.
+
 ## 3.3.0 — 28/07/2026
 
 - Thiết kế lại GUI theo luồng Avatar ở trên, dock hội thoại trực tiếp ngay bên dưới.

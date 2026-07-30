@@ -1,5 +1,5 @@
 #define MyAppName "Cybergirl"
-#define MyAppVersion "3.3.0"
+#define MyAppVersion "5.2.0"
 #define MyAppPublisher "Long Ngo"
 #define MyAppExeName "Cybergirl-Windows-x64.exe"
 
@@ -40,6 +40,7 @@ Source: "..\manifest.json"; DestDir: "{app}\Extension"; Flags: ignoreversion
 Source: "..\index.html"; DestDir: "{app}\Extension"; Flags: ignoreversion
 Source: "..\styles.css"; DestDir: "{app}\Extension"; Flags: ignoreversion
 Source: "..\app.js"; DestDir: "{app}\Extension"; Flags: ignoreversion
+Source: "..\audio\*"; DestDir: "{app}\Extension\audio"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\background.js"; DestDir: "{app}\Extension"; Flags: ignoreversion
 Source: "..\characters.json"; DestDir: "{app}\Extension"; Flags: ignoreversion
 Source: "..\assets\*"; DestDir: "{app}\Extension\assets"; Flags: ignoreversion recursesubdirs createallsubdirs

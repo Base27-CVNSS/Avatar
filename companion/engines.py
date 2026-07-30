@@ -36,7 +36,7 @@ def _yeu_cau_json(
         headers={
             "Content-Type": "application/json; charset=utf-8",
             "Accept": "application/json",
-            "User-Agent": "Cybergirl-Companion/3.3",
+            "User-Agent": "Cybergirl-Companion/5.2",
             **(headers or {}),
         },
     )
@@ -156,6 +156,22 @@ class BoNao:
             for item in history[-12:]
             if item.get("role") in {"user", "assistant"}
         ]
+        if config.provider == "demo":
+            normalized = message.casefold()
+            if any(word in normalized for word in ("xin chào", "chào em", "hello")):
+                return (
+                    "Xin chào! Em đang chạy bằng lõi demo cục bộ. Microphone "
+                    "PCM16 và Edge Web Speech đã sẵn sàng."
+                )
+            if any(word in normalized for word in ("pcm", "micro", "âm thanh")):
+                return (
+                    "Đầu vào dùng một track chung, được chuẩn hóa PCM16 mono "
+                    "16 kHz trước khi Edge Web Speech nhận dạng."
+                )
+            return (
+                "Em đã nghe rõ câu của bạn ở chế độ demo. Hãy chọn GGUF, "
+                "Ollama hoặc API khi cần bộ não AI đầy đủ."
+            )
         if config.provider == "gguf":
             self.llama.dam_bao(config)
             provider = "openai-compatible"

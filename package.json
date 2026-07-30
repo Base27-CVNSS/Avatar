@@ -1,11 +1,11 @@
 {
   "name": "cybergirl-edge-vietnamese-assistant",
-  "version": "3.3.0",
+  "version": "5.2.0",
   "private": true,
-  "description": "Edge Extension tiếng Việt kết hợp Native Messaging, ChatGPT/Gemini và companion AI cục bộ.",
+  "description": "Cybergirl hợp nhất Edge Extension và Windows trên một lõi PCM16 + Web Speech.",
   "author": "Long Ngo",
   "license": "MIT",
   "scripts": {
-    "test": "node tests/validate.mjs && node tests/run-python.mjs"
+    "test": "node tests/validate.mjs && node --test tests/test_pcm_web_speech.mjs && node tests/run-python.mjs"
   }
 }

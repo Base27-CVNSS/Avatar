@@ -17,17 +17,21 @@ thiểu.
 
 Ảnh, landmark và texture khuôn mặt không được gửi tới lõi Python hoặc API AI.
 
-## Microphone, Web Speech và companion
+## Microphone, PCM và Web Speech
 
 Microphone chỉ mở sau khi người dùng bấm bắt đầu. Khi dừng hoặc đóng ứng dụng,
-track microphone được đóng. Web Speech API do Microsoft Edge/Windows cung cấp;
-tùy phiên bản và cấu hình, dịch vụ nhận dạng giọng có thể xử lý trực tuyến theo
-chính sách của Microsoft.
+track microphone được đóng. Cả Extension và Windows dùng một
+`MediaStreamTrack`.
 
-Khi người dùng chọn companion cục bộ, microphone được companion thu ở 16 kHz.
-Silero VAD, tệp WAV tạm và Whisper chạy trên máy. WAV của câu nói bị xóa sau
-khi phiên âm. Âm thanh không được gửi tới OpenAI, Gemini, OpenRouter hoặc LLM
-GGUF.
+AudioWorklet chuẩn hóa track thành PCM16 little-endian, 16 kHz, mono để đo RMS,
+VAD, lip-sync và chẩn đoán. Cybergirl không gửi raw PCM này tới backend LLM.
+Cùng track được chuyển cho Microsoft Edge Web Speech với `vi-VN`.
+
+Tùy phiên bản Edge, chính sách Windows và vùng, nhận dạng có thể dùng dịch vụ
+của Microsoft. Edge 150 on-device thử nghiệm chưa liệt kê tiếng Việt, nên bản
+5.2 không tuyên bố nhận dạng `vi-VN` hoàn toàn offline. Các cấu hình
+Silero/Whisper cũ được giữ để tương thích nhưng không còn là đường Chat live mặc
+định.
 
 Nút **Ghi âm** của dashboard dùng `MediaRecorder` trong Edge. Bản ghi chỉ tồn
 tại dưới dạng Blob cục bộ để nghe lại, tối đa 5 phút, không tự tải lên API và

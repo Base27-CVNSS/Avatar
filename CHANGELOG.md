@@ -19,6 +19,8 @@ Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
 - Giữ Realtek PCM16 mono 16 kHz chạy độc lập; Edge Web Speech có thể fallback
   sang Windows System Voice mà không đóng PCM.
 - Bổ sung unit test transcript Saymee và kiểm tra hồi quy UI studio.
+- Workflow Windows đóng gói cùng thư mục `audio/` vào Extension ZIP lẫn EXE để
+  hai bản luôn nhận đúng cùng một engine và cùng lõi transcript.
 
 ## 5.2.1 — 30/07/2026
 

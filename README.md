@@ -1,8 +1,8 @@
-# Cybergirl 5.2.1 — Avatar AI tiếng Việt cho Edge và Windows
+# Cybergirl 5.3.0 — Avatar AI tiếng Việt cho Edge và Windows
 
 ![Cybergirl](icons/logo.svg)
 
-[![Phiên bản](https://img.shields.io/badge/Phiên_bản-5.2.1-ff4f9a)](CHANGELOG.md)
+[![Phiên bản](https://img.shields.io/badge/Phiên_bản-5.3.0-ff4f9a)](CHANGELOG.md)
 [![PCM](https://img.shields.io/badge/PCM16-16_kHz_mono-00b7c3)](docs/PCM-CONTRACT.md)
 [![Microsoft Edge](https://img.shields.io/badge/Edge-Web_Speech-0aa7f5?logo=microsoftedge)](https://learn.microsoft.com/en-us/microsoft-edge/web-platform/speech-recognition-api)
 [![Windows](https://img.shields.io/badge/Windows-10_%7C_11-0078d4?logo=windows)](.github/workflows/build-windows.yml)
@@ -12,15 +12,17 @@
 Microsoft Edge Extension lẫn ứng dụng Windows.**
 
 Cybergirl biến ảnh chân dung thành avatar có thể nghe tiếng Việt, chép lời,
-trò chuyện, phát giọng và nhép môi. Bản 5.2.1 dùng Realtek/Windows System Voice
-cấp AudioWorklet PCM16. Edge `SpeechRecognition` ưu tiên cùng track và tự
-fallback sang System Voice mà không đóng PCM.
+trò chuyện, phát giọng và nhép môi. Bản 5.3.0 có giao diện studio hai vùng và
+lõi transcript Saymee cho kết quả Web Speech tạm thời/cuối theo thời gian thực.
+Realtek/Windows System Voice cấp AudioWorklet PCM16; Edge
+`SpeechRecognition` ưu tiên cùng track và tự fallback sang System Voice mà
+không đóng PCM.
 
 ## Chạy ngay
 
 ### Edge Extension
 
-1. Tải `Cybergirl-Edge-v5.2.1.zip` trong **Actions** hoặc **Releases**.
+1. Tải `Cybergirl-Edge-v5.3.0.zip` trong **Actions** hoặc **Releases**.
 2. Giải nén; mở `edge://extensions`.
 3. Bật **Chế độ nhà phát triển** → **Tải tiện ích đã giải nén**.
 4. Chọn thư mục có `manifest.json`, sau đó bấm biểu tượng Cybergirl.
@@ -34,7 +36,7 @@ Chế độ **Demo cục bộ** hoạt động ngay, không cần model, API key
 Tải một trong hai tệp:
 
 - `Cybergirl-Windows-x64.exe`: một tệp EXE, mở trực tiếp.
-- `Cybergirl-Setup-v5.2.1-Windows-x64.exe`: bộ cài tiếng Việt, có shortcut.
+- `Cybergirl-Setup-v5.3.0-Windows-x64.exe`: bộ cài tiếng Việt, có shortcut.
 
 Ứng dụng tự mở Microsoft Edge ở chế độ cửa sổ app. Người dùng không cần cài
 Python, Node.js, CUDA hoặc model để chạy Demo. Khi cần LLM thật, chọn Ollama,
@@ -54,7 +56,7 @@ flowchart TD
     M -. "Edge không nhận track" .-> Y["Windows System Voice"]
     Y --> S
     P --> V["PCM VAD · meter · lip-sync · chẩn đoán"]
-    S --> T["Interim + final transcript"]
+    S --> T["Saymee · interim + final transcript"]
     T --> B{"Bộ não"}
     B --> D["Demo cục bộ"]
     B --> L["GGUF / Ollama"]
@@ -68,7 +70,7 @@ Không có hai bản sao của frontend:
 | Thành phần dùng chung | Extension | Windows EXE |
 |---|---:|---:|
 | `index.html`, `styles.css`, `app.js` | ✅ | ✅ |
-| `audio/pcm-web-speech.js` | ✅ | ✅ |
+| `audio/pcm-web-speech.js`, `audio/saymee-transcript.js` | ✅ | ✅ |
 | `audio/pcm16-processor.js` | ✅ | ✅ |
 | Face Mesh, Mouth Engine, avatar 4K/8K | ✅ | ✅ |
 | Demo tiếng Việt | ✅ | ✅ |
@@ -117,9 +119,12 @@ Tham chiếu:
 [Microsoft Edge SpeechRecognition](https://learn.microsoft.com/en-us/microsoft-edge/web-platform/speech-recognition-api) và
 [`SpeechRecognition.start(audioTrack)`](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/start).
 
-## Điểm nổi bật 5.2.1
+## Điểm nổi bật 5.3.0
 
 - Extension và Windows dùng một frontend, không copy thuật toán.
+- GUI studio hai vùng: avatar bên trái, hội thoại bên phải, responsive trên màn nhỏ.
+- Ba tab Trò chuyện/Nhân vật/Chẩn đoán giữ đầy đủ control nhưng giảm nhiễu thị giác.
+- Saymee quản lý interim/final theo segment ID, thống kê đoạn/từ và chống transcript lặp.
 - PCM16 mono 16 kHz cố định qua AudioWorklet.
 - PCM ưu tiên microphone Realtek của Windows; Web Speech lỗi không làm đóng mic.
 - Chọn thiết bị đầu vào Windows và lưu lựa chọn an toàn.
@@ -127,7 +132,7 @@ Tham chiếu:
 - Nút **Làm mới đầu vào PCM** đổi sang profile tương thích.
 - Telemetry trực tiếp: định dạng, sample rate, RMS, track mode và trạng thái STT.
 - Demo cục bộ chạy ngay, không mạng và không khóa.
-- Avatar trên, chat dưới; ghi âm, phát lại, chụp PNG, ảnh 8K và WebM.
+- Avatar toàn chiều cao, chat bên cạnh; ghi âm, phát lại, chụp PNG, ảnh 8K và WebM.
 - Mouth Engine giữ môi/răng thật, feather mask và viseme tiếng Việt.
 - Mắt, chớp mắt, gaze, chuyển động đầu và cảm xúc theo ngữ cảnh.
 - Barge-in và echo-guard khi người dùng ngắt lời TTS.
@@ -137,7 +142,7 @@ Tham chiếu:
 
 ## Đối chiếu 30 khối
 
-| # | Khối | Cybergirl 5.2 |
+| # | Khối | Cybergirl 5.3 |
 |---:|---|---|
 | 1 | Ảnh/Avatar | Face Mesh + Canvas + ảnh 4K/8K |
 | 2 | Mắt/miệng | Hiệu chỉnh 5 điểm + mouth patch thật |
@@ -192,8 +197,8 @@ Workflow [build-windows.yml](.github/workflows/build-windows.yml) chạy trên P
 
 - `Cybergirl-Windows-x64.exe`
 - `Cybergirl-Companion.exe`
-- `Cybergirl-Edge-v5.2.1.zip`
-- `Cybergirl-Setup-v5.2.1-Windows-x64.exe`
+- `Cybergirl-Edge-v5.3.0.zip`
+- `Cybergirl-Setup-v5.3.0-Windows-x64.exe`
 
 Khi push tag, workflow tự tạo GitHub Release và đính kèm bốn tệp.
 

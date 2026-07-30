@@ -43,6 +43,7 @@
       this.restartTimer = null;
       this.startWatchdog = null;
       this.restartAttempt = 0;
+      this.recognitionGeneration = 0;
       this.recoveryAttempts = 0;
       this.recoveryInProgress = false;
       this.signalCandidateFrames = 0;
@@ -389,18 +390,36 @@
         let finalText = "";
         let interimText = "";
         let confidence = 0;
+        const receivedAt = Date.now();
+        const segments = [];
         for (let index = event.resultIndex; index < event.results.length; index += 1) {
           const alternative = event.results[index][0];
           const text = String(alternative?.transcript || "").trim();
           if (!text) continue;
-          confidence = Math.max(confidence, Number(alternative.confidence || 0));
-          if (event.results[index].isFinal) finalText += `${text} `;
+          const segmentConfidence = Number(alternative.confidence || 0);
+          const final = Boolean(event.results[index].isFinal);
+          confidence = Math.max(confidence, segmentConfidence);
+          segments.push({
+            id: `${this.recognitionGeneration}-${index}`,
+            text,
+            final,
+            speechFinal: final,
+            generation: this.recognitionGeneration,
+            resultIndex: index,
+            receivedAt,
+            confidence: segmentConfidence
+          });
+          if (final) finalText += `${text} `;
           else interimText += `${text} `;
         }
         this.onResult({
           finalText: finalText.trim(),
           interimText: interimText.trim(),
-          confidence
+          confidence,
+          generation: this.recognitionGeneration,
+          resultIndex: event.resultIndex,
+          receivedAt,
+          segments
         });
       };
       recognition.onerror = (event) => {
@@ -453,6 +472,7 @@
         throw new Error("Track microphone dùng chung không còn hoạt động.");
       }
       try {
+        this.recognitionGeneration += 1;
         if (forceSystemVoice || this.recognitionFallbackUsed) {
           this.recognitionTrackMode = "windows-system-voice";
           this.recognition.start();

@@ -47,7 +47,14 @@
     signalLabel: $("#signalLabel"),
     levelBars: $$("#levelMeter i"),
     transcriptText: $("#transcriptText"),
+    transcriptStats: $("#transcriptStats"),
     copyTranscript: $("#copyTranscript"),
+    avatarName: $("#avatarName"),
+    avatarSubtitle: $("#avatarSubtitle"),
+    openDiagnosticsButton: $("#openDiagnosticsButton"),
+    conversationStudioPanel: $("#conversationStudioPanel"),
+    characterStudioPanel: $("#characterStudioPanel"),
+    diagnosticsStudioPanel: $("#diagnosticsStudioPanel"),
     resetButton: $("#resetButton"),
     snapshotButton: $("#snapshotButton"),
     masterImageButton: $("#masterImageButton"),
@@ -206,6 +213,7 @@
     recognition: null,
     recognitionShouldRun: false,
     finalTranscript: "",
+    transcriptSession: null,
     speechActive: false,
     ttsTimer: null,
     visemeTimers: [],
@@ -233,7 +241,8 @@
     voiceRecordingStartedAt: 0,
     voiceRecordingTimer: null,
     voiceRecordingUrl: null,
-    conversationPhase: "idle"
+    conversationPhase: "idle",
+    canvasResizeObserver: null
   };
 
   function showToast(message, isError = false) {
@@ -271,12 +280,96 @@
   function syncMicrophoneControls(active) {
     ui.liveTalkButton.classList.toggle("active", active);
     ui.liveTalkButton.setAttribute("aria-pressed", String(active));
-    ui.liveTalkButton.lastChild.textContent = active
-      ? " Dừng Chat live"
-      : " Bắt đầu Chat live";
+    const label = ui.liveTalkButton.querySelector("strong");
+    const detail = ui.liveTalkButton.querySelector("small");
+    if (label) label.textContent = active ? "Dừng lắng nghe" : "Nhấn để nói";
+    if (detail) detail.textContent = active ? "Đang nghe · vi-VN" : "Realtek · Edge STT";
     ui.micButton.textContent = active
       ? "Dừng microphone"
       : "Bắt đầu nhận giọng Việt";
+  }
+
+  function ensureTranscriptSession() {
+    if (state.transcriptSession) return state.transcriptSession;
+    const Session = globalThis.CybergirlSaymee?.TranscriptSession;
+    if (!Session) throw new Error("Thiếu lõi transcript Saymee.");
+    state.transcriptSession = new Session({
+      title: "Cybergirl Live",
+      language: "vi-VN"
+    });
+    return state.transcriptSession;
+  }
+
+  function resetTranscriptSession() {
+    const snapshot = ensureTranscriptSession().clear();
+    state.finalTranscript = "";
+    ui.transcriptText.textContent = "Bản chép lời sẽ xuất hiện ở đây khi bật microphone.";
+    if (ui.transcriptStats) ui.transcriptStats.textContent = "0 đoạn · 0 từ";
+    return snapshot;
+  }
+
+  function updateAvatarIdentity() {
+    const selected = ui.characterSelect.selectedOptions[0];
+    const label = selected?.textContent?.trim() || "Mai";
+    if (ui.avatarName) ui.avatarName.textContent = label;
+    if (ui.avatarSubtitle) ui.avatarSubtitle.textContent = "Người bạn đồng hành AI · vi-VN";
+  }
+
+  function switchStudioTab(name) {
+    const selectedName = ["conversation", "character", "diagnostics"].includes(name)
+      ? name
+      : "conversation";
+    $$(".studio-tab").forEach((tab) => {
+      const active = tab.dataset.studioTab === selectedName;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", String(active));
+    });
+    const panels = {
+      conversation: ui.conversationStudioPanel,
+      character: ui.characterStudioPanel,
+      diagnostics: ui.diagnosticsStudioPanel
+    };
+    for (const [panelName, panel] of Object.entries(panels)) {
+      const active = panelName === selectedName;
+      panel.hidden = !active;
+      panel.classList.toggle("active", active);
+    }
+  }
+
+  function configureStudioPanels() {
+    const controlPanel = document.querySelector(".control-panel");
+    if (!controlPanel) return;
+    const sections = [...controlPanel.children].filter((node) => (
+      node.classList?.contains("control-section")
+    ));
+    ui.characterStudioPanel.replaceChildren(...[sections[0], sections[2]].filter(Boolean));
+    ui.diagnosticsStudioPanel.replaceChildren(...[sections[1]].filter(Boolean));
+    controlPanel.remove();
+    switchStudioTab("conversation");
+  }
+
+  function configureResponsiveCanvas() {
+    const resize = () => {
+      const rect = ui.canvasShell.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) return;
+      let scale = Math.min(window.devicePixelRatio || 1, 1.25);
+      const maxPixels = 1800000;
+      if (rect.width * rect.height * scale * scale > maxPixels) {
+        scale = Math.sqrt(maxPixels / (rect.width * rect.height));
+      }
+      const width = Math.max(640, Math.round(rect.width * scale));
+      const height = Math.max(480, Math.round(rect.height * scale));
+      if (Math.abs(ui.canvas.width - width) < 2 && Math.abs(ui.canvas.height - height) < 2) return;
+      ui.canvas.width = width;
+      ui.canvas.height = height;
+    };
+    resize();
+    if ("ResizeObserver" in window) {
+      state.canvasResizeObserver = new ResizeObserver(() => resize());
+      state.canvasResizeObserver.observe(ui.canvasShell);
+    } else {
+      window.addEventListener("resize", resize);
+    }
   }
 
   function safeFileName(name) {
@@ -652,6 +745,7 @@
     if (active && characters.some((character) => character.id === active)) {
       ui.characterSelect.value = active;
     }
+    updateAvatarIdentity();
   }
 
   function applyProviderDefaults(force = false) {
@@ -942,7 +1036,8 @@
     if (!state.companionReady && !state.standaloneMode && !(await saveCompanionConfig(false))) return;
     state.sendingChat = true;
     ui.sendChatButton.disabled = true;
-    ui.sendChatButton.textContent = "Đang suy nghĩ…";
+    ui.sendChatButton.textContent = "…";
+    ui.sendChatButton.setAttribute("aria-label", "Đang suy nghĩ");
     const previousHistory = state.chatHistory.slice(-12);
     appendChatMessage("user", message);
     state.chatHistory.push({ role: "user", content: message });
@@ -994,7 +1089,8 @@
     } finally {
       state.sendingChat = false;
       ui.sendChatButton.disabled = false;
-      ui.sendChatButton.textContent = "Gửi và trả lời";
+      ui.sendChatButton.textContent = "➤";
+      ui.sendChatButton.setAttribute("aria-label", "Gửi và trả lời");
       ui.chatInput.focus();
     }
   }
@@ -2454,24 +2550,42 @@
     showToast("Đã nạp âm thanh cục bộ.");
   }
 
-  function handleUnifiedSpeechResult({ finalText = "", interimText = "" }) {
+  function handleUnifiedSpeechResult(payload = {}) {
+    const { finalText = "", interimText = "" } = payload;
     let completed = finalText.trim();
     if (completed && state.speechActive && isLikelySpeakerEcho(completed)) {
       ui.pipelineHealth.textContent = "Echo-guard đã loại câu TTS bị microphone thu lại.";
       completed = "";
     }
-    if (completed) state.finalTranscript += `${completed} `;
-    const visibleText = `${state.finalTranscript}${interimText}`.trim();
+    const filteredSegments = Array.isArray(payload.segments)
+      ? payload.segments.map((segment) => (
+        segment.final && finalText.trim() && !completed
+          ? { ...segment, text: "" }
+          : segment
+      ))
+      : undefined;
+    const snapshot = ensureTranscriptSession().ingest({
+      ...payload,
+      finalText: completed,
+      interimText,
+      segments: filteredSegments
+    });
+    state.finalTranscript = snapshot.finalText ? `${snapshot.finalText} ` : "";
+    const visibleText = snapshot.text.trim();
     ui.transcriptText.textContent = visibleText || "Đang nghe…";
-    setConversationPhase(interimText ? "transcribing" : "listening");
+    if (ui.transcriptStats) {
+      ui.transcriptStats.textContent = `${snapshot.segmentCount} đoạn · ${snapshot.wordCount} từ`;
+    }
+    setConversationPhase(snapshot.interimText ? "transcribing" : "listening");
     if (visibleText) {
       state.liveViseme = visemeFromText(visibleText.slice(-2));
       state.liveVisemeUntil = performance.now() + 190;
       setViseme(state.liveViseme);
     }
-    if (completed && ui.voiceAutoSend.checked && state.companionReady) {
+    const newlyCompleted = snapshot.addedFinals.map((segment) => segment.text).join(" ").trim();
+    if (newlyCompleted && ui.voiceAutoSend.checked && state.companionReady) {
       window.clearTimeout(state.voiceSendTimer);
-      state.voiceSendTimer = window.setTimeout(() => sendChat(completed), 620);
+      state.voiceSendTimer = window.setTimeout(() => sendChat(newlyCompleted), 620);
     }
   }
 
@@ -2595,7 +2709,7 @@
     ui.audioPlayer.pause();
     try {
       const engine = ensureUnifiedSpeechEngine();
-      state.finalTranscript = "";
+      resetTranscriptSession();
       state.pcmLevel = 0;
       state.pcmTelemetry = null;
       state.recognitionShouldRun = true;
@@ -3118,6 +3232,7 @@
     ui.characterSelect.addEventListener("change", () => {
       const model = ui.characterSelect.selectedOptions[0]?.dataset.model;
       if (model && ui.providerSelect.value === "ollama") ui.apiModel.value = model;
+      updateAvatarIdentity();
     });
     ui.chatInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && !event.shiftKey) {
@@ -3137,7 +3252,7 @@
       ui.faceMotion.value = "24";
       ui.rate.value = "1";
       ui.pitch.value = "1";
-      ui.transcriptText.textContent = "Bản chép lời sẽ xuất hiện ở đây khi bật microphone.";
+      resetTranscriptSession();
       clearChat();
       deleteVoiceRecording();
       state.mouthOpen = 0;
@@ -3161,6 +3276,10 @@
     ui.pitch.addEventListener("change", savePreferences);
 
     $$(".tab").forEach((tab) => tab.addEventListener("click", () => switchTab(tab.dataset.tab)));
+    $$(".studio-tab").forEach((tab) => (
+      tab.addEventListener("click", () => switchStudioTab(tab.dataset.studioTab))
+    ));
+    ui.openDiagnosticsButton.addEventListener("click", () => switchStudioTab("diagnostics"));
 
     ["dragenter", "dragover"].forEach((type) => ui.dropZone.addEventListener(type, (event) => {
       event.preventDefault();
@@ -3212,6 +3331,9 @@
   async function initialize() {
     configureRuntimeContext();
     detectCapabilities();
+    configureStudioPanels();
+    configureResponsiveCanvas();
+    ensureTranscriptSession();
     bindEvents();
     await restorePreferences();
     await refreshMicrophoneList();

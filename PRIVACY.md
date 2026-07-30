@@ -25,7 +25,9 @@ track microphone được đóng. Cả Extension và Windows dùng một
 
 AudioWorklet chuẩn hóa track thành PCM16 little-endian, 16 kHz, mono để đo RMS,
 VAD, lip-sync và chẩn đoán. Cybergirl không gửi raw PCM này tới backend LLM.
-Cùng track được chuyển cho Microsoft Edge Web Speech với `vi-VN`.
+Cùng track được ưu tiên chuyển cho Microsoft Edge Web Speech với `vi-VN`. Nếu
+Edge không nhận đầu vào track trực tiếp, Web Speech dùng Windows System Voice
+mặc định; PCM Realtek vẫn chạy cục bộ và không bị đóng.
 
 Tùy phiên bản Edge, chính sách Windows và vùng, nhận dạng có thể dùng dịch vụ
 của Microsoft. Edge 150 on-device thử nghiệm chưa liệt kê tiếng Việt, nên bản

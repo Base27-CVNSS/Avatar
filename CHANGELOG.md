@@ -2,6 +2,22 @@
 
 Các thay đổi đáng chú ý của Cybergirl được ghi tại đây.
 
+## 5.2.1 — 30/07/2026
+
+### Windows System Voice và Realtek
+
+- Sửa lỗi UMD không truyền `root` vào factory khiến lần gọi microphone đầu tiên
+  có thể dừng tại `ReferenceError: root is not defined`.
+- Tự động ưu tiên `Microphone Array/Microphone (Realtek Audio)` và loại
+  `Stereo Mix`/loopback khỏi đường Voice.
+- Công nhận microphone đã mở ngay khi MediaStreamTrack/PCM hoạt động, không chờ
+  Web Speech phát `audiostart`.
+- Web Speech thử cùng track Realtek trước; nếu Edge không nhận, tự chuyển sang
+  Windows System Voice mặc định.
+- Lỗi Web Speech, Azure, mạng hoặc policy không còn đóng PCM và không còn bị báo
+  nhầm thành “Chưa mở được microphone”.
+- Bổ sung kiểm thử hồi quy mở PCM khi Web Speech chưa sẵn sàng.
+
 ## 5.2.0 — 30/07/2026
 
 ### Một lõi Edge/Windows

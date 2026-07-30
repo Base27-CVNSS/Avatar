@@ -189,7 +189,15 @@ assert.ok(
     .includes('nativeRequest("start_listening")'),
   "Đường microphone chính không được đổi sang Silero/Whisper companion"
 );
-assert.match(pcmEngine, /recognition\.start\(this\.track\)/, "Web Speech phải nhận cùng MediaStreamTrack");
+assert.match(pcmEngine, /recognition\.start\(this\.track\)/, "Web Speech phải thử nhận cùng MediaStreamTrack");
+assert.match(pcmEngine, /factory\(root\)/, "Engine UMD phải nhận đúng browser root");
+assert.match(pcmEngine, /windows-system-voice/, "Web Speech phải fallback sang Windows System Voice");
+assert.match(pcmEngine, /selectWindowsVoiceInput/, "Đường Windows Voice phải ưu tiên microphone Realtek");
+assert.match(
+  pcmEngine,
+  /this\.startRecognition\(\)\.catch/,
+  "Lỗi Web Speech không được đóng pipeline PCM"
+);
 assert.match(pcmEngine, /TARGET_SAMPLE_RATE = 16000/, "PCM phải chuẩn hóa đúng 16 kHz");
 assert.match(pcmEngine, /TARGET_CHANNELS = 1/, "PCM phải chuẩn hóa mono");
 assert.match(pcmEngine, /processLocally = false/, "vi-VN phải dùng dịch vụ Edge/Windows hiện hành");

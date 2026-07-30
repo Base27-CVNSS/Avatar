@@ -923,7 +923,7 @@
       return "Em là Cybergirl, trợ lý avatar tiếng Việt dùng chung một mã nguồn cho Edge Extension và ứng dụng Windows.";
     }
     if (/(pcm|âm thanh|micro|giọng nói)/u.test(normalized)) {
-      return "Đầu vào hiện dùng một MediaStreamTrack, AudioWorklet chuyển thành PCM signed 16-bit mono 16 kHz, rồi cùng track đó được chuyển cho Edge Web Speech.";
+      return "Đầu vào ưu tiên Realtek Windows Voice. AudioWorklet tạo PCM signed 16-bit mono 16 kHz; Edge Web Speech thử cùng track và tự chuyển sang System Voice mà không đóng PCM nếu cần.";
     }
     if (/(cảm ơn|thank)/u.test(normalized)) {
       return "Em rất vui được hỗ trợ. Khi cấu hình thêm LLM hoặc API, em có thể trả lời sâu hơn nhưng đường giọng PCM vẫn giữ nguyên.";
@@ -2481,13 +2481,34 @@
       "ready",
       ["armed", "recognizing", "signal-verified"].includes(stateName)
     );
-    ui.speechTrackStatus.classList.toggle("error", stateName === "error");
+    ui.speechTrackStatus.classList.toggle(
+      "error",
+      ["speech-error", "speech-unavailable"].includes(stateName)
+    );
     if (stateName === "armed" || stateName === "recognizing") {
-      ui.speechTrackStatus.textContent = `Web Speech · ${detail.trackMode || "track dùng chung"}`;
+      const route = detail.trackMode === "windows-system-voice"
+        ? "Windows System Voice"
+        : "track PCM Realtek";
+      ui.speechTrackStatus.textContent = `Web Speech · ${route}`;
+      ui.nativeSttStatus.textContent = "Web Speech · sẵn sàng";
+      ui.nativeSttStatus.classList.add("ready");
     } else if (stateName === "reconnecting") {
       ui.speechTrackStatus.textContent = `Web Speech · nối lại lần ${detail.attempt || 1}`;
-    } else if (stateName === "error") {
-      ui.speechTrackStatus.textContent = "Web Speech · lỗi";
+    } else if (stateName === "speech-fallback") {
+      ui.speechTrackStatus.textContent = "Web Speech · chuyển sang Windows System Voice";
+    } else if (stateName === "speech-unavailable") {
+      ui.speechTrackStatus.textContent = "Web Speech · không có · PCM vẫn chạy";
+      ui.nativeSttStatus.textContent = "Web Speech · không khả dụng";
+      ui.nativeSttStatus.classList.remove("ready");
+    } else if (stateName === "speech-error") {
+      ui.speechTrackStatus.textContent = "Web Speech · lỗi · PCM vẫn chạy";
+      ui.nativeSttStatus.textContent = "Web Speech · lỗi";
+      ui.nativeSttStatus.classList.remove("ready");
+    } else if (stateName === "track-live") {
+      ui.pcmFormatStatus.textContent = detail.route === "windows-realtek"
+        ? "PCM16 · Realtek Windows Voice"
+        : "PCM16 · Windows System Voice";
+      ui.pcmFormatStatus.classList.add("ready");
     }
     if (stateName === "recovering") {
       ui.micHint.textContent = `Đang mở lại PCM bằng profile ${detail.profile}…`;
@@ -2526,8 +2547,13 @@
       onState: updateUnifiedSpeechState,
       onError: (error) => {
         console.error(error);
-        ui.pcmLevelStatus.classList.add("error");
-        showToast(error.message, true);
+        if (error.scope === "speech") {
+          ui.speechTrackStatus.classList.add("error");
+          showToast(`${error.message} Microphone PCM vẫn đang hoạt động.`, true);
+        } else {
+          ui.pcmLevelStatus.classList.add("error");
+          showToast(error.message, true);
+        }
       },
       onLog: (message) => {
         ui.pipelineHealth.textContent = message;
@@ -2549,12 +2575,14 @@
     ui.microphoneDeviceSelect.replaceChildren();
     const defaultOption = document.createElement("option");
     defaultOption.value = "";
-    defaultOption.textContent = "Microphone mặc định của Windows";
+    defaultOption.textContent = "Tự động · Windows Voice ưu tiên Realtek";
     ui.microphoneDeviceSelect.append(defaultOption);
     for (const device of devices) {
       const option = document.createElement("option");
       option.value = device.deviceId;
-      option.textContent = device.label;
+      option.textContent = device.route === "windows-realtek"
+        ? `★ ${device.label} · Realtek`
+        : device.label;
       ui.microphoneDeviceSelect.append(option);
     }
     if ([...ui.microphoneDeviceSelect.options].some((option) => option.value === selected)) {
@@ -2584,15 +2612,28 @@
       state.activeSignal = "mic";
       await refreshMicrophoneList();
       ui.micOrb.classList.add("active");
-      ui.micTitle.textContent = "Đang nghe tiếng Việt";
-      ui.micHint.textContent = "Một track → PCM16 16 kHz + Edge Web Speech vi-VN.";
-      ui.speechTrackStatus.textContent = `Web Speech · ${result.recognitionTrackMode}`;
-      ui.speechTrackStatus.classList.add("ready");
-      ui.nativeSttStatus.textContent = "Web Speech · sẵn sàng";
-      ui.nativeSttStatus.classList.add("ready");
+      ui.micTitle.textContent = result.audioRoute === "windows-realtek"
+        ? "Realtek Windows Voice đang nghe"
+        : "Windows System Voice đang nghe";
+      ui.micHint.textContent = `${result.trackLabel || "Microphone Windows"} → PCM16 16 kHz; `
+        + "Web Speech khởi động độc lập.";
+      ui.speechTrackStatus.textContent = result.speechAvailable
+        ? "Web Speech · đang nối Windows Voice"
+        : "Web Speech · không có · PCM vẫn chạy";
+      ui.speechTrackStatus.classList.toggle("ready", false);
+      ui.nativeSttStatus.textContent = result.speechAvailable
+        ? "Web Speech · đang khởi động"
+        : "Web Speech · không khả dụng";
+      ui.nativeSttStatus.classList.toggle("ready", false);
       syncMicrophoneControls(true);
       setConversationPhase("listening");
-      setStage("Đang nghe", "PCM16 16 kHz + Edge Web Speech", true);
+      setStage(
+        "Đang nghe",
+        result.audioRoute === "windows-realtek"
+          ? "Realtek Windows Voice → PCM16 16 kHz"
+          : "Windows System Voice → PCM16 16 kHz",
+        true
+      );
       return true;
     } catch (error) {
       console.error(error);
@@ -2627,7 +2668,7 @@
     }
     ui.micOrb.classList.remove("active");
     ui.micTitle.textContent = "Microphone đang tắt";
-    ui.micHint.textContent = "Edge sẽ hỏi quyền và tạo PCM16 mono 16 kHz khi bạn bắt đầu.";
+    ui.micHint.textContent = "Windows Voice sẽ ưu tiên microphone Realtek và tạo PCM16 mono 16 kHz.";
     ui.pcmLevelStatus.textContent = "RMS · chờ tín hiệu";
     ui.pcmLevelStatus.classList.remove("ready", "error");
     ui.speechTrackStatus.textContent = "Web Speech · chờ track";

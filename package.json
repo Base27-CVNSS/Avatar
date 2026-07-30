@@ -1,6 +1,6 @@
 {
   "name": "cybergirl-edge-vietnamese-assistant",
-  "version": "5.2.0",
+  "version": "5.2.1",
   "private": true,
   "description": "Cybergirl hợp nhất Edge Extension và Windows trên một lõi PCM16 + Web Speech.",
   "author": "Long Ngo",

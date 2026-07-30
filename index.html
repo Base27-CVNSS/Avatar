@@ -261,12 +261,12 @@
                 <span id="micOrb" class="mic-orb" aria-hidden="true">●</span>
                 <div>
                   <strong id="micTitle">Microphone đang tắt</strong>
-                  <small id="micHint">Edge sẽ hỏi quyền và tạo PCM16 mono 16 kHz khi bạn bắt đầu.</small>
+                  <small id="micHint">Windows Voice sẽ ưu tiên microphone Realtek và tạo PCM16 mono 16 kHz.</small>
                 </div>
               </div>
               <label class="field-label" for="microphoneDeviceSelect">Thiết bị đầu vào Windows</label>
               <select id="microphoneDeviceSelect">
-                <option value="">Microphone mặc định của Windows</option>
+                <option value="">Tự động · Windows Voice ưu tiên Realtek</option>
               </select>
               <div class="pcm-health" aria-label="Trạng thái PCM và Web Speech">
                 <span id="pcmFormatStatus">PCM16 · 16 kHz · mono</span>
@@ -275,7 +275,7 @@
               </div>
               <button id="micButton" class="button primary full-width" type="button">Bắt đầu nhận giọng Việt</button>
               <button id="recoverMicButton" class="button secondary full-width" type="button">Làm mới đầu vào PCM</button>
-              <p class="micro-copy">Cùng một MediaStreamTrack cấp dữ liệu cho AudioWorklet PCM16 và Edge Web Speech; Extension và Windows dùng đúng một engine.</p>
+              <p class="micro-copy">Realtek/Windows Voice cấp PCM16 cho cả hai bản. Edge Web Speech thử cùng track trước, rồi tự dùng System Voice mà không đóng PCM nếu cần tương thích.</p>
             </div>
           </section>
 
@@ -474,7 +474,7 @@
     </main>
 
     <footer>
-      <span>Cybergirl v5.2.0 · Unified PCM</span>
+      <span>Cybergirl v5.2.1 · Realtek Windows Voice</span>
       <span>MIT License · Phát triển bởi Long Ngo</span>
     </footer>
 

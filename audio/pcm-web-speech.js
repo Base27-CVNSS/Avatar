@@ -1,9 +1,9 @@
 (function attachCybergirlAudio(root, factory) {
   "use strict";
-  const api = factory();
+  const api = factory(root);
   if (typeof module === "object" && module.exports) module.exports = api;
   root.CybergirlAudio = api;
-}(typeof globalThis !== "undefined" ? globalThis : this, function createCybergirlAudio() {
+}(typeof globalThis !== "undefined" ? globalThis : this, function createCybergirlAudio(root) {
   "use strict";
 
   const TARGET_SAMPLE_RATE = 16000;
@@ -22,6 +22,7 @@
       this.onSpeechEnd = options.onSpeechEnd || (() => {});
       this.onError = options.onError || (() => {});
       this.onLog = options.onLog || (() => {});
+      this.recognitionWatchdogMs = Number(options.recognitionWatchdogMs || 4500);
       this.stream = null;
       this.track = null;
       this.context = null;
@@ -35,6 +36,10 @@
       this.deviceId = "";
       this.recognitionTrackMode = "none";
       this.recognitionState = "idle";
+      this.recognitionFallbackUsed = false;
+      this.pendingSystemFallback = false;
+      this.recognitionBlocked = false;
+      this.audioRoute = "windows-system-voice";
       this.restartTimer = null;
       this.startWatchdog = null;
       this.restartAttempt = 0;
@@ -56,11 +61,14 @@
 
     static supported(scope = root) {
       return Boolean(
-        (scope.SpeechRecognition || scope.webkitSpeechRecognition)
-        && scope.navigator?.mediaDevices?.getUserMedia
+        scope.navigator?.mediaDevices?.getUserMedia
         && (scope.AudioContext || scope.webkitAudioContext)
         && scope.AudioWorkletNode
       );
+    }
+
+    static speechSupported(scope = root) {
+      return Boolean(scope.SpeechRecognition || scope.webkitSpeechRecognition);
     }
 
     snapshot() {
@@ -74,6 +82,8 @@
         trackMuted: Boolean(this.track?.muted),
         trackLabel: this.track?.label || "",
         inputSampleRate: this.track?.getSettings?.().sampleRate || 0,
+        audioRoute: this.audioRoute,
+        speechAvailable: PcmWebSpeechEngine.speechSupported(root),
         pcm: { ...this.telemetry },
         recoveryAttempts: this.recoveryAttempts
       };
@@ -84,10 +94,12 @@
       const devices = await root.navigator.mediaDevices.enumerateDevices();
       return devices
         .filter((device) => device.kind === "audioinput")
+        .sort((left, right) => windowsVoiceInputScore(right) - windowsVoiceInputScore(left))
         .map((device, index) => ({
           deviceId: device.deviceId,
           groupId: device.groupId,
-          label: device.label || `Microphone ${index + 1}`
+          label: device.label || `Microphone ${index + 1}`,
+          route: windowsVoiceRoute(device)
         }));
     }
 
@@ -103,13 +115,16 @@
       this.language = options.language || this.language || "vi-VN";
       this.shouldRun = true;
       this.listening = true;
+      this.recognitionFallbackUsed = false;
+      this.pendingSystemFallback = false;
+      this.recognitionBlocked = false;
       this.signalCandidateFrames = 0;
       this.signalVerified = false;
       this.openedAt = now();
       this.emitState("requesting");
       try {
         await this.openSharedTrack();
-        await this.startRecognition();
+        this.startRecognition().catch((error) => this.reportSpeechError(error));
         return this.snapshot();
       } catch (error) {
         this.shouldRun = false;
@@ -131,6 +146,8 @@
       await this.releaseAudio();
       this.recognitionState = "idle";
       this.recognitionTrackMode = "none";
+      this.recognitionBlocked = false;
+      this.pendingSystemFallback = false;
       this.emitState("idle");
     }
 
@@ -162,6 +179,7 @@
     async openSharedTrack() {
       const supported = root.navigator.mediaDevices.getSupportedConstraints?.() || {};
       const constraints = microphoneConstraints(this.deviceId, supported, this.profile);
+      let openedWithAutomaticRoute = !this.deviceId;
       try {
         this.stream = await root.navigator.mediaDevices.getUserMedia({
           audio: constraints,
@@ -174,15 +192,49 @@
         ) throw error;
         this.onLog("Thiết bị đã lưu không còn tồn tại; dùng microphone mặc định.");
         this.deviceId = "";
+        openedWithAutomaticRoute = true;
         this.stream = await root.navigator.mediaDevices.getUserMedia({
           audio: microphoneConstraints("", supported, this.profile),
           video: false
         });
       }
+
+      if (openedWithAutomaticRoute) {
+        const devices = await root.navigator.mediaDevices.enumerateDevices?.() || [];
+        const preferred = selectWindowsVoiceInput(devices);
+        const currentDeviceId = this.stream.getAudioTracks()[0]?.getSettings?.().deviceId || "";
+        if (
+          preferred?.deviceId
+          && preferred.deviceId !== "default"
+          && preferred.deviceId !== currentDeviceId
+        ) {
+          try {
+            const preferredStream = await root.navigator.mediaDevices.getUserMedia({
+              audio: microphoneConstraints(preferred.deviceId, supported, this.profile),
+              video: false
+            });
+            for (const oldTrack of this.stream.getTracks()) oldTrack.stop();
+            this.stream = preferredStream;
+            this.deviceId = preferred.deviceId;
+            this.onLog(`Windows System Voice đã chọn ${preferred.label}.`);
+          } catch (error) {
+            this.onLog(
+              `Không khóa được ${preferred.label}; tiếp tục dùng microphone mặc định của Windows.`
+            );
+          }
+        }
+      }
+
       this.track = this.stream.getAudioTracks()[0];
       if (!this.track || this.track.readyState !== "live") {
         throw new Error("Windows không trả về MediaStreamTrack âm thanh đang hoạt động.");
       }
+      const trackSettings = this.track.getSettings?.() || {};
+      this.deviceId = trackSettings.deviceId || this.deviceId;
+      this.audioRoute = windowsVoiceRoute({
+        deviceId: this.deviceId,
+        label: this.track.label
+      });
       try {
         this.track.contentHint = "speech-recognition";
       } catch {
@@ -221,10 +273,12 @@
       this.silentGain.connect(this.context.destination);
       this.emitState("track-live", {
         label: this.track.label || "Microphone",
-        settings: sanitizeSettings(this.track.getSettings?.() || {})
+        route: this.audioRoute,
+        settings: sanitizeSettings(trackSettings)
       });
       this.onLog(
-        `Track dùng chung: ${this.track.label || "micro mặc định"} · `
+        `${this.audioRoute === "windows-realtek" ? "Realtek Windows Voice" : "Windows System Voice"}: `
+        + `${this.track.label || "micro mặc định"} · `
         + `${this.track.getSettings?.().sampleRate || "?"} Hz → PCM16 16000 Hz mono`
       );
     }
@@ -292,6 +346,15 @@
 
     async startRecognition() {
       const Recognition = root.SpeechRecognition || root.webkitSpeechRecognition;
+      if (!Recognition) {
+        const error = speechError(
+          "Edge hiện không cung cấp Web Speech; PCM Realtek vẫn đang hoạt động."
+        );
+        this.recognitionState = "unavailable";
+        this.emitState("speech-unavailable", { error: error.message });
+        this.onError(error);
+        return false;
+      }
       const recognition = new Recognition();
       this.recognition = recognition;
       recognition.lang = this.language;
@@ -302,7 +365,6 @@
       // giúp Edge/Windows tự chọn dịch vụ nền tảng hiện có.
       if ("processLocally" in recognition) recognition.processLocally = false;
 
-      const ready = deferred();
       recognition.onstart = () => {
         this.restartAttempt = 0;
         this.recognitionState = "recognizer-ready";
@@ -312,7 +374,6 @@
         clearTimeout(this.startWatchdog);
         this.recognitionState = "audio-open";
         this.emitState("armed", { trackMode: this.recognitionTrackMode });
-        ready.resolve(this.snapshot());
       };
       recognition.onspeechstart = () => {
         this.recognitionState = "recognizing";
@@ -344,38 +405,60 @@
       };
       recognition.onerror = (event) => {
         if (event.error === "aborted" || event.error === "no-speech") return;
-        const error = new Error(edgeErrorMessage(event.error));
-        if (["not-allowed", "service-not-allowed", "audio-capture"].includes(event.error)) {
-          this.shouldRun = false;
-          this.listening = false;
-          this.recognitionState = "error";
+        const error = speechError(edgeErrorMessage(event.error));
+        if (
+          ["audio-capture", "network"].includes(event.error)
+          && !this.recognitionFallbackUsed
+          && this.recognitionTrackMode.startsWith("shared-")
+        ) {
+          this.pendingSystemFallback = true;
+        }
+        if (
+          ["not-allowed", "service-not-allowed", "language-not-supported", "language-unavailable"]
+            .includes(event.error)
+        ) {
+          this.recognitionBlocked = true;
         }
         clearTimeout(this.startWatchdog);
-        ready.reject(error);
-        this.emitState("error", { error: error.message, code: event.error });
+        this.recognitionState = "error";
+        this.emitState("speech-error", { error: error.message, code: event.error });
         this.onError(error);
       };
       recognition.onend = () => {
         this.recognitionState = "ended";
-        if (this.shouldRun) this.scheduleRestart();
+        if (this.pendingSystemFallback && this.shouldRun) {
+          this.pendingSystemFallback = false;
+          this.recognitionFallbackUsed = true;
+          this.emitState("speech-fallback", {
+            trackMode: "windows-system-voice",
+            reason: "Edge không nhận track trực tiếp"
+          });
+          this.restartTimer = setTimeout(() => {
+            this.safeStartRecognition("fallback", true).catch(
+              (error) => this.reportSpeechError(error)
+            );
+          }, 160);
+          return;
+        }
+        if (this.shouldRun && !this.recognitionBlocked) this.scheduleRestart();
       };
 
-      this.startWatchdog = setTimeout(() => {
-        const error = new Error(
-          "Edge Web Speech không mở audio sau 8 giây. Kiểm tra quyền micro và policy SpeechRecognitionEnabled."
-        );
-        ready.reject(error);
-        this.emitState("error", { error: error.message });
-      }, 8000);
       await this.safeStartRecognition("initial");
-      return ready.promise;
+      this.armRecognitionWatchdog();
+      return true;
     }
 
-    async safeStartRecognition(reason) {
+    async safeStartRecognition(reason, forceSystemVoice = false) {
       if (!this.track || this.track.readyState !== "live" || this.track.muted) {
         throw new Error("Track microphone dùng chung không còn hoạt động.");
       }
       try {
+        if (forceSystemVoice || this.recognitionFallbackUsed) {
+          this.recognitionTrackMode = "windows-system-voice";
+          this.recognition.start();
+          this.armRecognitionWatchdog();
+          return true;
+        }
         this.recognitionTrackMode = this.deviceId
           ? "shared-selected-track"
           : "shared-default-track";
@@ -384,18 +467,50 @@
       } catch (error) {
         if (error.name === "InvalidStateError" && reason === "restart") return false;
         if (["TypeError", "NotSupportedError"].includes(error.name)) {
-          if (this.deviceId) {
-            throw new Error(
-              "Edge này chưa nhận track microphone đã chọn. Hãy dùng thiết bị mặc định của Windows."
-            );
-          }
-          this.recognitionTrackMode = "edge-default-fallback";
-          this.onLog("Edge chưa nhận start(audioTrack); dùng microphone mặc định của Windows.");
+          this.recognitionFallbackUsed = true;
+          this.recognitionTrackMode = "windows-system-voice";
+          this.onLog(
+            "Edge chưa nhận start(audioTrack); chuyển Web Speech sang Windows System Voice."
+          );
           this.recognition.start();
+          this.armRecognitionWatchdog();
           return true;
         }
-        throw new Error(`Không khởi động được Edge Web Speech: ${error.message}`);
+        throw speechError(`Không khởi động được Edge Web Speech: ${error.message}`);
       }
+    }
+
+    armRecognitionWatchdog() {
+      clearTimeout(this.startWatchdog);
+      this.startWatchdog = setTimeout(() => {
+        if (!this.shouldRun || this.recognitionState === "audio-open") return;
+        if (!this.recognitionFallbackUsed && this.recognitionTrackMode.startsWith("shared-")) {
+          this.pendingSystemFallback = true;
+          this.emitState("speech-fallback", {
+            trackMode: "windows-system-voice",
+            reason: "Web Speech không mở track trong thời gian cho phép"
+          });
+          try {
+            this.recognition.abort();
+          } catch (error) {
+            this.pendingSystemFallback = false;
+            this.reportSpeechError(error);
+          }
+          return;
+        }
+        this.reportSpeechError(speechError(
+          "Windows Voice chưa khởi động Web Speech; PCM Realtek vẫn đang hoạt động."
+        ));
+      }, this.recognitionWatchdogMs);
+    }
+
+    reportSpeechError(error) {
+      const normalized = error?.scope === "speech"
+        ? error
+        : speechError(error?.message || String(error));
+      this.recognitionState = "error";
+      this.emitState("speech-error", { error: normalized.message });
+      this.onError(normalized);
     }
 
     scheduleRestart() {
@@ -406,10 +521,13 @@
       this.restartTimer = setTimeout(async () => {
         if (!this.shouldRun || !this.recognition) return;
         try {
-          const started = await this.safeStartRecognition("restart");
+          const started = await this.safeStartRecognition(
+            "restart",
+            this.recognitionFallbackUsed
+          );
           if (!started) this.scheduleRestart();
         } catch (error) {
-          this.onError(error);
+          this.reportSpeechError(error);
           this.scheduleRestart();
         }
       }, delay);
@@ -452,6 +570,39 @@
     if (supported.sampleRate) constraints.sampleRate = { ideal: 48000 };
     if (supported.latency) constraints.latency = { ideal: 0.01 };
     return constraints;
+  }
+
+  function windowsVoiceInputScore(device) {
+    if (device?.kind && device.kind !== "audioinput") return Number.NEGATIVE_INFINITY;
+    const label = String(device?.label || "").toLocaleLowerCase("vi-VN");
+    const deviceId = String(device?.deviceId || "").toLocaleLowerCase("vi-VN");
+    let score = 0;
+    if (/(stereo mix|what u hear|loopback|speaker|output|đầu ra)/u.test(label)) score -= 500;
+    if (/realtek/u.test(label)) score += 220;
+    if (/(microphone array|mic array|mảng mic|micrô mảng)/u.test(label)) score += 80;
+    if (/(microphone|micrô|micro)/u.test(label)) score += 45;
+    if (/(communications|giao tiếp)/u.test(label) || deviceId === "communications") score += 35;
+    if (/(default|mặc định)/u.test(label) || deviceId === "default") score += 20;
+    return score;
+  }
+
+  function selectWindowsVoiceInput(devices) {
+    const inputs = Array.from(devices || [])
+      .filter((device) => device.kind === "audioinput")
+      .sort((left, right) => windowsVoiceInputScore(right) - windowsVoiceInputScore(left));
+    return inputs.find((device) => windowsVoiceInputScore(device) > -100) || inputs[0] || null;
+  }
+
+  function windowsVoiceRoute(device) {
+    return /realtek/u.test(String(device?.label || "").toLocaleLowerCase("vi-VN"))
+      ? "windows-realtek"
+      : "windows-system-voice";
+  }
+
+  function speechError(message) {
+    const error = new Error(message);
+    error.scope = "speech";
+    return error;
   }
 
   function sanitizeSettings(settings) {
@@ -509,6 +660,9 @@
     PACKET_MS,
     pcm16FromFloat,
     microphoneConstraints,
+    windowsVoiceInputScore,
+    selectWindowsVoiceInput,
+    windowsVoiceRoute,
     edgeErrorMessage
   };
 }));

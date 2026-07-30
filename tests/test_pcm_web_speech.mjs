@@ -12,6 +12,9 @@ const {
   PACKET_MS,
   pcm16FromFloat,
   microphoneConstraints,
+  windowsVoiceInputScore,
+  selectWindowsVoiceInput,
+  windowsVoiceRoute,
   edgeErrorMessage
 } = require("../audio/pcm-web-speech.js");
 
@@ -46,16 +49,132 @@ test("ràng buộc microphone giữ thiết bị Windows đã chọn", () => {
   assert.equal(compatibility.echoCancellation.ideal, false);
 });
 
-test("engine chỉ báo hỗ trợ khi đủ Web Speech, getUserMedia và AudioWorklet", () => {
+test("PCM hoạt động độc lập với Web Speech", () => {
   const scope = {
-    SpeechRecognition: class {},
     AudioContext: class {},
     AudioWorkletNode: class {},
     navigator: { mediaDevices: { getUserMedia() {} } }
   };
   assert.equal(PcmWebSpeechEngine.supported(scope), true);
+  assert.equal(PcmWebSpeechEngine.speechSupported(scope), false);
+  scope.SpeechRecognition = class {};
+  assert.equal(PcmWebSpeechEngine.speechSupported(scope), true);
   delete scope.AudioWorkletNode;
   assert.equal(PcmWebSpeechEngine.supported(scope), false);
+});
+
+test("Windows System Voice ưu tiên microphone Realtek và loại Stereo Mix", () => {
+  const devices = [
+    { kind: "audioinput", deviceId: "stereo", label: "Stereo Mix (Realtek Audio)" },
+    { kind: "audioinput", deviceId: "usb", label: "USB Microphone" },
+    {
+      kind: "audioinput",
+      deviceId: "realtek-array",
+      label: "Microphone Array (Realtek(R) Audio)"
+    }
+  ];
+  assert.equal(selectWindowsVoiceInput(devices).deviceId, "realtek-array");
+  assert.ok(windowsVoiceInputScore(devices[2]) > windowsVoiceInputScore(devices[1]));
+  assert.equal(windowsVoiceRoute(devices[2]), "windows-realtek");
+});
+
+test("microphone PCM mở ngay cả khi Web Speech chưa phát audiostart", async () => {
+  const previous = new Map();
+  const remember = (name) => {
+    previous.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
+  };
+  for (const name of [
+    "navigator",
+    "SpeechRecognition",
+    "webkitSpeechRecognition",
+    "AudioContext",
+    "webkitAudioContext",
+    "AudioWorkletNode"
+  ]) remember(name);
+
+  let trackStopped = false;
+  const recognitionStarts = [];
+  const track = {
+    kind: "audio",
+    readyState: "live",
+    muted: false,
+    label: "Microphone Array (Realtek(R) Audio)",
+    contentHint: "",
+    addEventListener() {},
+    stop() { trackStopped = true; },
+    getSettings() {
+      return { deviceId: "realtek-array", sampleRate: 48000, channelCount: 2 };
+    }
+  };
+  const stream = {
+    getAudioTracks: () => [track],
+    getTracks: () => [track]
+  };
+  class FakeRecognition {
+    start(audioTrack) {
+      recognitionStarts.push(audioTrack);
+    }
+    abort() {
+      setTimeout(() => this.onend?.(), 0);
+    }
+  }
+  const node = () => ({ connect() {}, disconnect() {} });
+  class FakeAudioContext {
+    constructor() {
+      this.state = "running";
+      this.destination = {};
+      this.audioWorklet = { addModule: async () => {} };
+    }
+    createMediaStreamSource() { return node(); }
+    createGain() { return { ...node(), gain: { value: 1 } }; }
+    async close() { this.state = "closed"; }
+  }
+  class FakeAudioWorkletNode {
+    constructor() {
+      this.port = { onmessage: null };
+    }
+    connect() {}
+    disconnect() {}
+  }
+
+  try {
+    Object.defineProperties(globalThis, {
+      navigator: {
+        configurable: true,
+        value: {
+          mediaDevices: {
+            getSupportedConstraints: () => ({}),
+            getUserMedia: async () => stream,
+            enumerateDevices: async () => []
+          }
+        }
+      },
+      SpeechRecognition: { configurable: true, value: FakeRecognition },
+      webkitSpeechRecognition: { configurable: true, value: undefined },
+      AudioContext: { configurable: true, value: FakeAudioContext },
+      webkitAudioContext: { configurable: true, value: undefined },
+      AudioWorkletNode: { configurable: true, value: FakeAudioWorkletNode }
+    });
+    const engine = new PcmWebSpeechEngine({ recognitionWatchdogMs: 10 });
+    const result = await engine.start({ deviceId: "realtek-array" });
+    assert.equal(result.listening, true);
+    assert.equal(result.audioRoute, "windows-realtek");
+    assert.equal(result.trackReadyState, "live");
+    assert.equal(recognitionStarts.length, 1);
+    assert.equal(recognitionStarts[0], track);
+    assert.equal(trackStopped, false);
+    await new Promise((resolve) => setTimeout(resolve, 210));
+    assert.equal(recognitionStarts.length, 2);
+    assert.equal(recognitionStarts[1], undefined);
+    assert.equal(trackStopped, false);
+    await engine.stop({ commit: false });
+    assert.equal(trackStopped, true);
+  } finally {
+    for (const [name, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  }
 });
 
 test("lỗi Edge được Việt hóa rõ nguyên nhân", () => {

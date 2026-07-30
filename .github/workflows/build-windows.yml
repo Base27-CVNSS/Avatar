@@ -53,7 +53,7 @@ jobs:
             "manifest.json", "index.html", "styles.css", "app.js",
             "background.js", "characters.json", "audio", "assets", "icons", "vendor"
           )
-          Compress-Archive -Path $items -DestinationPath "dist\Cybergirl-Edge-v5.2.0.zip" -CompressionLevel Optimal
+          Compress-Archive -Path $items -DestinationPath "dist\Cybergirl-Edge-v5.2.1.zip" -CompressionLevel Optimal
 
       - name: Tạo bộ cài tiếng Việt
         shell: pwsh
@@ -71,8 +71,8 @@ jobs:
           path: |
             dist/Cybergirl-Windows-x64.exe
             dist/Cybergirl-Companion.exe
-            dist/Cybergirl-Edge-v5.2.0.zip
-            dist/installer/Cybergirl-Setup-v5.2.0-Windows-x64.exe
+            dist/Cybergirl-Edge-v5.2.1.zip
+            dist/installer/Cybergirl-Setup-v5.2.1-Windows-x64.exe
           if-no-files-found: error
 
   release:
@@ -96,7 +96,7 @@ jobs:
           gh release create "${env:GITHUB_REF_NAME}" `
             "release/Cybergirl-Windows-x64.exe" `
             "release/Cybergirl-Companion.exe" `
-            "release/Cybergirl-Edge-v5.2.0.zip" `
-            "release/installer/Cybergirl-Setup-v5.2.0-Windows-x64.exe" `
+            "release/Cybergirl-Edge-v5.2.1.zip" `
+            "release/installer/Cybergirl-Setup-v5.2.1-Windows-x64.exe" `
             --title "Cybergirl ${env:GITHUB_REF_NAME}" `
             --generate-notes

@@ -1,8 +1,8 @@
-# Cybergirl 5.2 — Avatar AI tiếng Việt cho Edge và Windows
+# Cybergirl 5.2.1 — Avatar AI tiếng Việt cho Edge và Windows
 
 ![Cybergirl](icons/logo.svg)
 
-[![Phiên bản](https://img.shields.io/badge/Phiên_bản-5.2.0-ff4f9a)](CHANGELOG.md)
+[![Phiên bản](https://img.shields.io/badge/Phiên_bản-5.2.1-ff4f9a)](CHANGELOG.md)
 [![PCM](https://img.shields.io/badge/PCM16-16_kHz_mono-00b7c3)](docs/PCM-CONTRACT.md)
 [![Microsoft Edge](https://img.shields.io/badge/Edge-Web_Speech-0aa7f5?logo=microsoftedge)](https://learn.microsoft.com/en-us/microsoft-edge/web-platform/speech-recognition-api)
 [![Windows](https://img.shields.io/badge/Windows-10_%7C_11-0078d4?logo=windows)](.github/workflows/build-windows.yml)
@@ -12,15 +12,15 @@
 Microsoft Edge Extension lẫn ứng dụng Windows.**
 
 Cybergirl biến ảnh chân dung thành avatar có thể nghe tiếng Việt, chép lời,
-trò chuyện, phát giọng và nhép môi. Bản 5.2 hợp nhất đường âm thanh của hai bản:
-một `MediaStreamTrack` được dùng đồng thời bởi AudioWorklet PCM16 và Edge
-`SpeechRecognition`.
+trò chuyện, phát giọng và nhép môi. Bản 5.2.1 dùng Realtek/Windows System Voice
+cấp AudioWorklet PCM16. Edge `SpeechRecognition` ưu tiên cùng track và tự
+fallback sang System Voice mà không đóng PCM.
 
 ## Chạy ngay
 
 ### Edge Extension
 
-1. Tải `Cybergirl-Edge-v5.2.0.zip` trong **Actions** hoặc **Releases**.
+1. Tải `Cybergirl-Edge-v5.2.1.zip` trong **Actions** hoặc **Releases**.
 2. Giải nén; mở `edge://extensions`.
 3. Bật **Chế độ nhà phát triển** → **Tải tiện ích đã giải nén**.
 4. Chọn thư mục có `manifest.json`, sau đó bấm biểu tượng Cybergirl.
@@ -34,7 +34,7 @@ Chế độ **Demo cục bộ** hoạt động ngay, không cần model, API key
 Tải một trong hai tệp:
 
 - `Cybergirl-Windows-x64.exe`: một tệp EXE, mở trực tiếp.
-- `Cybergirl-Setup-v5.2.0-Windows-x64.exe`: bộ cài tiếng Việt, có shortcut.
+- `Cybergirl-Setup-v5.2.1-Windows-x64.exe`: bộ cài tiếng Việt, có shortcut.
 
 Ứng dụng tự mở Microsoft Edge ở chế độ cửa sổ app. Người dùng không cần cài
 Python, Node.js, CUDA hoặc model để chạy Demo. Khi cần LLM thật, chọn Ollama,
@@ -51,6 +51,8 @@ flowchart TD
     UI --> M["Một MediaStreamTrack"]
     M --> P["AudioWorklet · PCM16 16 kHz mono"]
     M --> S["Edge Web Speech · vi-VN"]
+    M -. "Edge không nhận track" .-> Y["Windows System Voice"]
+    Y --> S
     P --> V["PCM VAD · meter · lip-sync · chẩn đoán"]
     S --> T["Interim + final transcript"]
     T --> B{"Bộ não"}
@@ -87,15 +89,16 @@ Chi tiết: [Kiến trúc 5.2](docs/ARCHITECTURE-5.2.md) và
 | Kênh | mono |
 | Gói | 20 ms, 320 mẫu, 640 byte |
 | STT | Edge `SpeechRecognition`, ngôn ngữ `vi-VN` |
-| Liên kết STT | `recognition.start(audioTrack)`; fallback micro mặc định trên Edge cũ |
+| Định tuyến Voice | Ưu tiên Microphone/Array Realtek; loại Stereo Mix/loopback |
+| Liên kết STT | Thử `recognition.start(audioTrack)`; fallback Windows System Voice độc lập |
 
 AudioWorklet trộn kênh, resample và lượng tử hóa ngoài main thread. Ba gói tín
 hiệu liên tiếp vượt noise floor mới được đánh dấu là PCM thật. Nếu track vẫn
 `live` nhưng chỉ có digital silence, engine thử lại bằng profile tương thích.
 
 > PCM16 không phải là một phần của Web Speech API. Cybergirl tự tạo PCM16 từ
-> đúng track được chuyển cho Web Speech, nhờ đó telemetry, VAD và lip-sync không
-> đọc nhầm một nguồn khác.
+> Realtek/Windows Voice. Web Speech ưu tiên cùng track; nếu Edge không tương
+> thích, nó dùng System Voice mặc định nhưng không được phép đóng PCM.
 
 ## Web Speech tiếng Việt và quyền riêng tư
 
@@ -114,11 +117,11 @@ Tham chiếu:
 [Microsoft Edge SpeechRecognition](https://learn.microsoft.com/en-us/microsoft-edge/web-platform/speech-recognition-api) và
 [`SpeechRecognition.start(audioTrack)`](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/start).
 
-## Điểm nổi bật 5.2
+## Điểm nổi bật 5.2.1
 
 - Extension và Windows dùng một frontend, không copy thuật toán.
 - PCM16 mono 16 kHz cố định qua AudioWorklet.
-- Edge Web Speech nhận cùng track microphone với pipeline PCM.
+- PCM ưu tiên microphone Realtek của Windows; Web Speech lỗi không làm đóng mic.
 - Chọn thiết bị đầu vào Windows và lưu lựa chọn an toàn.
 - Tự nối lại Web Speech khi Edge kết thúc phiên.
 - Nút **Làm mới đầu vào PCM** đổi sang profile tương thích.
@@ -189,8 +192,8 @@ Workflow [build-windows.yml](.github/workflows/build-windows.yml) chạy trên P
 
 - `Cybergirl-Windows-x64.exe`
 - `Cybergirl-Companion.exe`
-- `Cybergirl-Edge-v5.2.0.zip`
-- `Cybergirl-Setup-v5.2.0-Windows-x64.exe`
+- `Cybergirl-Edge-v5.2.1.zip`
+- `Cybergirl-Setup-v5.2.1-Windows-x64.exe`
 
 Khi push tag, workflow tự tạo GitHub Release và đính kèm bốn tệp.
 
